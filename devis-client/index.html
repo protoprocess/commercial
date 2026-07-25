@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proto Process / Analyse dossier client — v1.4 — 25/07/2026</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
+  --text:#e2e8f0; --text2:#94a3b8; --text3:#64748b;
+  --accent:#F07B1F; --accent-bg:#2a1f10; --pp-blue:#5BC4D8;
+  --green:#86c564; --green-bg:#EAF3DE; --green-badge:#3B6D11;
+  --amber:#eab676; --amber-bg:#FAEEDA; --amber-badge:#854F0B;
+  --red:#f09595;   --red-bg:#FCEBEB;   --red-badge:#A32D2D;
+  --pink:#ED93B1;  --pink-bg:#FBEAF0;  --pink-badge:#993556;
+  --radius:6px; --radius-lg:10px;
+  --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.55}
+
+header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
+  padding:0 20px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;align-items:center;gap:0;font-size:13px;font-weight:500}
+.logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--accent)}
+.spacer{flex:1}
+.hdr-note{font-size:11px;color:var(--text3);font-family:var(--mono)}
+
+.wrap{max-width:min(96vw,1800px);margin:0 auto;padding:20px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px}
+.card h2{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.card h2 i{color:var(--accent);font-size:15px}
+.card.err{border-left:3px solid var(--red-badge)}
+.card.warn{border-left:3px solid var(--amber-badge)}
+.card.ok{border-left:3px solid var(--green-badge)}
+
+.btn-p{padding:7px 15px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);
+  font-size:12px;font-weight:500;cursor:pointer;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px}
+.btn-p:disabled{opacity:.45;cursor:not-allowed}
+.btn-s{padding:6px 13px;background:transparent;color:var(--text2);border:.5px solid var(--border);
+  border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px}
+.btn-s:hover{border-color:var(--border2);color:var(--text)}
+
+label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+input.f,textarea.f,select.f{width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12px;font-family:var(--sans);outline:none}
+input.f:focus,textarea.f:focus,select.f:focus{border-color:var(--accent)}
+textarea.f{resize:vertical;min-height:74px;font-family:var(--mono);font-size:11.5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+
+/* dépôt */
+.dz{border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:26px 16px;text-align:center;
+  cursor:pointer;background:var(--surface2);transition:.15s}
+.dz:hover,.dz.over{border-color:var(--accent);background:var(--accent-bg)}
+.dz i{font-size:26px;color:var(--text3);display:block;margin-bottom:6px}
+.dz p{font-size:12.5px;color:var(--text2)}
+.dz .sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.file{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:4px 8px;font-size:11px;font-family:var(--mono);color:var(--text2)}
+.file i{font-size:13px;color:var(--text3)}
+.file .x{cursor:pointer;color:var(--text3)}
+.file .x:hover{color:var(--red)}
+
+/* résumé replié */
+.summary{display:none;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:9px 14px;margin-bottom:14px;flex-wrap:wrap}
+.summary .t{flex:1;font-size:12px;color:var(--text2)}
+
+/* verdict */
+.verdict{display:flex;align-items:flex-start;gap:13px}
+.verdict .ico{font-size:26px;line-height:1}
+.verdict .ttl{font-size:16px;font-weight:600}
+.verdict .sub{font-size:12px;color:var(--text2);margin-top:2px}
+.v-rfq .ttl,.v-rfq .ico{color:var(--red)}
+.v-std .ttl,.v-std .ico{color:var(--green)}
+.v-ind .ttl,.v-ind .ico{color:var(--amber)}
+.v-fourni .ttl,.v-fourni .ico{color:var(--pp-blue)}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green-badge)}
+.b-warn{background:var(--amber-bg);color:var(--amber-badge)}
+.b-err{background:var(--red-bg);color:var(--red-badge)}
+.b-info{background:var(--pink-bg);color:var(--pink-badge)}
+
+ul.li{list-style:none}
+ul.li li{padding:5px 0 5px 18px;position:relative;font-size:12.5px;border-bottom:1px solid var(--border)}
+ul.li li:last-child{border-bottom:none}
+ul.li li::before{content:"";position:absolute;left:4px;top:12px;width:5px;height:5px;border-radius:50%;background:var(--text3)}
+ul.li li.rfq::before{background:var(--red)}
+ul.li li.ok::before{background:var(--green)}
+ul.li li.warn::before{background:var(--amber)}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);
+  padding:7px 9px;border-bottom:1px solid var(--border2);white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:5}
+td{padding:7px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:var(--surface2)}
+td.mono{font-family:var(--mono);font-size:11.5px}
+td.warncell{box-shadow:inset 3px 0 0 var(--amber-badge)}
+td.errcell{box-shadow:inset 3px 0 0 var(--red-badge)}
+.tblwrap{overflow:auto;max-height:64vh;border:1px solid var(--border);border-radius:var(--radius-lg)}
+
+pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:13px;font-family:var(--mono);font-size:11px;color:var(--text2);white-space:pre-wrap;
+  max-height:420px;overflow:auto}
+
+.kv{display:flex;gap:8px;font-size:12px;padding:3px 0}
+.kv .k{color:var(--text3);min-width:132px}
+.spin{width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent);
+  border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hint{font-size:11px;color:var(--text3);margin-top:5px}
+.hidden{display:none!important}
+.filter-btn{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:20px;padding:5px 12px;font-size:11.5px;cursor:pointer;font-family:var(--sans)}
+.filter-btn.active{background:var(--accent);color:#fff;border-color:transparent}
+.mode-btn{border-radius:6px;padding:6px 14px;font-size:12.5px}
+@media print{
+  @page{ size:A4; margin:14mm 12mm; }
+  html,body{ background:#fff!important; color:#111!important; font-size:10.5pt }
+  header,.tabs,#depot,#summary,#config,#fiche-client,.btn-p,.btn-s,.filter-btn{ display:none!important }
+  .wrap{ max-width:none;padding:0 }
+  #p-bom,#p-brut{ display:none!important }
+  #p-synthese{ display:block!important }
+  .card{ background:#fff!important;border:1px solid #bbb!important;break-inside:avoid;page-break-inside:avoid;margin-bottom:9px;padding:10px }
+  .card h2,h3,h4{ color:#111!important }
+  .card h2 i{ display:none }
+  .kv .k{ color:#555!important }
+  td,th,li,p,div,span{ color:#222!important }
+  .mono{ color:#333!important }
+  .badge{ border:1px solid #999 }
+  #print-entete{ display:block!important;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #333 }
+  #print-bom{ display:block!important }
+  table{ page-break-inside:auto }
+  tr{ page-break-inside:avoid }
+  thead{ display:table-header-group }
+}
+#print-entete,#print-bom{ display:none }
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tab{padding:11px 18px;color:var(--text3);border-bottom:2px solid transparent;cursor:pointer;font-size:12.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Analyse dossier client</span></span>
+  </div>
+  <div class="spacer"></div>
+  <span class="hdr-note" id="hdr-version">v1.4 — 25/07/2026</span>
+  <span class="hdr-note" id="hdr-mode" style="margin-left:10px">mode test</span>
+  <button class="btn-s" onclick="toggleConfig()"><i class="ti ti-settings"></i> Réglages</button>
+</header>
+
+<div class="wrap">
+
+  <!-- CONFIG -->
+  <div class="card hidden" id="config">
+    <h2><i class="ti ti-plug"></i> Connexion n8n</h2>
+    <div class="grid2">
+      <div>
+        <label class="f" for="c-base">URL de base</label>
+        <input class="f" id="c-base" value="https://protoprocess.app.n8n.cloud">
+      </div>
+      <div>
+        <label class="f" for="c-mode">Environnement</label>
+        <select class="f" id="c-mode" onchange="saveConfig()">
+          <option value="webhook">Production (workflows publiés)</option>
+          <option value="webhook-test">Test (bouton « Test workflow » à cliquer dans n8n)</option>
+        </select>
+      </div>
+    </div>
+    <p class="hint">Les workflows sont publiés : le mode Production fonctionne directement. Le mode Test sert à voir l'exécution pas à pas dans n8n, en cliquant « Test workflow » juste avant l'envoi.</p>
+    <div style="margin-top:10px"><button class="btn-p" onclick="saveConfig(true)"><i class="ti ti-check"></i> Enregistrer</button></div>
+  </div>
+
+  <!-- DÉPÔT -->
+  <div class="card" id="depot">
+    <h2><i class="ti ti-folder-plus"></i> Dossier client</h2>
+
+    <div class="grid3" style="margin-bottom:12px">
+      <div>
+        <label class="f" for="f-client">Client</label>
+        <div style="display:flex;gap:6px">
+          <select class="f" id="f-client" onchange="onClientChange()"><option value="">— chargement…</option></select>
+          <button class="btn-s" onclick="ouvrirFiche()" title="Ajouter ou modifier un client"><i class="ti ti-address-book"></i> Ajouter client</button>
+          <button class="btn-s" onclick="chargerClients()" title="Recharger la liste"><i class="ti ti-refresh"></i> Recharger</button>
+        </div>
+        <div class="hint" id="client-hint"></div>
+      </div>
+      <div>
+        <label class="f" for="f-ref">Réf. Projet</label>
+        <input class="f" id="f-ref" placeholder="ex. CAR0485 — détectée automatiquement si vide">
+        <div class="hint" id="ref-hint"></div>
+      </div>
+      <div>
+        <label class="f">Type d'analyse</label>
+        <div style="display:flex;gap:0;padding:2px 0" role="radiogroup">
+          <button type="button" class="filter-btn mode-btn active" id="btn-mode-complet" onclick="setMode('complet')">Dossier complet</button>
+          <button type="button" class="filter-btn mode-btn" id="btn-mode-bom" onclick="setMode('bom')" style="margin-left:6px">Nomenclature</button>
+        </div>
+        <div class="hint" id="mode-hint">Gerber, plans, mail, nomenclature</div>
+      </div>
+    </div>
+
+    <!-- fiche client -->
+    <div id="fiche-client" class="hidden" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:12px">
+      <h2 style="font-size:12.5px;font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:7px">
+        <i class="ti ti-address-book" style="color:var(--accent)"></i> Fiche client
+        <span style="flex:1"></span>
+        <button class="btn-s" onclick="document.getElementById('fiche-client').classList.add('hidden')"><i class="ti ti-x"></i></button>
+      </h2>
+      <div class="grid3" style="margin-bottom:10px">
+        <div><label class="f" for="fc-nom">Nom</label><input class="f" id="fc-nom" placeholder="nom exact du client"></div>
+        <div><label class="f" for="fc-dom">Domaine e-mail</label><input class="f" id="fc-dom" placeholder="ex. sefram.fr"></div>
+        <div><label class="f" for="fc-lang">Langue</label>
+          <select class="f" id="fc-lang"><option value="">—</option><option>FR</option><option>EN</option></select></div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label class="f" for="fc-mpn">Référence fabricant imposée</label>
+          <select class="f" id="fc-mpn"><option value="">—</option><option value="oui">oui</option><option value="non">non</option></select></div>
+        <div><label class="f" for="fc-notes">Notes</label><input class="f" id="fc-notes" placeholder="particularités de ce client"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn-p" onclick="enregistrerFiche()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
+        <span id="fc-status" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <p class="hint">Seuls les champs renseignés sont écrits : sur un client existant, on peut n'ajouter que le domaine sans toucher au reste.</p>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label class="f" for="f-mail">Commentaire supplémentaire <span style="text-transform:none;color:var(--text3)">— facultatif, s'ajoute au mail joint</span></label>
+      <textarea class="f" id="f-mail" placeholder="Précisions internes ou message client recopié si le .eml n'est pas disponible…"></textarea>
+    </div>
+
+    <div class="dz" id="dz" onclick="document.getElementById('fi').click()">
+      <i class="ti ti-cloud-upload"></i>
+      <p>Déposer les fichiers du dossier</p>
+      <p class="sub">Zip, ou plusieurs fichiers séparés — Gerber, nomenclature, pick &amp; place, plans PDF, mail .eml</p>
+    </div>
+    <input type="file" id="fi" multiple class="hidden" onchange="addFiles(this.files)">
+    <div class="files" id="files"></div>
+
+    <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="btn-p" id="go" onclick="analyser()" disabled><i class="ti ti-player-play"></i> Analyser</button>
+      <span id="status" style="font-size:12px;color:var(--text2)"></span>
+    </div>
+  </div>
+
+  <!-- RÉSUMÉ REPLIÉ -->
+  <div class="summary" id="summary">
+    <i class="ti ti-file-check" style="color:var(--text2)"></i>
+    <span class="t" id="summary-txt"></span>
+    <button class="btn-s" onclick="rouvrir()"><i class="ti ti-edit"></i> Modifier</button>
+    <button class="btn-s" onclick="exporterPdf()"><i class="ti ti-file-type-pdf"></i> Exporter en PDF</button>
+    <button class="btn-p" onclick="nouvelleAnalyse()"><i class="ti ti-plus"></i> Nouvelle analyse</button>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div id="res" class="hidden">
+    <div class="tabs">
+      <button class="tab active" data-p="synthese" onclick="tab('synthese')">Synthèse</button>
+      <button class="tab" data-p="bom" onclick="tab('bom')">Nomenclature</button>
+      <button class="tab" data-p="brut" onclick="tab('brut')">Fiches texte</button>
+    </div>
+    <div id="print-entete"></div>
+  <div id="p-synthese"></div>
+  <div id="print-bom"></div>
+    <div id="p-bom" class="hidden"></div>
+    <div id="p-brut" class="hidden"></div>
+  </div>
+
+</div>
+
+<script>
+/* ---------- version ---------- */
+// Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
+// Un seul endroit a modifier a chaque mise a jour ; se repercute
+// automatiquement dans le titre d'onglet et le badge d'en-tete.
+const APP_VERSION = "1.4";
+const APP_DATE = "25/07/2026";
+document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
+document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
+let FILES = [];
+let DATA = null;
+let ANALYSE_ID = 0;   // incremente a chaque nouvelle analyse : invalide les boucles precedentes
+
+/* ---------- config ---------- */
+function cfg(){
+  return {
+    base: (document.getElementById('c-base').value || '').replace(/\/+$/,''),
+    mode: document.getElementById('c-mode').value
+  };
+}
+function saveConfig(close){
+  document.getElementById('hdr-mode').textContent =
+    cfg().mode === 'webhook' ? 'production' : 'mode test';
+  if(close) document.getElementById('config').classList.add('hidden');
+}
+function toggleConfig(){ document.getElementById('config').classList.toggle('hidden'); }
+
+/* ---------- fichiers ---------- */
+const dz = document.getElementById('dz');
+['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('over')}));
+['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('over')}));
+dz.addEventListener('drop',ev=>addFiles(ev.dataTransfer.files));
+
+function addFiles(list){
+  for(const f of list){ if(!FILES.some(x=>x.name===f.name && x.size===f.size)) FILES.push(f); }
+  renderFiles();
+}
+function removeFile(i){ FILES.splice(i,1); renderFiles(); }
+function icoFor(n){
+  const e = (n.split('.').pop()||'').toLowerCase();
+  if(e==='zip') return 'ti-file-zip';
+  if(e==='pdf') return 'ti-file-text';
+  if(['xls','xlsx','csv','ods'].includes(e)) return 'ti-table';
+  if(['drl','exc','xln','ncd'].includes(e)) return 'ti-target';
+  return 'ti-file';
+}
+function renderFiles(){
+  document.getElementById('files').innerHTML = FILES.map((f,i)=>
+    `<span class="file"><i class="ti ${icoFor(f.name)}"></i>${esc(f.name)}
+      <span style="color:var(--text3)">${(f.size/1024).toFixed(0)} ko</span>
+      <i class="ti ti-x x" onclick="removeFile(${i})"></i></span>`).join('');
+  majBouton();
+}
+let MODE = 'complet'; // 'complet' | 'bom' — l'un OU l'autre, jamais les deux
+function setMode(m){
+  MODE = m;
+  document.getElementById('btn-mode-complet').classList.toggle('active', m==='complet');
+  document.getElementById('btn-mode-bom').classList.toggle('active', m==='bom');
+  onModeChange();
+}
+function onModeChange(){
+  const h = document.getElementById('mode-hint');
+  const seulBom = MODE === 'bom';
+
+  dz.querySelector('p').textContent = seulBom ? 'Déposer la nomenclature' : 'Déposer les fichiers du dossier';
+  dz.querySelector('.sub').textContent = seulBom
+    ? 'Un seul fichier xlsx ou csv'
+    : 'Zip, ou plusieurs fichiers séparés — Gerber, nomenclature, pick & place, plans PDF, mail .eml';
+
+  h.textContent = seulBom ? 'Nomenclature uniquement, sans analyse PCB' : 'Gerber, plans, mail, nomenclature';
+  majBouton();
+}
+function majBouton(){
+  document.getElementById('go').disabled = FILES.length === 0;
+}
+
+/* ---------- liste des clients ---------- */
+let CLIENTS = [];
+async function chargerClients(){
+  const sel = document.getElementById('f-client');
+  const hint = document.getElementById('client-hint');
+  const courant = sel.value;
+  sel.innerHTML = '<option value="">— chargement…</option>';
+  try{
+    const r = await fetch(`${cfg().base}/webhook/v2-clients`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    CLIENTS = (j.clients||[]);
+    const noms = [...new Set(CLIENTS.map(c=>c.nom))].sort((a,b)=>a.localeCompare(b,'fr'));
+    sel.innerHTML = '<option value="">— non précisé —</option>' +
+      noms.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if(courant) sel.value = courant;
+    hint.textContent = `${noms.length} clients chargés`;
+    onClientChange();
+  }catch(e){
+    sel.innerHTML = '<option value="">— liste indisponible —</option>';
+    hint.innerHTML = `<span style="color:var(--amber)">Liste non chargée (${esc(e.message)}) — le client sera détecté depuis le mail</span>`;
+  }
+}
+function infoClient(nom){
+  const l = CLIENTS.filter(c=>c.nom===nom);
+  if(!l.length) return null;
+  const b = l[0].brut||{};
+  return { mpn_strict: String(b.MPN_strict||'').toLowerCase()==='oui', notes: b.Notes||'',
+           langue: b.Language||'', domaine: l[0].domaine||'' };
+}
+function onClientChange(){
+  const nom = document.getElementById('f-client').value;
+  const i = infoClient(nom);
+  const h = document.getElementById('client-hint');
+  if(!nom || !i){ if(CLIENTS.length) h.textContent = `${[...new Set(CLIENTS.map(c=>c.nom))].length} clients chargés`; return; }
+  const bouts = [];
+  if(i.mpn_strict) bouts.push('référence fabricant imposée');
+  if(!i.domaine) bouts.push('domaine e-mail manquant');
+  if(i.notes) bouts.push(i.notes);
+  h.innerHTML = bouts.length
+    ? `<span style="color:${i.domaine?'var(--text3)':'var(--amber)'}">${esc(bouts.join(' · '))}</span>` : '';
+}
+
+/* ---------- fiche client ---------- */
+function ouvrirFiche(){
+  const nom = document.getElementById('f-client').value;
+  const i = nom ? infoClient(nom) : null;
+  const nouveau = !nom && DETECTION_INCONNUE;
+  document.getElementById('fc-nom').value = nom || (nouveau ? DETECTION_INCONNUE.nom||'' : '');
+  document.getElementById('fc-dom').value = i ? (i.domaine||'') : (nouveau ? DETECTION_INCONNUE.domaine||'' : '');
+  document.getElementById('fc-lang').value = i ? (i.langue||'FR') : 'FR'; // FR par defaut pour un client nouveau
+  document.getElementById('fc-mpn').value = i ? (i.mpn_strict?'oui':'non') : '';
+  document.getElementById('fc-notes').value = i ? (i.notes||'') : '';
+  document.getElementById('fc-status').textContent = '';
+  document.getElementById('fiche-client').classList.remove('hidden');
+}
+async function enregistrerFiche(){
+  const st = document.getElementById('fc-status');
+  const nom = document.getElementById('fc-nom').value.trim();
+  if(!nom){ st.innerHTML = '<span style="color:var(--red)">Le nom est obligatoire</span>'; return; }
+  const corps = {
+    nom,
+    domaine: document.getElementById('fc-dom').value.trim(),
+    langue: document.getElementById('fc-lang').value,
+    mpn_strict: document.getElementById('fc-mpn').value,
+    notes: document.getElementById('fc-notes').value.trim()
+  };
+  st.innerHTML = '<span class="spin"></span> Enregistrement…';
+  try{
+    const r = await fetch(`${cfg().base}/webhook/v2-client-upsert`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corps)
+    });
+    const t = await r.text();
+    if(!r.ok) throw new Error('HTTP '+r.status+' — '+t.slice(0,180));
+    st.innerHTML = '<span style="color:var(--green)"><i class="ti ti-check"></i> Enregistré</span>';
+    await chargerClients();
+    document.getElementById('f-client').value = nom;
+    onClientChange();
+  }catch(e){
+    st.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
+/* ---------- envoi ---------- */
+async function analyser(){
+  ANALYSE_ID++;              // toute boucle d'une analyse precedente devient caduque
+  const c = cfg();
+  const modeBom = MODE === 'bom';
+  const chemin = modeBom ? 'bom-client-ingestion' : 'dossier-triage-pcb';
+  const url = `${c.base}/${c.mode}/${chemin}`;
+
+  const nomClient = document.getElementById('f-client').value || '';
+  const info = infoClient(nomClient);
+
+  if(modeBom){
+    // nomenclature seule : le fichier est lu par le workflow BOM lui-meme,
+    // puis le resultat est recupere par interrogation reguliere
+    return analyserBomSeule(url, nomClient);
+  }
+
+  const fd = new FormData();
+  fd.append('client', nomClient);
+  fd.append('ref_projet', document.getElementById('f-ref').value || '');
+  fd.append('mail_objet', document.getElementById('f-ref').value || '');
+  fd.append('mail_corps', document.getElementById('f-mail').value || '');
+  if(info) fd.append('client_fiche', JSON.stringify(info));
+  FILES.forEach((f,i)=>fd.append('fichier'+i, f, f.name));
+
+  const st = document.getElementById('status');
+  document.getElementById('go').disabled = true;
+  st.innerHTML = '<span class="spin"></span> Analyse en cours, cela peut prendre une minute…';
+
+  try{
+    const r = await fetch(url, { method:'POST', body: fd });
+    const txt = await r.text();
+    if(r.status===404) throw new Error("Workflow non démarré : cliquez « Test workflow » dans n8n juste avant, ou publiez le workflow.");
+    if(!r.ok) throw new Error('HTTP '+r.status+' — '+txt.slice(0,220));
+    let j; try{ j = JSON.parse(txt); }catch(e){ throw new Error('Réponse illisible : '+txt.slice(0,220)); }
+    DATA = Array.isArray(j) ? (j[0]||{}) : j;
+    st.textContent = '';
+    appliquerDetections();
+    replier();
+    afficher();
+    // second appel : traitement de la nomenclature, separe pour ne pas
+    // depasser le temps de reponse d'un webhook sur une grosse BOM
+    if(!modeBom && (DATA.bom_rows||[]).length) traiterBom();
+  }catch(e){
+    const m = /load failed|failed to fetch|networkerror/i.test(e.message)
+      ? "Appel bloqué par le navigateur ou workflow non démarré. Vérifiez que le workflow tourne dans n8n (bouton « Test workflow ») ou publiez-le."
+      : e.message;
+    st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(m)}</span>`;
+  }finally{
+    majBouton();
+  }
+}
+
+async function analyserBomSeule(url, nomClient){
+  const st = document.getElementById('status');
+  document.getElementById('go').disabled = true;
+  st.innerHTML = '<span class="spin"></span> Lecture du fichier\u2026';
+  const fd = new FormData();
+  fd.append('client', nomClient);
+  FILES.forEach((f,i)=>fd.append('fichier'+i, f, f.name));
+  try{
+    const r = await fetch(url, { method:'POST', body: fd });
+    const t = await r.text();
+    if(!r.ok) throw new Error('HTTP '+r.status+' \u2014 '+t.slice(0,180));
+    const lance = JSON.parse(t);
+    DATA = { client: nomClient, bom_rows: [], bom_nb_lignes: lance.nb_lignes||0 };
+    st.textContent = '';
+    replier();
+    document.getElementById('res').classList.remove('hidden');
+    document.getElementById('p-synthese').innerHTML =
+      `<div class="card"><h2><i class="ti ti-list-check"></i> Nomenclature seule</h2>
+       <p style="color:var(--text2)">${lance.nb_lignes||0} lignes lues dans le fichier. Traitement en cours dans l'onglet Nomenclature.</p></div>`;
+    tab('bom');
+    suivreJob(lance.job_id, lance.nb_lignes||0);
+  }catch(e){
+    st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(e.message)}</span>`;
+  }finally{ majBouton(); }
+}
+
+async function suivreJob(job, nb){
+  const c = cfg();
+  const monId = ANALYSE_ID;
+  const zone = document.getElementById('p-bom');
+  const t0 = Date.now();
+  let echecs = 0, dernierEchec = '';
+  for(let i=0;i<90;i++){
+    if(monId !== ANALYSE_ID) return;
+    const sec = Math.round((Date.now()-t0)/1000);
+    zone.innerHTML = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2>
+      <p style="color:var(--text2)"><span class="spin"></span> Traitement de ${nb||'?'} lignes en cours… ${sec} s</p>
+      ${echecs?`<p class="hint" style="color:var(--amber)">${echecs} tentative(s) de récupération en échec — ${esc(dernierEchec)}</p>`:''}
+      <p class="hint">Identifiant de traitement : ${esc(job||'—')}</p></div>`;
+    await new Promise(res=>setTimeout(res, 4000));
+    let rr;
+    try{ rr = await fetch(`${c.base}/webhook/v2-bom-resultat?job=`+encodeURIComponent(job)); }
+    catch(e){ echecs++; dernierEchec = 'appel bloqué : '+e.message; continue; }
+    if(!rr.ok){ echecs++; dernierEchec = 'HTTP '+rr.status; continue; }
+    let d;
+    try{
+      const jj = await rr.json();
+      d = Array.isArray(jj) ? (jj[0]||{}) : jj;
+    }catch(e){ echecs++; dernierEchec = 'réponse illisible : '+e.message; continue; }
+    if(d.statut === 'termine'){
+      DATA.bom_lignes = d.lignes || [];
+      DATA.bom_totaux = d.totaux || null;
+      DATA.bom_controles_luminovo = d.controles_luminovo || [];
+      DATA.bom_fiche_texte = d.fiche_texte || '';
+      DATA.bom_xlsx_nom = d.bom_xlsx_nom || null;
+      DATA.bom_xlsx_base64 = d.bom_xlsx_base64 || null;
+      try{
+        document.getElementById('p-synthese').innerHTML = synthBom({totaux:DATA.bom_totaux, controles_luminovo:DATA.bom_controles_luminovo});
+        zone.innerHTML = tableBom(DATA);
+        document.getElementById('p-brut').innerHTML = brut(DATA);
+      }catch(e){
+        zone.innerHTML = `<div class="card err"><p style="color:var(--red)">Résultat reçu mais affichage en erreur : ${esc(e.message)}</p></div>`;
+      }
+      return;
+    }
+    if(d.statut === 'erreur'){
+      zone.innerHTML = `<div class="card err"><p style="color:var(--red)">${esc(d.message||'Erreur de traitement')}</p></div>`;
+      return;
+    }
+  }
+  zone.innerHTML = `<div class="card err"><h2><i class="ti ti-table"></i> Nomenclature</h2>
+    <p style="color:var(--red)">Résultat non récupéré après six minutes.</p>
+    <p class="hint">Identifiant : ${esc(job)} — ${echecs} échec(s), dernier : ${esc(dernierEchec||'aucun')}</p></div>`;
+}
+
+/* Reprend ce que l'analyse a detecte quand l'utilisateur n'avait rien saisi */
+let DETECTION_INCONNUE = null;
+function appliquerDetections(){
+  const d = DATA||{};
+  const selC = document.getElementById('f-client');
+  const detecte = d.client_detecte || d.client;
+  if(!selC.value && detecte){
+    const opt = [...selC.options].find(o=>o.value.toLowerCase()===String(detecte).toLowerCase());
+    if(opt){ selC.value = opt.value;
+      document.getElementById('client-hint').innerHTML = `<span style="color:var(--green)">détecté : ${esc(detecte)}</span>`; }
+    else{
+      DETECTION_INCONNUE = { nom: detecte, domaine: d.mail_domaine || '' };
+      document.getElementById('client-hint').innerHTML =
+        `<span style="color:var(--amber)">détecté « ${esc(detecte)} » — absent de la liste. <a href="#" onclick="ouvrirFiche();return false" style="color:var(--accent)">Ajouter ce client</a></span>`;
+    }
+  }
+  const inR = document.getElementById('f-ref');
+  const ref = d.ref_projet || d.objet;
+  if(!inR.value && ref){
+    inR.value = ref;
+    document.getElementById('ref-hint').innerHTML = `<span style="color:var(--green)">détectée automatiquement</span>`;
+  }
+}
+
+function replier(){
+  document.getElementById('depot').classList.add('hidden');
+  const s = document.getElementById('summary');
+  s.style.display='flex';
+  document.getElementById('summary-txt').textContent =
+    `${document.getElementById('f-client').value||'client non précisé'}`+`${document.getElementById('f-ref').value?' / '+document.getElementById('f-ref').value:''} — ${FILES.length} fichier(s) analysé(s)`;
+}
+function rouvrir(){
+  document.getElementById('depot').classList.remove('hidden');
+  document.getElementById('summary').style.display='none';
+}
+function nouvelleAnalyse(){
+  ANALYSE_ID++;              // invalide toute boucle d'interrogation encore active
+  FILES = []; DATA = null; BOM_FILTER = 'tous'; DETECTION_INCONNUE = null;
+  renderFiles();
+  document.getElementById('f-ref').value = '';
+  document.getElementById('f-client').value = '';
+  document.getElementById('f-mail').value = '';
+  document.getElementById('client-hint').textContent = '';
+  document.getElementById('ref-hint').textContent = '';
+  document.getElementById('status').textContent = '';
+  document.getElementById('p-synthese').innerHTML = '';
+  document.getElementById('p-bom').innerHTML = '';
+  document.getElementById('p-brut').innerHTML = '';
+  document.getElementById('res').classList.add('hidden');
+  document.getElementById('depot').classList.remove('hidden');
+  document.getElementById('fiche-client').classList.add('hidden');
+  document.getElementById('summary').style.display='none';
+  onClientChange();
+  tab('synthese');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function tab(p){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.p===p));
+  ['synthese','bom','brut'].forEach(x=>
+    document.getElementById('p-'+x).classList.toggle('hidden', x!==p));
+}
+
+async function traiterBom(rows, client){
+  const c = cfg();
+  const monId = ANALYSE_ID;
+  const zone = document.getElementById('p-bom');
+  rows = rows || DATA.bom_rows || [];
+  client = client || DATA.client || '';
+  const t0 = Date.now();
+  const attente = m => zone.innerHTML = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2>
+      <p style="color:var(--text2)"><span class="spin"></span> ${esc(m)}</p>
+      <p class="hint">La fiche de dossier est deja consultable dans l'onglet Synthese.</p></div>`;
+  attente(`Lancement du traitement de ${rows.length} lignes\u2026`);
+
+  try{
+    const r = await fetch(`${c.base}/${c.mode}/bom-client-ingestion`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        client: client, rows: rows,
+        nom_fichier_bom: DATA.bom_fichier_source || null,
+        entetes: DATA.bom_entetes || []
+      })
+    });
+    const t = await r.text();
+    if(!r.ok) throw new Error('HTTP '+r.status+' \u2014 '+t.slice(0,180));
+    const lance = JSON.parse(t);
+    const job = lance.job_id;
+    if(!job) throw new Error("Pas d'identifiant de traitement renvoye");
+
+    // interrogation reguliere jusqu'au resultat
+    for(let i=0;i<90;i++){
+      if(monId !== ANALYSE_ID) return;   // une autre analyse a demarre
+      await new Promise(res=>setTimeout(res, 4000));
+      const sec = Math.round((Date.now()-t0)/1000);
+      attente(`Traitement de ${lance.nb_lignes||rows.length} lignes en cours\u2026 ${sec} s`);
+      let rr;
+      try{
+        rr = await fetch(`${c.base}/webhook/v2-bom-resultat?job=`+encodeURIComponent(job));
+      }catch(e){ continue; }
+      if(!rr.ok) continue;
+      const jj = await rr.json();
+      const d = Array.isArray(jj) ? (jj[0]||{}) : jj;
+      if(d.statut === 'termine'){
+        DATA.bom_lignes = d.lignes || [];
+        DATA.bom_totaux = d.totaux || null;
+        DATA.bom_controles_luminovo = d.controles_luminovo || [];
+        DATA.bom_fiche_texte = d.fiche_texte || '';
+        DATA.bom_xlsx_nom = d.bom_xlsx_nom || null;
+        DATA.bom_xlsx_base64 = d.bom_xlsx_base64 || null;
+        zone.innerHTML = tableBom(DATA);
+        document.getElementById('p-brut').innerHTML = brut(DATA);
+        return;
+      }
+      if(d.statut === 'erreur') throw new Error(d.message || 'Erreur de traitement');
+    }
+    throw new Error("Le traitement depasse six minutes, resultat non recupere");
+  }catch(e){
+    zone.innerHTML = `<div class="card err"><h2><i class="ti ti-table"></i> Nomenclature</h2>
+      <p style="color:var(--red)">${esc(e.message)}</p>
+      <button class="btn-s" onclick="traiterBom()"><i class="ti ti-refresh"></i> Reessayer</button></div>`;
+  }
+}
+
+/* ---------- rendu ---------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+
+const VERDICT = {
+  RFQ:              {cls:'v-rfq',   ico:'ti-alert-triangle', t:'Demande de prix fournisseur',  s:'PCB hors standards — lancer la consultation tout de suite (réponse 48 à 72 h)'},
+  STANDARD:         {cls:'v-std',   ico:'ti-circle-check',   t:'PCB standard',                 s:'Chiffrage en ligne possible'},
+  INDETERMINE:      {cls:'v-ind',   ico:'ti-help-circle',    t:'Analyse incomplète',           s:'Un critère décisif n’a pas pu être lu — vérification humaine nécessaire'},
+  PCB_FOURNI_CLIENT:{cls:'v-fourni',ico:'ti-package-import', t:'PCB fourni par le client',     s:'Aucune analyse ni consultation nécessaire'}
+};
+
+function afficher(){
+  document.getElementById('res').classList.remove('hidden');
+  const d = DATA || {};
+  const estDossier = d.decision_pcb !== undefined;
+  document.getElementById('p-synthese').innerHTML = estDossier ? synthDossier(d) : synthBom(d);
+  document.getElementById('p-bom').innerHTML = (d.bom_rows && d.bom_rows.length && !(d.bom_lignes||[]).length)
+    ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
+    : tableBom(d);
+  document.getElementById('p-brut').innerHTML = brut(d);
+  tab('synthese');
+}
+
+const LIBELLE_CHAMP = {
+  client_detecte:'Client', ref_projet:'Réf. projet', pcb_fourni_par_client:'PCB fourni par le client',
+  couches:'Couches', percage_mini_mm:'Perçage mini', piste_mini_um:'Piste mini', isolement_mini_um:'Isolement mini',
+  vias_borgnes:'Vias borgnes', vias_enterres:'Vias enterrés', epaisseur_mm:'Épaisseur', finition:'Finition',
+  materiau:'Matériau', classe_ipc:'Classe IPC', impedance_controlee:'Impédance contrôlée', vernis_epargne:'Vernis épargne',
+  'demande.quantites':'Quantités', 'demande.delai_souhaite':'Délai souhaité', 'demande.type_prestation':'Prestation',
+  'demande.consignation':'Consignation', autres_exigences:'Autres exigences',
+  dimensions:'Dimensions (L × H)'
+};
+function fusionnerSources(sources){
+  const s = sources.slice();
+  const iL = s.findIndex(x=>x.champ==='largeur_mm'), iH = s.findIndex(x=>x.champ==='hauteur_mm');
+  if(iL>-1 && iH>-1){
+    const L = s[iL], H = s[iH];
+    const meme = L.document===H.document && L.emplacement===H.emplacement;
+    s.splice(Math.max(iL,iH),1); s.splice(Math.min(iL,iH),1,{
+      champ:'Dimensions (L × H)', document: L.document,
+      emplacement: meme ? L.emplacement : [L.emplacement,H.emplacement].filter(Boolean).join(' ; ')
+    });
+  }
+  return s.map(x=>({...x, champ: LIBELLE_CHAMP[x.champ] || x.champ}));
+}
+function synthDossier(d){
+  const v = VERDICT[d.decision_pcb] || {cls:'',ico:'ti-help-circle',t:d.decision_pcb||'—',s:''};
+  const dem = d.demande || {};
+  let h = '';
+
+  h += `<div class="card ${d.decision_pcb==='RFQ'?'err':d.decision_pcb==='INDETERMINE'?'warn':'ok'}">
+    <div class="verdict ${v.cls}">
+      <i class="ti ${v.ico} ico"></i>
+      <div><div class="ttl">${esc(v.t)}</div><div class="sub">${esc(v.s)}</div></div>
+    </div>`;
+  if((d.declencheurs_rfq||[]).length){
+    h += `<ul class="li" style="margin-top:11px">` +
+      d.declencheurs_rfq.map(x=>`<li class="rfq">${esc(x.message)}</li>`).join('') + `</ul>`;
+  }
+  h += `</div>`;
+
+  // demande
+  h += `<div class="card"><h2><i class="ti ti-mail"></i> Ce que le client demande</h2>
+    <div class="kv"><span class="k">Quantités</span><span>${(dem.quantites&&dem.quantites.length)?esc(dem.quantites.join(', ')):'<span style="color:var(--text3)">non précisées</span>'}</span></div>
+    <div class="kv"><span class="k">Délai souhaité</span><span>${dem.delai_souhaite?esc(dem.delai_souhaite):'<span style="color:var(--text3)">non précisé</span>'}</span></div>
+    <div class="kv"><span class="k">Prestation</span><span>${dem.type_prestation?esc(dem.type_prestation):'<span style="color:var(--text3)">non précisée</span>'}</span></div>
+    ${dem.consignation?`<div class="kv"><span class="k">Consignation</span><span>${esc(dem.consignation)}</span></div>`:''}
+  </div>`;
+
+  // complétude
+  const manque = d.pieces_manquantes||[];
+  const inv = d.inventaire||{};
+  const okBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--green-bg);color:var(--green-badge);font-weight:700;font-size:12px;line-height:1;flex:none">&#10003;</span>`;
+  const koBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--red-bg);color:var(--red-badge);font-weight:700;font-size:12px;line-height:1;flex:none">&#10007;</span>`;
+  const naBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:12px;line-height:1;flex:none">&ndash;</span>`;
+
+  const PIECES = [
+    {cle:'gerbers',        libelle:'fichiers Gerber'},
+    {cle:'bom',            libelle:'nomenclature (BOM)'},
+    {cle:'pick_and_place', libelle:'fichier de pose (pick & place)'},
+    {cle:'plans',          libelle:'plans / documents PDF'}
+  ];
+  h += `<div class="card ${manque.length?'warn':'ok'}"><h2><i class="ti ti-checklist"></i> Complétude du dossier
+      ${manque.length?'<span class="badge b-warn">incomplet</span>':'<span class="badge b-ok">complet</span>'}</h2>
+    <div style="display:flex;flex-direction:column;gap:7px">`;
+  for(const p of PIECES){
+    const sansObjet = d.pcb_fourni_par_client && p.cle==='gerbers';
+    const present = !manque.includes(p.libelle);
+    let fichiers = (inv[p.cle]||[]).slice();
+    if(p.cle==='plans') fichiers = fichiers.concat(inv.specs||[], inv.documents_a_lire||[]);
+    const badge = sansObjet ? naBadge : (present ? okBadge : koBadge);
+    const detail = sansObjet
+      ? `<span style="color:var(--text3)">sans objet — le client fournit les circuits imprimés</span>`
+      : (fichiers.length
+          ? `<span class="mono" style="font-size:11px;color:var(--text2)">${esc(fichiers.join(', '))}</span>`
+          : `<span style="color:var(--red)">absent du dossier</span>`);
+    h += `<div style="display:flex;align-items:flex-start;gap:9px">
+      ${badge}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px">${esc(p.libelle)}</div>
+        <div style="margin-top:1px">${detail}</div>
+      </div></div>`;
+  }
+  h += `</div>`;
+  const LIB_AUTRES = { specs:'spécifications', mails:'mails du client' };
+  const autres = Object.keys(LIB_AUTRES).filter(k=>(inv[k]||[]).length);
+  if(autres.length){
+    const infoBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--pink-bg);color:var(--pink-badge);font-weight:700;font-size:12px;line-height:1;flex:none">i</span>`;
+    h += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:7px">Autres pièces du dossier</div>
+      <div style="display:flex;flex-direction:column;gap:7px">` +
+      autres.map(k=>`<div style="display:flex;align-items:flex-start;gap:9px">
+          ${infoBadge}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px">${esc(LIB_AUTRES[k] || k.replace(/_/g,' '))}</div>
+            <div class="mono" style="font-size:11px;color:var(--text2);margin-top:1px">${esc((inv[k]||[]).join(', '))}</div>
+          </div></div>`).join('') + `</div></div>`;
+  }
+  h += `</div>`;
+
+  // exigences de montage : colonnes, pastille d'alerte sur les operations speciales
+  const exi = (d.exigences_montage||[]).map(x =>
+    (x && typeof x === 'object')
+      ? { texte: x.exigence||'', attention: x.importance==='attention', document: x.document||'', emplacement: x.emplacement||'' }
+      : { texte: String(x), attention: false, document: '', emplacement: '' });
+  if(exi.length){
+    const nbAtt = exi.filter(x=>x.attention).length;
+    const alerteP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);font-weight:700;font-size:12px;line-height:1;flex:none">!</span>`;
+    const neutreP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">·</span>`;
+    h += `<div class="card"><h2><i class="ti ti-tool"></i> Exigences de montage
+        ${nbAtt?`<span class="badge b-warn">${nbAtt} à chiffrer</span>`:''}</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
+    // les points d'attention d'abord : ce sont eux qui coutent
+    exi.sort((a,b)=>(b.attention?1:0)-(a.attention?1:0));
+    exi.forEach(x=>{
+      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
+        ${x.attention?alerteP:neutreP}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;${x.attention?'font-weight:500':'color:var(--text2)'}">${esc(x.texte)}</div>
+          ${x.document?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(x.document)}${x.emplacement?' — '+esc(x.emplacement):''}</div>`:''}
+        </div></div>`;
+    });
+    h += `</div></div>`;
+  }
+  if((d.autres_exigences||[]).length) h += `<div class="card"><h2><i class="ti ti-note"></i> Autres exigences</h2>
+    <ul class="li">${d.autres_exigences.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+
+  // sources : check-list des parametres attendus, trouves ou non
+  const CHECKLIST = [
+    ['couches','Couches'], ['epaisseur_mm','Épaisseur'], ['dimensions','Dimensions (L × H)'],
+    ['percage_mini_mm','Perçage mini'], ['piste_mini_um','Piste mini'], ['isolement_mini_um','Isolement mini'],
+    ['vias_borgnes','Vias borgnes'], ['vias_enterres','Vias enterrés'],
+    ['finition','Finition'], ['materiau','Matériau'], ['classe_ipc','Classe IPC'],
+    ['impedance_controlee','Impédance contrôlée'], ['vernis_epargne','Vernis épargne']
+  ];
+  const srcFusion = fusionnerSources(d.sources||[]);
+  const parLibelle = {};
+  srcFusion.forEach(s => { parLibelle[s.champ] = s; });
+
+  const okP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--green-bg);color:var(--green-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&#10003;</span>`;
+  const koP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--red-bg);color:var(--red-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&#10007;</span>`;
+
+  const trouves = CHECKLIST.filter(([,lbl])=>parLibelle[lbl]).length;
+  h += `<div class="card"><h2><i class="ti ti-list-check"></i> Sources
+      <span class="badge ${trouves===CHECKLIST.length?'b-ok':'b-warn'}">${trouves} / ${CHECKLIST.length} trouvés</span></h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 18px">`;
+  for(const [,lbl] of CHECKLIST){
+    const s = parLibelle[lbl];
+    h += `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+      ${s?okP:koP}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px">${esc(lbl)}</div>
+        <div style="font-size:11px;color:${s?'var(--text2)':'var(--text3)'};margin-top:1px"
+             title="${s?esc(s.document+(s.emplacement?' — '+s.emplacement:'')):''}">
+          ${s ? esc(s.document) + (s.emplacement?' — '+esc(s.emplacement):'') : 'non trouvé dans le dossier'}
+        </div>
+      </div></div>`;
+  }
+  h += `</div></div>`;
+
+  // questions
+  if((d.questions_client||[]).length) h += `<div class="card warn"><h2><i class="ti ti-message-question"></i> À clarifier avec le client</h2>
+    <ul class="li">${d.questions_client.map(q=>`<li class="warn">${esc(q)}</li>`).join('')}</ul>
+    <div style="margin-top:11px"><button class="btn-s" onclick="copierQuestions()"><i class="ti ti-copy"></i> Copier la liste</button></div></div>`;
+
+  return h;
+}
+
+function synthBom(d){
+  const t = d.totaux||{};
+  let h = `<div class="card"><h2><i class="ti ti-list-check"></i> Synthèse nomenclature</h2>
+    <div class="kv"><span class="k">Lignes analysées</span><span>${t.lignes_analysees??'—'}</span></div>
+    <div class="kv"><span class="k">Conservées telles quelles</span><span>${t.conservees_mpn??'—'}</span></div>
+    <div class="kv"><span class="k">Codifiées</span><span>${t.codifiees??'—'}</span></div>
+    <div class="kv"><span class="k">IPN de secours</span><span>${t.repli_stock??'—'}</span></div>
+    <div class="kv"><span class="k">Non câblées</span><span>${t.non_cablees??'—'}</span></div>
+  </div>`;
+  if((d.controles_luminovo||[]).length) h += `<div class="card warn"><h2><i class="ti ti-adjustments"></i> À contrôler dans Luminovo</h2>
+    <ul class="li">${d.controles_luminovo.map(c=>`<li class="warn"><strong>${esc(c.reference)}</strong> — ${esc(c.action)}${c.detail?' <span style="color:var(--text3)">'+esc(c.detail)+'</span>':''}</li>`).join('')}</ul></div>`;
+  return h;
+}
+
+let BOM_FILTER = 'tous';
+function setBomFilter(f){ BOM_FILTER = f; document.getElementById('p-bom').innerHTML = tableBom(DATA); }
+function correspondFiltre(l, f){
+  if(f==='tous') return true;
+  if(f==='incertain') return l.confiance==='low';
+  if(f==='nc') return !!l.a_ne_pas_cabler;
+  return l.voie === f;
+}
+function tableBom(d){
+  const toutes = d.bom_lignes || d.lignes || [];
+  const b64 = d.bom_xlsx_base64, nom = d.bom_xlsx_nom || 'BOM_traitee_Luminovo.xlsx';
+  let h = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature traitée
+      <span style="flex:1"></span></h2>`;
+  if(b64) h += `<div style="margin-bottom:12px"><button class="btn-p" onclick="dl()"><i class="ti ti-download"></i> Télécharger BOM traitée</button>
+     <span class="hint" style="display:inline;margin-left:9px">Colonnes d'origine intactes + IPN + Statut PP</span></div>`;
+  else if(toutes.length) h += `<p class="hint" style="margin-bottom:10px">Aucun fichier xlsx retourné.</p>`;
+
+  if(!toutes.length){ return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`; }
+
+  const compte = f => toutes.filter(l=>correspondFiltre(l,f)).length;
+  const pills = [
+    ['tous','Toutes'],['MPN','MPN'],['CODIFIE','Codifiées'],['REPLI_STOCK','Repli stock'],
+    ['PCB','PCB'],['nc','Non câblées'],['incertain','Confiance faible']
+  ].filter(([f])=>f==='tous'||compte(f)>0);
+  h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">` +
+    pills.map(([f,lbl])=>`<button class="filter-btn${BOM_FILTER===f?' active':''}" onclick="setBomFilter('${f}')">${esc(lbl)} <span style="opacity:.7">${compte(f)}</span></button>`).join('') +
+    `</div>`;
+
+  const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER));
+  h += `<div class="tblwrap"><table><thead><tr>
+    <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
+    <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th></tr></thead><tbody>`;
+  if(!lignes.length) h += `<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:20px">Aucune ligne pour ce filtre.</td></tr>`;
+  for(const l of lignes){
+    const st = statutLigne(l);
+    const cellCls = st.niveau==='err'?'errcell':st.niveau==='warn'?'warncell':'';
+    const desc = l.description_client
+      ? `<span title="${esc(l.description_client)}">${esc(l.description_client)}</span>`
+      : `<span style="color:var(--text3);font-style:italic">pas de description</span>`;
+    h += `<tr>
+      <td class="${cellCls} mono">${esc((l.designateurs||[]).join(', ')|| ('ligne '+((l.ligne_index??0)+1)))}</td>
+      <td style="max-width:280px;font-size:11.5px;color:var(--text2)">${desc}</td>
+      <td>${esc(l.famille||'')}</td>
+      <td class="mono">${esc(l.valeur||'')}</td>
+      <td class="mono">${esc(l.boitier||'')}</td>
+      <td class="mono">${esc(l.mpn||'')}</td>
+      <td class="mono" style="color:${l.ipn_propose?'var(--accent)':'var(--text3)'}">${esc(l.ipn_propose||'')}</td>
+      <td>${st.html}</td>
+      <td>${badgeConf(l.confiance)}</td></tr>`;
+  }
+  return h + `</tbody></table></div></div>`;
+}
+
+function statutLigne(l){
+  if(l.voie==='REPLI_STOCK' && !l.ipn_propose)
+    return {niveau:'err', html:`<span class="badge b-err">à traiter</span> <span style="color:var(--text3)">${esc(l.repli_motif||'')}</span>`};
+  if(l.voie==='REPLI_STOCK')
+    return {niveau:'warn', html:`<span class="badge b-warn">NOK commande</span> <span style="color:var(--text3)">manque ${esc((l.champs_manquants||[]).join(', '))}</span>`};
+  if(l.est_pcb) return {niveau:'warn', html:`<span class="badge b-info">circuit imprimé</span>`};
+  if(l.a_ne_pas_cabler) return {niveau:'warn', html:`<span class="badge b-info">non câblé</span>`};
+  if(l.voie==='CODIFIE') return {niveau:'ok', html:`<span class="badge b-ok">codifiée</span>`};
+  if(l.voie==='MPN') return {niveau:'ok', html:`<span style="color:var(--text3)">intacte</span>`};
+  return {niveau:'', html:''};
+}
+function badgeConf(c){
+  if(c==='high') return '<span class="badge b-ok">haute</span>';
+  if(c==='medium') return '<span class="badge b-warn">moyenne</span>';
+  if(c==='low') return '<span class="badge b-err">faible</span>';
+  return '';
+}
+
+/* Transforme le texte brut genere par n8n (titres MAJUSCULES, lignes [ref] ...,
+   sous-lignes indentees) en document lisible, sans toucher au texte copiable. */
+function prettifierFiche(texte){
+  const lignes = String(texte||'').split('\n');
+  const out = []; let enListe = false;
+  const fermerListe = ()=>{ if(enListe){ out.push('</ul>'); enListe=false; } };
+  for(const brute of lignes){
+    const l = brute.replace(/\r$/,'');
+    if(!l.trim()){ continue; }
+    const estTitrePrincipal = out.length===0 && !/^[-\s]/.test(l);
+    const estTitreSection = /^[A-ZÀ-Ü0-9][A-ZÀ-Ü0-9 '().\-]{3,}$/.test(l.trim()) && l.trim()===l.trim().toUpperCase();
+    const estSousLigne = /^\s{6}/.test(brute);
+    const estItem = /^\s{2}\[/.test(brute) || /^\s{2}\d+\./.test(brute) || /^\s{2}\S/.test(brute);
+    if(estTitrePrincipal){ out.push(`<h3 style="font-size:15px;margin:0 0 3px">${esc(l)}</h3>`); continue; }
+    if(/^Genere le /.test(l.trim())){ out.push(`<p style="color:var(--text3);font-size:11.5px;margin-bottom:14px">${esc(l.trim())}</p>`); continue; }
+    if(estTitreSection){ fermerListe(); out.push(`<h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);margin:18px 0 8px;border-bottom:1px solid var(--border);padding-bottom:5px">${esc(l.trim())}</h4>`); continue; }
+    if(estSousLigne){
+      const note = `<div style="color:var(--text3);font-size:11.5px;margin-top:2px">${esc(l.trim())}</div>`;
+      if(enListe && out.length && out[out.length-1].endsWith('</li>')){
+        out[out.length-1] = out[out.length-1].replace(/<\/li>$/, note+'</li>');
+      } else out.push(`<div style="color:var(--text3);font-size:11.5px;margin:0 0 8px 16px">${esc(l.trim())}</div>`);
+      continue;
+    }
+    if(estItem){
+      if(!enListe){ out.push('<ul class="li">'); enListe=true; }
+      const m = l.trim().match(/^\[([^\]]+)\]\s*(.*)$/);
+      out.push(m ? `<li><strong>${esc(m[1])}</strong> — ${esc(m[2])}</li>` : `<li>${esc(l.trim())}</li>`);
+      continue;
+    }
+    fermerListe();
+    out.push(`<p style="margin:0 0 8px">${esc(l.trim())}</p>`);
+  }
+  fermerListe();
+  return out.join('\n');
+}
+function brut(d){
+  let h='';
+  if(d.fiche_texte) h += `<div class="card">
+    <div style="display:flex;align-items:center;margin-bottom:4px">
+      <h2 style="margin:0"><i class="ti ti-file-description"></i> Fiche de dossier</h2>
+      <span style="flex:1"></span>
+      <button class="btn-s" onclick="copier('fiche_texte')"><i class="ti ti-copy"></i> Copier le texte</button>
+    </div>
+    <div style="line-height:1.55">${prettifierFiche(d.fiche_texte)}</div></div>`;
+  if(d.bom_fiche_texte) h += `<div class="card">
+    <div style="display:flex;align-items:center;margin-bottom:4px">
+      <h2 style="margin:0"><i class="ti ti-file-description"></i> Fiche nomenclature</h2>
+      <span style="flex:1"></span>
+      <button class="btn-s" onclick="copier('bom_fiche_texte')"><i class="ti ti-copy"></i> Copier le texte</button>
+    </div>
+    <div style="line-height:1.55">${prettifierFiche(d.bom_fiche_texte)}</div></div>`;
+  return h || `<div class="card"><p style="color:var(--text3)">Aucune fiche texte retournée.</p></div>`;
+}
+
+/* ---------- export PDF ---------- */
+function exporterPdf(){
+  const d = DATA || {};
+  const ref = d.ref_projet || d.ref_projet_detectee || '';
+  const client = d.client || d.client_detecte || '';
+  const titre = 'PP analyse' + (ref ? ' ' + ref : '');
+
+  // le nom du fichier propose au telechargement reprend le titre du document
+  const titreOrigine = document.title;
+  document.title = titre;
+
+  document.getElementById('print-entete').innerHTML =
+    `<div style="display:flex;align-items:baseline;gap:10px">
+       <strong style="font-size:15pt">PROTO PROCESS</strong>
+       <span style="font-size:11pt">Analyse de dossier client</span>
+       <span style="flex:1"></span>
+       <span style="font-size:9pt">${esc(new Date().toLocaleString('fr-FR'))}</span>
+     </div>
+     <div style="font-size:13pt;margin-top:4px"><strong>${esc(titre)}</strong></div>
+     ${client?`<div style="font-size:11pt;margin-top:2px">${esc(client)}</div>`:''}`;
+
+  // lignes de nomenclature a problemes uniquement
+  const lignes = (d.bom_lignes || d.lignes || []).filter(l =>
+    l.voie === 'REPLI_STOCK' || l.est_pcb || l.a_ne_pas_cabler ||
+    l.confiance === 'low' || l.equivalent_autorise === false || l.fourni_par_client === true);
+
+  let bomHtml = '';
+  if(lignes.length){
+    bomHtml = `<div class="card"><h2>Nomenclature — lignes à traiter (${lignes.length})</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:9pt">
+        <thead><tr>
+          <th style="text-align:left;padding:4px;border-bottom:1px solid #999">Repères</th>
+          <th style="text-align:left;padding:4px;border-bottom:1px solid #999">Description client</th>
+          <th style="text-align:left;padding:4px;border-bottom:1px solid #999">IPN proposé</th>
+          <th style="text-align:left;padding:4px;border-bottom:1px solid #999">À traiter</th>
+        </tr></thead><tbody>`;
+    for(const l of lignes){
+      const st = statutLigne(l);
+      const txt = st.html.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+      bomHtml += `<tr>
+        <td style="padding:4px;border-bottom:1px solid #ddd;vertical-align:top">${esc((l.designateurs||[]).join(', ')||('ligne '+((l.ligne_index??0)+1)))}</td>
+        <td style="padding:4px;border-bottom:1px solid #ddd;vertical-align:top">${esc(l.description_client||'—')}</td>
+        <td style="padding:4px;border-bottom:1px solid #ddd;vertical-align:top">${esc(l.ipn_propose||'—')}</td>
+        <td style="padding:4px;border-bottom:1px solid #ddd;vertical-align:top">${esc(txt)}</td></tr>`;
+    }
+    bomHtml += `</tbody></table></div>`;
+  } else if((d.bom_lignes||d.lignes||[]).length){
+    bomHtml = `<div class="card"><h2>Nomenclature</h2><p>Aucune ligne à traiter : toutes les lignes sont exploitables en l'état.</p></div>`;
+  }
+  document.getElementById('print-bom').innerHTML = bomHtml;
+
+  const ongletActif = [...document.querySelectorAll('.tab')].find(t=>t.classList.contains('active'));
+  document.getElementById('p-synthese').classList.remove('hidden');
+  window.print();
+  document.title = titreOrigine;
+  if(ongletActif && ongletActif.dataset.p !== 'synthese') tab(ongletActif.dataset.p);
+}
+
+/* ---------- actions ---------- */
+function dl(){
+  const b64 = DATA.bom_xlsx_base64; if(!b64) return;
+  const bin = atob(b64); const buf = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = DATA.bom_xlsx_nom || 'BOM_traitee_Luminovo.xlsx';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function copier(k){ navigator.clipboard.writeText(DATA[k]||''); }
+function copierQuestions(){
+  navigator.clipboard.writeText((DATA.questions_client||[]).map((q,i)=>(i+1)+'. '+q).join('\n'));
+}
+
+onModeChange(); saveConfig(); chargerClients();
+</script>
+</body>
+</html>
