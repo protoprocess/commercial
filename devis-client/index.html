@@ -82,6 +82,7 @@ textarea.f{resize:vertical;min-height:74px;font-family:var(--mono);font-size:11.
 .v-std .ttl,.v-std .ico{color:var(--green)}
 .v-ind .ttl,.v-ind .ico{color:var(--amber)}
 .v-fourni .ttl,.v-fourni .ico{color:var(--pp-blue)}
+.v-hors .ttl,.v-hors .ico{color:var(--red-badge)}
 
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap}
 .b-ok{background:var(--green-bg);color:var(--green-badge)}
@@ -359,7 +360,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.7";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -772,7 +773,8 @@ const VERDICT = {
   RFQ:              {cls:'v-rfq',   ico:'ti-alert-triangle', t:'Demande de prix fournisseur',  s:'PCB hors standards — lancer la consultation tout de suite (réponse 48 à 72 h)'},
   STANDARD:         {cls:'v-std',   ico:'ti-circle-check',   t:'PCB standard',                 s:'Chiffrage en ligne possible'},
   INDETERMINE:      {cls:'v-ind',   ico:'ti-help-circle',    t:'Analyse incomplète',           s:'Un critère décisif n’a pas pu être lu — vérification humaine nécessaire'},
-  PCB_FOURNI_CLIENT:{cls:'v-fourni',ico:'ti-package-import', t:'PCB fourni par le client',     s:'Aucune analyse ni consultation nécessaire'}
+  PCB_FOURNI_CLIENT:{cls:'v-fourni',ico:'ti-package-import', t:'PCB fourni par le client',     s:'Aucune analyse ni consultation nécessaire'},
+  HORS_CAPACITE:    {cls:'v-hors',  ico:'ti-ban',            t:'Hors capacité de fabrication', s:'Format au-delà de 300 × 400 mm — la demande est à décliner'}
 };
 
 function afficher(){
@@ -792,6 +794,8 @@ const LIBELLE_CHAMP = {
   couches:'Couches', percage_mini_mm:'Perçage mini', piste_mini_um:'Piste mini', isolement_mini_um:'Isolement mini',
   vias_borgnes:'Vias borgnes', vias_enterres:'Vias enterrés', epaisseur_mm:'Épaisseur', finition:'Finition',
   materiau:'Matériau', classe_ipc:'Classe IPC', impedance_controlee:'Impédance contrôlée', vernis_epargne:'Vernis épargne',
+  flex_rigide_flex:'Flex / rigide-flex', epaisseur_cuivre_um:'Épaisseur de cuivre', bouchage_vias:'Bouchage de vias',
+  serigraphie:'Sérigraphie', vernis_couleur:'Vernis épargne', materiau_famille:'Matériau', materiau_tg:'Matériau',
   'demande.quantites':'Quantités', 'demande.delai_souhaite':'Délai souhaité', 'demande.type_prestation':'Prestation',
   'demande.consignation':'Consignation', autres_exigences:'Autres exigences',
   dimensions:'Dimensions (L × H)'
@@ -814,11 +818,15 @@ function synthDossier(d){
   const dem = d.demande || {};
   let h = '';
 
-  h += `<div class="card ${d.decision_pcb==='RFQ'?'err':d.decision_pcb==='INDETERMINE'?'warn':'ok'}">
+  const horsCap = d.decision_pcb==='HORS_CAPACITE';
+  h += `<div class="card ${(horsCap||d.decision_pcb==='RFQ')?'err':d.decision_pcb==='INDETERMINE'?'warn':'ok'}">
     <div class="verdict ${v.cls}">
       <i class="ti ${v.ico} ico"></i>
       <div><div class="ttl">${esc(v.t)}</div><div class="sub">${esc(v.s)}</div></div>
     </div>`;
+  if(horsCap && d.hors_capacite){
+    h += `<ul class="li" style="margin-top:11px"><li class="rfq">${esc(d.hors_capacite.message)}</li></ul>`;
+  }
   if((d.declencheurs_rfq||[]).length){
     h += `<ul class="li" style="margin-top:11px">` +
       d.declencheurs_rfq.map(x=>`<li class="rfq">${esc(x.message)}</li>`).join('') + `</ul>`;
@@ -828,7 +836,7 @@ function synthDossier(d){
   // demande
   h += `<div class="card"><h2><i class="ti ti-mail"></i> Ce que le client demande</h2>
     <div class="kv"><span class="k">Quantités</span><span>${(dem.quantites&&dem.quantites.length)?esc(dem.quantites.join(', ')):'<span style="color:var(--text3)">non précisées</span>'}</span></div>
-    <div class="kv"><span class="k">Délai souhaité</span><span>${dem.delai_souhaite?esc(dem.delai_souhaite):'<span style="color:var(--text3)">non précisé</span>'}</span></div>
+    <div class="kv"><span class="k">Délai souhaité</span><span>${dem.delai_souhaite?esc(dem.delai_souhaite)+' <span class="badge b-warn">délai annoncé</span>':'<span style="color:var(--text3)">non précisé</span>'}</span></div>
     <div class="kv"><span class="k">Prestation</span><span>${dem.type_prestation?esc(dem.type_prestation):'<span style="color:var(--text3)">non précisée</span>'}</span></div>
     ${dem.consignation?`<div class="kv"><span class="k">Consignation</span><span>${esc(dem.consignation)}</span></div>`:''}
   </div>`;
@@ -884,6 +892,46 @@ function synthDossier(d){
   }
   h += `</div>`;
 
+  // points d'attention : impact prix, sans effet sur le verdict
+  const attP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);font-weight:700;font-size:12px;line-height:1;flex:none">!</span>`;
+  const att = d.pastilles_attention||[];
+  if(att.length){
+    h += `<div class="card warn"><h2><i class="ti ti-alert-square-rounded"></i> Points d'attention
+        <span class="badge b-warn">${att.length}</span></h2>
+      <p style="font-size:11.5px;color:var(--text2);margin:0 0 9px">Ces éléments ne changent pas le verdict mais pèsent sur le prix.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 18px">`;
+    att.forEach(p=>{
+      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
+        ${attP}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:500">${esc(p.libelle)}</div>
+          ${p.detail?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(p.detail)}</div>`:''}
+        </div></div>`;
+    });
+    h += `</div></div>`;
+  }
+
+  // autres caracteristiques du circuit imprime : champ large, hors check-list
+  const carPcb = (d.autres_caracteristiques_pcb||[]).filter(c=>c&&typeof c==='object');
+  if(carPcb.length){
+    const neutreC = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">·</span>`;
+    const nbAttC = carPcb.filter(c=>c.importance==='attention').length;
+    h += `<div class="card"><h2><i class="ti ti-circuit-changeover"></i> Autres caractéristiques du circuit imprimé
+        ${nbAttC?`<span class="badge b-warn">${nbAttC} à surveiller</span>`:''}</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
+    carPcb.sort((a,b)=>((b.importance==='attention')?1:0)-((a.importance==='attention')?1:0));
+    carPcb.forEach(c=>{
+      const a = c.importance==='attention';
+      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
+        ${a?attP:neutreC}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;${a?'font-weight:500':'color:var(--text2)'}">${esc(c.caracteristique||'')}</div>
+          ${c.document?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(c.document)}${c.emplacement?' — '+esc(c.emplacement):''}</div>`:''}
+        </div></div>`;
+    });
+    h += `</div></div>`;
+  }
+
   // exigences de montage : colonnes, pastille d'alerte sur les operations speciales
   const exi = (d.exigences_montage||[]).map(x =>
     (x && typeof x === 'object')
@@ -912,12 +960,16 @@ function synthDossier(d){
     <ul class="li">${d.autres_exigences.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
 
   // sources : check-list des parametres attendus, trouves ou non
+  // 17 criteres, dans l'ordre de lecture d'un plan de fabrication (validé le 25/07/2026)
   const CHECKLIST = [
-    ['couches','Couches'], ['epaisseur_mm','Épaisseur'], ['dimensions','Dimensions (L × H)'],
-    ['percage_mini_mm','Perçage mini'], ['piste_mini_um','Piste mini'], ['isolement_mini_um','Isolement mini'],
+    ['couches','Couches'], ['dimensions','Dimensions (L × H)'], ['epaisseur_mm','Épaisseur'],
+    ['materiau','Matériau'], ['flex_rigide_flex','Flex / rigide-flex'],
+    ['epaisseur_cuivre_um','Épaisseur de cuivre'], ['piste_mini_um','Piste mini'],
+    ['isolement_mini_um','Isolement mini'], ['percage_mini_mm','Perçage mini'],
     ['vias_borgnes','Vias borgnes'], ['vias_enterres','Vias enterrés'],
-    ['finition','Finition'], ['materiau','Matériau'], ['classe_ipc','Classe IPC'],
-    ['impedance_controlee','Impédance contrôlée'], ['vernis_epargne','Vernis épargne']
+    ['bouchage_vias','Bouchage de vias'], ['impedance_controlee','Impédance contrôlée'],
+    ['finition','Finition'], ['vernis_epargne','Vernis épargne'],
+    ['serigraphie','Sérigraphie'], ['classe_ipc','Classe IPC']
   ];
   const srcFusion = fusionnerSources(d.sources||[]);
   const parLibelle = {};
