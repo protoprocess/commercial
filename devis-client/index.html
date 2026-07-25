@@ -360,7 +360,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.8";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -906,6 +906,26 @@ function synthDossier(d){
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;font-weight:500">${esc(p.libelle)}</div>
           ${p.detail?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(p.detail)}</div>`:''}
+        </div></div>`;
+    });
+    h += `</div></div>`;
+  }
+
+  // ecarts spec / fichiers : a verifier, pas a chiffrer. Bloc et couleur distincts
+  // des points d'attention, pour que les deux compteurs restent lisibles.
+  const div = d.divergences||[];
+  if(div.length){
+    const divP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--pink-bg);color:var(--pink-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&ne;</span>`;
+    h += `<div class="card" style="border-left:3px solid var(--pink-badge)"><h2><i class="ti ti-git-compare"></i> Écarts spec / fichiers
+        <span class="badge b-info">${div.length} à vérifier</span></h2>
+      <p style="font-size:11.5px;color:var(--text2);margin:0 0 9px">Le document et les fichiers de fabrication ne disent pas la même chose. La valeur du document a été retenue — l'écart est à lever avant de chiffrer.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
+    div.forEach(x=>{
+      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
+        ${divP}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:500">${esc(x.critere)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px">spec <span style="color:var(--text2)">${esc(x.spec)}</span> &nbsp;·&nbsp; fichiers <span style="color:var(--text2)">${esc(x.gerber)}</span></div>
         </div></div>`;
     });
     h += `</div></div>`;
