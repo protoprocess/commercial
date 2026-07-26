@@ -360,7 +360,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.1";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -841,6 +841,30 @@ function badgeCouleur(v){
     + `background:${c[0]};color:${c[1]};border:1px solid var(--border2)">${esc(COULEUR_FR[cle] || brut)}</span>`;
 }
 
+// Pictogrammes ecrits directement dans la page : la police d'icones distante
+// peut ne pas se charger (reseau, bloqueur), et les pastilles apparaissent
+// alors vides. Ces traces-la ne dependent de rien.
+const SVG_ATT = {
+  couches:   '<path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/>',
+  piste:     '<path d="M3 12h4M10 12h4M17 12h4"/>',
+  percage:   '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>',
+  epaisseur: '<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>',
+  cuivre:    '<path d="M3 8h18" stroke-width="3"/><path d="M3 16h18" stroke-width="3"/>',
+  materiau:  '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
+  impedance: '<path d="M2 12c1.6-5.5 3.6-5.5 5.2 0s3.6 5.5 5.2 0 3.6-5.5 5.2 0"/>',
+  ipc:       '<circle cx="12" cy="9.5" r="5.5"/><path d="M8.5 14.5L7.5 21l4.5-2.2 4.5 2.2-1-6.5"/>',
+  vias:      '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>',
+  couleur:   '<path d="M12 3l5.2 7.3a6.3 6.3 0 1 1-10.4 0z"/>',
+  aspect:    '<path d="M12 3v18M9 6l3-3 3 3M9 18l3 3 3-3"/><circle cx="12" cy="12" r="2.2"/>',
+  delai:     '<circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/>',
+  defaut:    '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/>'
+};
+function pictoAtt(type){
+  const d = SVG_ATT[type] || SVG_ATT.defaut;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);flex:none">`
+    + `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
+}
+
 function synthDossier(d){
   const v = VERDICT[d.decision_pcb] || {cls:'',ico:'ti-help-circle',t:d.decision_pcb||'—',s:''};
   const dem = d.demande || {};
@@ -924,13 +948,6 @@ function synthDossier(d){
   // Un pictogramme par nature de critere : quand la liste est longue, on repere
   // de quoi il s'agit sans lire.
   const attP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);font-weight:700;font-size:12px;line-height:1;flex:none">!</span>`;
-  const ICONE_ATT = {
-    couches:'ti-stack-2',   piste:'ti-line-dashed',    percage:'ti-circle-dot',
-    epaisseur:'ti-arrows-vertical', cuivre:'ti-layers-intersect', materiau:'ti-cube',
-    impedance:'ti-wave-sine', ipc:'ti-certificate',    vias:'ti-circles',
-    couleur:'ti-palette',   aspect:'ti-arrow-autofit-height', delai:'ti-clock-hour-4'
-  };
-  const picto = ico => `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);font-size:12.5px;line-height:1;flex:none"><i class="ti ${ico}"></i></span>`;
   const att = d.pastilles_attention||[];
   if(att.length){
     h += `<div class="card warn"><h2><i class="ti ti-alert-square-rounded"></i> Points d'attention
@@ -940,7 +957,7 @@ function synthDossier(d){
     att.forEach(p=>{
       const val = p.type==='couleur' ? badgeCouleur(p.detail) : esc(p.detail);
       h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
-        ${picto(ICONE_ATT[p.type] || 'ti-alert-triangle')}
+        ${pictoAtt(p.type)}
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;font-weight:500">${esc(p.libelle)}</div>
           ${p.detail?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${val}</div>`:''}
