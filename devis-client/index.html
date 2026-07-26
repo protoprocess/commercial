@@ -365,7 +365,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -874,7 +874,9 @@ function pictoAtt(type){
 // Trois gestes sur n'importe quel element : pas pertinent, standard, a surveiller.
 // La decision part dans la liste maison et s'applique a TOUTES les analyses
 // suivantes, le rapprochement d'un dossier a l'autre etant fait par le modele.
-const URL_FEEDBACK = 'https://protoprocess.app.n8n.cloud/webhook/f37234a4-3c78-4b19-a775-bc525e4b8723/v2-feedback-pertinence';
+// Meme convention que les autres appels de l'appli : chemin court, base issue
+// de la configuration. L'URL longue avec identifiant technique n'aboutit pas.
+const CHEMIN_FEEDBACK = '/webhook/v2-feedback-pertinence';
 
 function boutonsJuger(type, libelle){
   if(!libelle) return '';
@@ -896,7 +898,7 @@ async function ppJuger(btn, type, libelleEnc, decision){
   grp.querySelectorAll('.jg').forEach(x => x.classList.remove('ok'));
   btn.classList.add('ok');
   try{
-    const r = await fetch(URL_FEEDBACK, {
+    const r = await fetch(cfg().base + CHEMIN_FEEDBACK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ decisions: [{
