@@ -371,7 +371,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "4.2";
+const APP_VERSION = "4.3";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1087,40 +1087,52 @@ function synthDossier(d){
   const attP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);font-weight:700;font-size:12px;line-height:1;flex:none">!</span>`;
   const crit = d.criteres_pcb||[];
   const carPcb = (d.autres_caracteristiques_pcb||[]).filter(c=>c&&typeof c==='object');
-  const nAlerte = d.nb_alertes_pcb||0;
-  const nTotal  = d.nb_caracteristiques_pcb||(crit.length+carPcb.length);
 
   if(crit.length||carPcb.length){
-    const nCrit = d.nb_alertes_criteres||0, nLibre = d.nb_alertes_releve||0;
-    h += `<div class="card ${nAlerte?'warn':''}"><h2><i class="ti ti-circuit-board"></i> Caractéristiques du circuit imprimé
-        <span class="badge ${nAlerte?'b-warn':'b-ok'}">${nAlerte} à surveiller sur ${nTotal}</span></h2>
+    const nLibre = d.nb_alertes_releve||0;
+    // les criteres qui ont fait basculer le verdict : eux seuls sont signales
+    const MAP_DECL = { couches:'couches', percage_mini:'percage_mini', piste_mini:'piste_mini',
+      epaisseur:'epaisseur', flex:'flex', materiau:'materiau', spans_percage:'vias_enterres',
+      dimensions:'dimensions' };
+    const decl = {};
+    (d.declencheurs_rfq||[]).forEach(x=>{ const c = MAP_DECL[x.critere]; if(c) decl[c] = x.message; });
+    const bloq = (d.hors_capacite && MAP_DECL[d.hors_capacite.critere]) || null;
+    const nSrc = crit.filter(c=>c.etat==='trouve').length;
+    const nApp = crit.filter(c=>c.etat!=='sans_objet').length;
+    h += `<div class="card ${bloq?'err':''}"><h2><i class="ti ti-circuit-board"></i> Caractéristiques du circuit imprimé
+        <span class="badge ${nSrc===nApp?'b-ok':'b-warn'}">${nSrc} / ${nApp} renseignés</span>
+        ${nLibre?`<span class="badge b-warn">${nLibre} à surveiller au relevé</span>`:''}</h2>
       <p style="font-size:11.5px;color:var(--text2);margin:0 0 10px">
-        Les lignes signalées <span style="color:var(--amber-badge);background:var(--amber-bg);border-radius:3px;padding:0 5px;font-weight:600">!</span>
-        pèsent sur le prix sans changer le verdict&nbsp;: ${nCrit} parmi les critères, ${nLibre} dans le relevé libre.
-        Les critères viennent de seuils fixes&nbsp;; seul le relevé libre se corrige par les coches.</p>`;
+        Les valeurs en rouge sont celles qui ont fait basculer le verdict. Le reste est informatif.</p>`;
 
     // --- zone haute : les criteres, alertes en tete
     if(crit.length){
       const ordre = crit.slice().sort((a,b)=>(b.alerte?1:0)-(a.alerte?1:0));
-      h += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Critères de la check-list${nCrit?` &mdash; ${nCrit} signalé${nCrit>1?'s':''}`:''}</div>`;
+      h += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Critères de la check-list</div>`;
       h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:2px 18px">`;
       ordre.forEach(c=>{
         const na = c.etat==='sans_objet', abs = c.etat==='absent';
-        // trouve : V vert. Absent : ? orange sur fond gris. Sans objet : tiret gris.
-        const fond = na ? 'var(--surface2)' : (abs ? 'var(--surface2)' : 'var(--green-bg)');
-        const enc  = na ? 'var(--text3)'    : (abs ? 'var(--amber)'   : 'var(--green-badge)');
-        const sym  = na ? '&ndash;'         : (abs ? '?'              : '&check;');
-        const marque = c.alerte ? pictoAtt(SVG_PAR_CHAMP[c.champ] || 'defaut')
-          : `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${fond};color:${enc};font-weight:700;font-size:11px;line-height:1;flex:none">${sym}</span>`;
-        const val = na ? '<span style="color:var(--text3)">sans objet</span>'
+        const estBloq = bloq === c.champ, estDecl = !!decl[c.champ];
+        // V vert si renseigne, ? si absent, tiret si sans objet, ! rouge si declencheur
+        let fond, enc, sym;
+        if(estBloq){      fond='var(--red-badge)'; enc='#fff';               sym='!'; }
+        else if(estDecl){ fond='var(--red-bg)';    enc='var(--red-badge)';   sym='!'; }
+        else if(na){      fond='var(--surface2)';  enc='var(--text3)';       sym='&ndash;'; }
+        else if(abs){     fond='var(--surface2)';  enc='var(--amber)';       sym='?'; }
+        else {            fond='var(--green-bg)';  enc='var(--green-badge)'; sym='&check;'; }
+        const marque = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${fond};color:${enc};font-weight:700;font-size:11px;line-height:1;flex:none">${sym}</span>`;
+        let val = na ? '<span style="color:var(--text3)">sans objet</span>'
           : (c.valeur ? (c.couleur?badgeCouleur(c.couleur):esc(c.valeur))
                       : '<span style="color:var(--text3)">non trouvé</span>');
+        if(estBloq) val = `<span style="color:var(--red);font-weight:700">${c.valeur?esc(c.valeur):'?'}</span> <span class="badge b-err">hors capacité</span>`;
+        else if(estDecl) val = `<span style="color:var(--red);font-weight:600">${c.valeur?esc(c.valeur):'?'}</span> <span class="badge b-err">déclencheur RFQ</span>`;
         h += `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
           ${marque}
           <div style="flex:1;min-width:0">
             <div style="font-size:12.5px;${abs||na?'color:var(--text2)':''}">${esc(c.libelle)}
               <span style="margin-left:5px;${c.alerte?'font-weight:600':''}">${val}</span></div>
-            ${c.detail?`<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${esc(c.detail)}</div>`:''}
+            ${(estBloq||estDecl)?`<div style="font-size:10.5px;color:var(--red);margin-top:1px">${esc(estBloq?d.hors_capacite.message:decl[c.champ])}</div>`
+              :(c.detail?`<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${esc(c.detail)}</div>`:'')}
           </div>
         </div>`;
       });
