@@ -125,7 +125,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 @media print{
   @page{ size:A4; margin:14mm 12mm; }
   html,body{ background:#fff!important; color:#111!important; font-size:10.5pt }
-  header,.tabs,#depot,#summary,#config,#fiche-client,.btn-p,.btn-s,.filter-btn{ display:none!important }
+  header,.tabs,#depot,#summary,#config,#fiche-client,#sig-btn,#sig-fond,.btn-p,.btn-s,.filter-btn{ display:none!important }
   .wrap{ max-width:none;padding:0 }
   #p-bom,#p-brut{ display:none!important }
   #p-synthese{ display:block!important }
@@ -147,6 +147,18 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 .tab{padding:11px 18px;color:var(--text3);border-bottom:2px solid transparent;cursor:pointer;font-size:12.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+/* signalement : bouton flottant discret, toujours accessible */
+#sig-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:inline-flex;align-items:center;gap:7px;
+  padding:9px 14px;border-radius:22px;background:var(--surface);color:var(--text2);
+  border:1px solid var(--border2);box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;font-size:12px}
+#sig-btn:hover{color:var(--blue);border-color:var(--blue)}
+#sig-fond{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:18px}
+#sig-boite{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+  width:min(94vw,560px);max-height:90vh;overflow:auto;padding:18px}
+.sig-t{display:flex;gap:6px;margin:0 0 11px;flex-wrap:wrap}
+.sig-t button{flex:1;min-width:120px;padding:8px 10px;border-radius:var(--radius);background:transparent;
+  color:var(--text2);border:1px solid var(--border);font-size:12px;cursor:pointer}
+.sig-t button.on{background:var(--blue);color:#fff;border-color:transparent;font-weight:500}
 .jgs{display:inline-flex;gap:3px;flex:none;opacity:.5;transition:opacity .15s}
 .jgs:hover,.jgs[data-etat]{opacity:1}
 .jg{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text3);cursor:pointer;padding:0;transition:background .12s,color .12s}
@@ -366,12 +378,47 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 
 </div>
 
+<button id="sig-btn" onclick="ouvrirSignalement()" title="Signaler un bug, une analyse fausse ou une idée">
+  <i class="ti ti-message-report"></i> Signaler</button>
+
+<div id="sig-fond" class="hidden">
+  <div id="sig-boite">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2 style="margin:0"><i class="ti ti-message-report"></i> Signaler</h2>
+      <button class="btn-s" onclick="fermerSignalement()"><i class="ti ti-x"></i></button>
+    </div>
+    <p style="font-size:11.5px;color:var(--text2);margin:0 0 12px">
+      Le contexte part automatiquement&nbsp;: version de l'appli, client, référence projet, verdict et fiche complète.
+      Inutile de les recopier.</p>
+
+    <div class="sig-t" id="sig-types">
+      <button data-t="bug" class="on" onclick="sigType('bug')">Bug</button>
+      <button data-t="analyse" onclick="sigType('analyse')">Analyse fausse</button>
+      <button data-t="idee" onclick="sigType('idee')">Idée</button>
+    </div>
+
+    <label class="f">Votre nom</label>
+    <input class="f" id="sig-auteur" placeholder="pour qu'on puisse revenir vers vous" style="margin-bottom:10px">
+
+    <label class="f">Ce que vous avez constaté</label>
+    <textarea class="f" id="sig-desc" rows="6" placeholder="Sur une analyse fausse, précisez la valeur attendue et où vous l'avez lue dans le dossier."></textarea>
+
+    <div id="sig-ctx" style="font-size:11px;color:var(--text3);margin-top:9px"></div>
+    <div id="sig-msg" style="font-size:12px;margin-top:9px"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:13px">
+      <button class="btn-s" onclick="fermerSignalement()">Annuler</button>
+      <button class="btn-p" id="sig-env" onclick="envoyerSignalement()">Envoyer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "4.4";
+const APP_VERSION = "5.0";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -882,6 +929,67 @@ function pictoAtt(type){
   const d = SVG_ATT[type] || SVG_ATT.defaut;
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);flex:none">`
     + `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
+}
+
+// ---------- signalement d'un bug, d'une analyse fausse ou d'une idee ----------
+// La fiabilite de l'appli se construit par le retour terrain. Il ne remonte que
+// s'il est plus facile a donner qu'a garder pour soi : trois champs, et tout le
+// contexte part automatiquement pour que le cas soit rejouable.
+const CHEMIN_SIGNALEMENT = '/webhook/v2-signalement';
+const CLE_SIGNALEUR = 'pp_signaleur';
+let SIG_TYPE = 'bug';
+
+function sigType(t){
+  SIG_TYPE = t;
+  document.querySelectorAll('#sig-types button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+}
+
+function ouvrirSignalement(){
+  const d = DATA || {};
+  try{ document.getElementById('sig-auteur').value = localStorage.getItem(CLE_SIGNALEUR) || ''; }catch(e){}
+  const bouts = [];
+  if(d.client || d.client_detecte) bouts.push('client ' + (d.client || d.client_detecte));
+  if(d.ref_projet) bouts.push('réf. ' + d.ref_projet);
+  if(d.decision_pcb) bouts.push('verdict ' + d.decision_pcb);
+  document.getElementById('sig-ctx').innerHTML = bouts.length
+    ? 'Sera joint : v' + APP_VERSION + ', ' + esc(bouts.join(', ')) + ', et la fiche complète.'
+    : 'Sera joint : v' + APP_VERSION + '. Aucune analyse en cours, seule votre description partira.';
+  document.getElementById('sig-msg').textContent = '';
+  document.getElementById('sig-fond').classList.remove('hidden');
+  document.getElementById('sig-desc').focus();
+}
+function fermerSignalement(){ document.getElementById('sig-fond').classList.add('hidden'); }
+
+async function envoyerSignalement(){
+  const desc = document.getElementById('sig-desc').value.trim();
+  const msg = document.getElementById('sig-msg');
+  if(!desc){ msg.innerHTML = '<span style="color:var(--red)">Décrivez ce que vous avez constaté.</span>'; return; }
+  const auteur = document.getElementById('sig-auteur').value.trim();
+  try{ if(auteur) localStorage.setItem(CLE_SIGNALEUR, auteur); }catch(e){}
+
+  const btn = document.getElementById('sig-env');
+  btn.disabled = true;
+  msg.innerHTML = '<span style="color:var(--text2)">Envoi…</span>';
+  const d = DATA || {};
+  try{
+    const r = await fetch(cfg().base + CHEMIN_SIGNALEMENT, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: SIG_TYPE, description: desc, auteur: auteur,
+        appli: 'devis-client', version: APP_VERSION,
+        client: d.client || d.client_detecte || '',
+        ref_projet: d.ref_projet || d.ref_projet_detectee || '',
+        verdict: d.decision_pcb || '',
+        contexte: d.fiche_texte || ''
+      })
+    });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    msg.innerHTML = '<span style="color:var(--green)">Merci, c\'est envoyé.</span>';
+    document.getElementById('sig-desc').value = '';
+    setTimeout(fermerSignalement, 1400);
+  }catch(e){
+    msg.innerHTML = '<span style="color:var(--red)">Envoi impossible : ' + esc(e.message) + '. Réessayez ou prévenez Olivier.</span>';
+  }finally{ btn.disabled = false; }
 }
 
 // ---------- coches de pertinence ----------
