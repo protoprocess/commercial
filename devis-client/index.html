@@ -371,7 +371,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "4.0";
+const APP_VERSION = "4.1";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1091,17 +1091,27 @@ function synthDossier(d){
   const nTotal  = d.nb_caracteristiques_pcb||(crit.length+carPcb.length);
 
   if(crit.length||carPcb.length){
+    const nCrit = d.nb_alertes_criteres||0, nLibre = d.nb_alertes_releve||0;
     h += `<div class="card ${nAlerte?'warn':''}"><h2><i class="ti ti-circuit-board"></i> Caractéristiques du circuit imprimé
-        <span class="badge ${nAlerte?'b-warn':'b-ok'}">${nAlerte} à surveiller sur ${nTotal}</span></h2>`;
+        <span class="badge ${nAlerte?'b-warn':'b-ok'}">${nAlerte} à surveiller sur ${nTotal}</span></h2>
+      <p style="font-size:11.5px;color:var(--text2);margin:0 0 10px">
+        Les lignes signalées <span style="color:var(--amber-badge);background:var(--amber-bg);border-radius:3px;padding:0 5px;font-weight:600">!</span>
+        pèsent sur le prix sans changer le verdict&nbsp;: ${nCrit} parmi les critères, ${nLibre} dans le relevé libre.
+        Les coches n'apparaissent que sur ces lignes-là.</p>`;
 
     // --- zone haute : les criteres, alertes en tete
     if(crit.length){
       const ordre = crit.slice().sort((a,b)=>(b.alerte?1:0)-(a.alerte?1:0));
+      h += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Critères de la check-list${nCrit?` &mdash; ${nCrit} signalé${nCrit>1?'s':''}`:''}</div>`;
       h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:2px 18px">`;
       ordre.forEach(c=>{
         const na = c.etat==='sans_objet', abs = c.etat==='absent';
+        // trouve : V vert. Absent : ? orange sur fond gris. Sans objet : tiret gris.
+        const fond = na ? 'var(--surface2)' : (abs ? 'var(--surface2)' : 'var(--green-bg)');
+        const enc  = na ? 'var(--text3)'    : (abs ? 'var(--amber)'   : 'var(--green-badge)');
+        const sym  = na ? '&ndash;'         : (abs ? '?'              : '&check;');
         const marque = c.alerte ? pictoAtt(SVG_PAR_CHAMP[c.champ] || 'defaut')
-          : `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:${abs?'var(--text3)':'var(--text2)'};font-size:11px;line-height:1;flex:none">${na?'&ndash;':(abs?'?':'&middot;')}</span>`;
+          : `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${fond};color:${enc};font-weight:700;font-size:11px;line-height:1;flex:none">${sym}</span>`;
         const val = na ? '<span style="color:var(--text3)">sans objet</span>'
           : (c.valeur ? (c.couleur?badgeCouleur(c.couleur):esc(c.valeur))
                       : '<span style="color:var(--text3)">non trouvé</span>');
@@ -1123,7 +1133,7 @@ function synthDossier(d){
       const neutreC = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">&middot;</span>`;
       carPcb.sort((a,b)=>((b.importance==='attention')?1:0)-((a.importance==='attention')?1:0));
       h += `<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--border2)">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Relevé libre &mdash; hors check-list</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Relevé libre, hors check-list${nLibre?` &mdash; ${nLibre} signalé${nLibre>1?'s':''}`:''}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
       carPcb.forEach(c=>{
         const a = c.importance==='attention';
