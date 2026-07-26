@@ -147,6 +147,11 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 .tab{padding:11px 18px;color:var(--text3);border-bottom:2px solid transparent;cursor:pointer;font-size:12.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.jgs{display:inline-flex;gap:3px;flex:none;opacity:.4;transition:opacity .15s}
+.jgs:hover{opacity:1}
+.jg{width:19px;height:19px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text3);cursor:pointer;padding:0}
+.jg:hover{border-color:var(--blue);color:var(--blue)}
+.jg.ok{border-color:var(--green-badge);color:var(--green);background:var(--surface2)}
 </style>
 </head>
 <body>
@@ -360,7 +365,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "2.1";
+const APP_VERSION = "3.0";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -865,6 +870,50 @@ function pictoAtt(type){
     + `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
 }
 
+// ---------- coches de pertinence ----------
+// Trois gestes sur n'importe quel element : pas pertinent, standard, a surveiller.
+// La decision part dans la liste maison et s'applique a TOUTES les analyses
+// suivantes, le rapprochement d'un dossier a l'autre etant fait par le modele.
+const URL_FEEDBACK = 'https://protoprocess.app.n8n.cloud/webhook/f37234a4-3c78-4b19-a775-bc525e4b8723/v2-feedback-pertinence';
+
+function boutonsJuger(type, libelle){
+  if(!libelle) return '';
+  const enc = encodeURIComponent(libelle);
+  const b = (dec, titre, svg) =>
+    `<button class="jg" title="${titre}" onclick="ppJuger(this,'${type}','${enc}','${dec}')">`
+    + `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${svg}</svg></button>`;
+  return `<span class="jgs">`
+    + b('non_pertinent', 'Pas pertinent — ne plus le remonter', '<path d="M18 6L6 18M6 6l12 12"/>')
+    + b('standard',      'Standard — sans impact de chiffrage', '<path d="M5 12h14"/>')
+    + b('attention',     'À surveiller — pèse sur le prix',     '<path d="M12 5v9M12 18.2v.1"/>')
+    + `</span>`;
+}
+
+async function ppJuger(btn, type, libelleEnc, decision){
+  const libelle = decodeURIComponent(libelleEnc);
+  const grp = btn.parentElement;
+  const avant = grp.innerHTML;
+  grp.querySelectorAll('.jg').forEach(x => x.classList.remove('ok'));
+  btn.classList.add('ok');
+  try{
+    const r = await fetch(URL_FEEDBACK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decisions: [{
+        type_element: type,
+        libelle: libelle,
+        decision: decision,
+        client: (DATA && (DATA.client || DATA.client_detecte)) || '',
+        ref_projet: (DATA && (DATA.ref_projet || DATA.ref_projet_detectee)) || ''
+      }]})
+    });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+  }catch(e){
+    grp.innerHTML = avant;
+    alert("La décision n'a pas pu être enregistrée : " + e.message);
+  }
+}
+
 function synthDossier(d){
   const v = VERDICT[d.decision_pcb] || {cls:'',ico:'ti-help-circle',t:d.decision_pcb||'—',s:''};
   const dem = d.demande || {};
@@ -961,7 +1010,8 @@ function synthDossier(d){
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;font-weight:500">${esc(p.libelle)}</div>
           ${p.detail?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${val}</div>`:''}
-        </div></div>`;
+        </div>
+        ${boutonsJuger('point_attention', p.libelle)}</div>`;
     });
     h += `</div></div>`;
   }
@@ -1002,7 +1052,8 @@ function synthDossier(d){
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;${a?'font-weight:500':'color:var(--text2)'}">${esc(c.caracteristique||'')}</div>
           ${c.document?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(c.document)}${c.emplacement?' — '+esc(c.emplacement):''}</div>`:''}
-        </div></div>`;
+        </div>
+        ${boutonsJuger('caracteristique_pcb', c.caracteristique||'')}</div>`;
     });
     h += `</div></div>`;
   }
@@ -1027,7 +1078,8 @@ function synthDossier(d){
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;${x.attention?'font-weight:500':'color:var(--text2)'}">${esc(x.texte)}</div>
           ${x.document?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(x.document)}${x.emplacement?' — '+esc(x.emplacement):''}</div>`:''}
-        </div></div>`;
+        </div>
+        ${boutonsJuger('exigence_montage', x.texte||'')}</div>`;
     });
     h += `</div></div>`;
   }
