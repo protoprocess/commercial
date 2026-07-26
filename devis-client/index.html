@@ -371,7 +371,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "4.3";
+const APP_VERSION = "4.4";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1097,8 +1097,8 @@ function synthDossier(d){
     const decl = {};
     (d.declencheurs_rfq||[]).forEach(x=>{ const c = MAP_DECL[x.critere]; if(c) decl[c] = x.message; });
     const bloq = (d.hors_capacite && MAP_DECL[d.hors_capacite.critere]) || null;
-    const nSrc = crit.filter(c=>c.etat==='trouve').length;
-    const nApp = crit.filter(c=>c.etat!=='sans_objet').length;
+    const nSrc = d.nb_criteres_renseignes != null ? d.nb_criteres_renseignes : crit.filter(c=>c.etat==='trouve').length;
+    const nApp = d.nb_criteres_applicables != null ? d.nb_criteres_applicables : crit.filter(c=>c.etat!=='sans_objet').length;
     h += `<div class="card ${bloq?'err':''}"><h2><i class="ti ti-circuit-board"></i> Caractéristiques du circuit imprimé
         <span class="badge ${nSrc===nApp?'b-ok':'b-warn'}">${nSrc} / ${nApp} renseignés</span>
         ${nLibre?`<span class="badge b-warn">${nLibre} à surveiller au relevé</span>`:''}</h2>
@@ -1107,7 +1107,7 @@ function synthDossier(d){
 
     // --- zone haute : les criteres, alertes en tete
     if(crit.length){
-      const ordre = crit.slice().sort((a,b)=>(b.alerte?1:0)-(a.alerte?1:0));
+      const ordre = crit;   // ordre fige, defini cote n8n : l'oeil apprend les positions
       h += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Critères de la check-list</div>`;
       h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:2px 18px">`;
       ordre.forEach(c=>{
@@ -1121,16 +1121,18 @@ function synthDossier(d){
         else if(abs){     fond='var(--surface2)';  enc='var(--amber)';       sym='?'; }
         else {            fond='var(--green-bg)';  enc='var(--green-badge)'; sym='&check;'; }
         const marque = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${fond};color:${enc};font-weight:700;font-size:11px;line-height:1;flex:none">${sym}</span>`;
+        // la valeur est la reponse : elle doit se lire avant le libelle
+        const REP = 'color:var(--pp-blue);font-weight:600;font-size:13.5px';
         let val = na ? '<span style="color:var(--text3)">sans objet</span>'
-          : (c.valeur ? (c.couleur?badgeCouleur(c.couleur):esc(c.valeur))
+          : (c.valeur ? (c.couleur?badgeCouleur(c.couleur):`<span style="${REP}">${esc(c.valeur)}</span>`)
                       : '<span style="color:var(--text3)">non trouvé</span>');
-        if(estBloq) val = `<span style="color:var(--red);font-weight:700">${c.valeur?esc(c.valeur):'?'}</span> <span class="badge b-err">hors capacité</span>`;
-        else if(estDecl) val = `<span style="color:var(--red);font-weight:600">${c.valeur?esc(c.valeur):'?'}</span> <span class="badge b-err">déclencheur RFQ</span>`;
+        if(estBloq) val = `<span style="color:var(--red);font-weight:700;font-size:13.5px">${c.valeur?esc(c.valeur):'?'}</span> <span class="badge b-err">hors capacité</span>`;
+        else if(estDecl) val = `<span style="color:var(--red);font-weight:600;font-size:13.5px">${c.valeur?esc(c.valeur):'?'}</span> <span class="badge b-err">déclencheur RFQ</span>`;
         h += `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
           ${marque}
           <div style="flex:1;min-width:0">
-            <div style="font-size:12.5px;${abs||na?'color:var(--text2)':''}">${esc(c.libelle)}
-              <span style="margin-left:5px;${c.alerte?'font-weight:600':''}">${val}</span></div>
+            <div style="font-size:12px;color:${abs||na?'var(--text3)':'var(--text2)'}">${esc(c.libelle)}
+              <span style="margin-left:6px">${val}</span></div>
             ${(estBloq||estDecl)?`<div style="font-size:10.5px;color:var(--red);margin-top:1px">${esc(estBloq?d.hors_capacite.message:decl[c.champ])}</div>`
               :(c.detail?`<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${esc(c.detail)}</div>`:'')}
           </div>
