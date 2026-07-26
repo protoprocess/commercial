@@ -369,7 +369,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "3.2";
+const APP_VERSION = "3.3";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1102,6 +1102,32 @@ function synthDossier(d){
   }
   if((d.autres_exigences||[]).length) h += `<div class="card"><h2><i class="ti ti-note"></i> Autres exigences</h2>
     <ul class="li">${d.autres_exigences.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+
+  // liste maison : ce qu'elle a reellement change sur ce dossier.
+  // Sans ce retour, impossible de savoir si le mecanisme sert a quelque chose.
+  const app = d.decisions_appliquees||[];
+  const nRegles = d.regles_en_liste||0;
+  if(nRegles){
+    const LIB_DEC = {non_pertinent:'écarté', standard:'classé standard', attention:'remonté en attention'};
+    const CLS_DEC = {non_pertinent:'b-err', standard:'b-info', attention:'b-warn'};
+    h += `<div class="card"><h2><i class="ti ti-list-search"></i> Liste maison
+        <span class="badge ${app.length?'b-ok':'b-info'}">${app.length} appliquée${app.length>1?'s':''} sur ${nRegles}</span></h2>`;
+    if(!app.length){
+      h += `<p style="font-size:11.5px;color:var(--text2);margin:0">Aucune de vos ${nRegles} décisions ne correspondait à ce dossier.</p>`;
+    }else{
+      h += `<p style="font-size:11.5px;color:var(--text2);margin:0 0 9px">Vos décisions passées ont modifié cette analyse :</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
+      app.forEach(a=>{
+        h += `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:12.5px">${esc(a.element||a.regle)}
+            <span class="badge ${CLS_DEC[a.decision]||'b-info'}">${LIB_DEC[a.decision]||esc(a.decision)}</span></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">d'après votre décision : ${esc(a.regle)}</div>
+        </div>`;
+      });
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
 
   // sources : check-list des parametres attendus, trouves ou non
   // 17 criteres, dans l'ordre de lecture d'un plan de fabrication (validé le 25/07/2026)
