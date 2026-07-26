@@ -371,7 +371,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "4.1";
+const APP_VERSION = "4.2";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1097,7 +1097,7 @@ function synthDossier(d){
       <p style="font-size:11.5px;color:var(--text2);margin:0 0 10px">
         Les lignes signalées <span style="color:var(--amber-badge);background:var(--amber-bg);border-radius:3px;padding:0 5px;font-weight:600">!</span>
         pèsent sur le prix sans changer le verdict&nbsp;: ${nCrit} parmi les critères, ${nLibre} dans le relevé libre.
-        Les coches n'apparaissent que sur ces lignes-là.</p>`;
+        Les critères viennent de seuils fixes&nbsp;; seul le relevé libre se corrige par les coches.</p>`;
 
     // --- zone haute : les criteres, alertes en tete
     if(crit.length){
@@ -1122,7 +1122,6 @@ function synthDossier(d){
               <span style="margin-left:5px;${c.alerte?'font-weight:600':''}">${val}</span></div>
             ${c.detail?`<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${esc(c.detail)}</div>`:''}
           </div>
-          ${c.alerte?boutonsJuger('point_attention', c.libelle):''}
         </div>`;
       });
       h += `</div>`;
