@@ -353,12 +353,14 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
     <div class="tabs">
       <button class="tab active" data-p="synthese" onclick="tab('synthese')">Synthèse</button>
       <button class="tab" data-p="bom" onclick="tab('bom')">Nomenclature</button>
+      <button class="tab" data-p="sources" onclick="tab('sources')">Sources</button>
       <button class="tab" data-p="brut" onclick="tab('brut')">Fiches texte</button>
     </div>
     <div id="print-entete"></div>
   <div id="p-synthese"></div>
   <div id="print-bom"></div>
     <div id="p-bom" class="hidden"></div>
+    <div id="p-sources" class="hidden"></div>
     <div id="p-brut" class="hidden"></div>
   </div>
 
@@ -369,7 +371,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "3.3";
+const APP_VERSION = "4.0";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -710,7 +712,7 @@ function nouvelleAnalyse(){
 }
 function tab(p){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.p===p));
-  ['synthese','bom','brut'].forEach(x=>
+  ['synthese','bom','sources','brut'].forEach(x=>
     document.getElementById('p-'+x).classList.toggle('hidden', x!==p));
 }
 
@@ -791,6 +793,7 @@ function afficher(){
   const d = DATA || {};
   const estDossier = d.decision_pcb !== undefined;
   document.getElementById('p-synthese').innerHTML = estDossier ? synthDossier(d) : synthBom(d);
+  if(estDossier) rendreSources(d);
   document.getElementById('p-bom').innerHTML = (d.bom_rows && d.bom_rows.length && !(d.bom_lignes||[]).length)
     ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
     : tableBom(d);
@@ -868,6 +871,13 @@ const SVG_ATT = {
   delai:     '<circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/>',
   defaut:    '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/>'
 };
+// un critere de la check-list porte un nom de champ, pas un type de pastille
+const SVG_PAR_CHAMP = {
+  couches:'couches', piste_mini:'piste', isolement_mini:'piste', percage_mini:'percage',
+  epaisseur:'epaisseur', epaisseur_cuivre:'cuivre', materiau:'materiau', impedance:'impedance',
+  classe_ipc:'ipc', bouchage_vias:'vias', vias_borgnes:'vias', vias_enterres:'vias',
+  vernis:'couleur', aspect:'aspect'
+};
 function pictoAtt(type){
   const d = SVG_ATT[type] || SVG_ATT.defaut;
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);flex:none">`
@@ -929,6 +939,66 @@ async function ppJuger(btn, type, libelleEnc, decision){
     btns.forEach(x => { x.disabled = false; });
     delete grp.dataset.envoi;
   }
+}
+
+
+// 17 criteres, dans l'ordre de lecture d'un plan de fabrication (validé le 25/07/2026)
+const CHECKLIST = [
+  ['couches','Couches'], ['dimensions','Dimensions (L × H)'], ['epaisseur_mm','Épaisseur'],
+  ['materiau','Matériau'], ['flex_rigide_flex','Flex / rigide-flex'],
+  ['epaisseur_cuivre_um','Épaisseur de cuivre'], ['piste_mini_um','Piste mini'],
+  ['isolement_mini_um','Isolement mini'], ['percage_mini_mm','Perçage mini'],
+  ['vias_borgnes','Vias borgnes'], ['vias_enterres','Vias enterrés'],
+  ['bouchage_vias','Bouchage de vias'], ['impedance_controlee','Impédance contrôlée'],
+  ['finition','Finition'], ['vernis_epargne','Vernis épargne'],
+  ['serigraphie','Sérigraphie'], ['classe_ipc','Classe IPC']
+];
+
+// ---------- onglet Sources : la check-list detaillee ----------
+function rendreSources(d){
+  const zone = document.getElementById('p-sources');
+  if(!zone) return;
+  const sources = fusionnerSources(d.sources||[]);
+  const parLibelle = {};
+  sources.forEach(s=>{ const l = LIBELLE_CHAMP[s.champ]; if(l && !parLibelle[l]) parLibelle[l] = s; });
+  const okP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--green-bg);color:var(--green-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&check;</span>`;
+  const koP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--red-bg);color:var(--red-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&times;</span>`;
+  const naP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">&ndash;</span>`;
+  const NA = d.sans_trous_metallises ? ['Perçage mini'] : [];
+  const applicables = CHECKLIST.filter(([,lbl])=>!NA.includes(lbl));
+  const trouves = applicables.filter(([,lbl])=>parLibelle[lbl]).length;
+
+  let g = `<div class="card"><h2><i class="ti ti-list-check"></i> Où vérifier chaque paramètre dans le dossier
+      <span class="badge ${trouves===applicables.length?'b-ok':'b-warn'}">${trouves} / ${applicables.length} trouvés</span>
+      ${NA.length?`<span class="badge b-info">${NA.length} sans objet</span>`:''}</h2>
+    <p style="font-size:11.5px;color:var(--text2);margin:0 0 10px">Chaque paramètre retenu dans l'analyse, avec le document et l'emplacement exact où il a été lu.</p>`;
+  for(const [,lbl] of CHECKLIST){
+    const na = NA.includes(lbl);
+    const s = na ? null : parLibelle[lbl];
+    g += `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      ${na?naP:(s?okP:koP)}
+      <div style="width:170px;flex:none;font-size:12.5px;${na?'color:var(--text2)':''}">${esc(lbl)}</div>
+      <div style="flex:1;min-width:0;font-size:11.5px;color:${s?'var(--text2)':'var(--text3)'}">
+        ${na ? 'sans objet — aucun trou métallisé sur cette carte'
+             : (s ? `<span style="color:var(--text)">${esc(s.document)}</span>${s.emplacement?' — '+esc(s.emplacement):''}`
+                  : 'non trouvé dans le dossier')}
+      </div></div>`;
+  }
+  g += `</div>`;
+
+  const autres = (d.sources||[]).filter(s=>!LIBELLE_CHAMP[s.champ]);
+  if(autres.length){
+    g += `<div class="card"><h2><i class="ti ti-file-search"></i> Autres champs relevés
+        <span class="badge b-info">${autres.length}</span></h2>`;
+    autres.forEach(s=>{
+      g += `<div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="width:170px;flex:none;font-size:12.5px;color:var(--text2)">${esc(s.champ)}</div>
+        <div style="flex:1;min-width:0;font-size:11.5px;color:var(--text2)">${esc(s.document||'')}${s.emplacement?' — '+esc(s.emplacement):''}</div>
+      </div>`;
+    });
+    g += `</div>`;
+  }
+  zone.innerHTML = g;
 }
 
 function synthDossier(d){
@@ -1010,69 +1080,65 @@ function synthDossier(d){
   }
   h += `</div>`;
 
-  // points d'attention : impact prix, sans effet sur le verdict.
-  // Un pictogramme par nature de critere : quand la liste est longue, on repere
-  // de quoi il s'agit sans lire.
+  // ================= CARACTERISTIQUES DU CIRCUIT IMPRIME =================
+  // Un seul bloc, deux zones : les 17 criteres avec leur valeur, puis le releve
+  // libre. Objectif : voir d'un coup d'oeil ce qui est DEJA capte, pour cesser
+  // de remonter en alerte une information deja presente ailleurs.
   const attP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--amber-bg);color:var(--amber-badge);font-weight:700;font-size:12px;line-height:1;flex:none">!</span>`;
-  const att = d.pastilles_attention||[];
-  if(att.length){
-    h += `<div class="card warn"><h2><i class="ti ti-alert-square-rounded"></i> Points d'attention
-        <span class="badge b-warn">${att.length}</span></h2>
-      <p style="font-size:11.5px;color:var(--text2);margin:0 0 9px">Ces éléments ne changent pas le verdict mais pèsent sur le prix.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 18px">`;
-    att.forEach(p=>{
-      const val = p.type==='couleur' ? badgeCouleur(p.detail) : esc(p.detail);
-      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
-        ${pictoAtt(p.type)}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;font-weight:500">${esc(p.libelle)}</div>
-          ${p.detail?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${val}</div>`:''}
-        </div>
-        ${boutonsJuger('point_attention', p.libelle)}</div>`;
-    });
-    h += `</div></div>`;
-  }
-
-  // ecarts spec / fichiers : a verifier, pas a chiffrer. Bloc et couleur distincts
-  // des points d'attention, pour que les deux compteurs restent lisibles.
-  const div = d.divergences||[];
-  if(div.length){
-    const divP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--pink-bg);color:var(--pink-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&ne;</span>`;
-    h += `<div class="card" style="border-left:3px solid var(--pink-badge)"><h2><i class="ti ti-git-compare"></i> Écarts spec / fichiers
-        <span class="badge b-info">${div.length} à vérifier</span></h2>
-      <p style="font-size:11.5px;color:var(--text2);margin:0 0 9px">Le document et les fichiers de fabrication ne disent pas la même chose. La valeur du document a été retenue — l'écart est à lever avant de chiffrer.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
-    div.forEach(x=>{
-      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
-        ${divP}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;font-weight:500">${esc(x.critere)}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:1px">spec <span style="color:var(--text2)">${esc(x.spec)}</span> &nbsp;·&nbsp; fichiers <span style="color:var(--text2)">${esc(x.gerber)}</span></div>
-        </div></div>`;
-    });
-    h += `</div></div>`;
-  }
-
-  // autres caracteristiques du circuit imprime : champ large, hors check-list
+  const crit = d.criteres_pcb||[];
   const carPcb = (d.autres_caracteristiques_pcb||[]).filter(c=>c&&typeof c==='object');
-  if(carPcb.length){
-    const neutreC = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">·</span>`;
-    const nbAttC = carPcb.filter(c=>c.importance==='attention').length;
-    h += `<div class="card"><h2><i class="ti ti-circuit-changeover"></i> Autres caractéristiques du circuit imprimé
-        ${nbAttC?`<span class="badge b-warn">${nbAttC} à surveiller</span>`:''}</h2>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
-    carPcb.sort((a,b)=>((b.importance==='attention')?1:0)-((a.importance==='attention')?1:0));
-    carPcb.forEach(c=>{
-      const a = c.importance==='attention';
-      h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
-        ${a?attP:neutreC}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;${a?'font-weight:500':'color:var(--text2)'}">${esc(c.caracteristique||'')}</div>
-          ${c.document?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(c.document)}${c.emplacement?' — '+esc(c.emplacement):''}</div>`:''}
-        </div>
-        ${boutonsJuger('caracteristique_pcb', c.caracteristique||'')}</div>`;
-    });
-    h += `</div></div>`;
+  const nAlerte = d.nb_alertes_pcb||0;
+  const nTotal  = d.nb_caracteristiques_pcb||(crit.length+carPcb.length);
+
+  if(crit.length||carPcb.length){
+    h += `<div class="card ${nAlerte?'warn':''}"><h2><i class="ti ti-circuit-board"></i> Caractéristiques du circuit imprimé
+        <span class="badge ${nAlerte?'b-warn':'b-ok'}">${nAlerte} à surveiller sur ${nTotal}</span></h2>`;
+
+    // --- zone haute : les criteres, alertes en tete
+    if(crit.length){
+      const ordre = crit.slice().sort((a,b)=>(b.alerte?1:0)-(a.alerte?1:0));
+      h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:2px 18px">`;
+      ordre.forEach(c=>{
+        const na = c.etat==='sans_objet', abs = c.etat==='absent';
+        const marque = c.alerte ? pictoAtt(SVG_PAR_CHAMP[c.champ] || 'defaut')
+          : `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:${abs?'var(--text3)':'var(--text2)'};font-size:11px;line-height:1;flex:none">${na?'&ndash;':(abs?'?':'&middot;')}</span>`;
+        const val = na ? '<span style="color:var(--text3)">sans objet</span>'
+          : (c.valeur ? (c.couleur?badgeCouleur(c.couleur):esc(c.valeur))
+                      : '<span style="color:var(--text3)">non trouvé</span>');
+        h += `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+          ${marque}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;${abs||na?'color:var(--text2)':''}">${esc(c.libelle)}
+              <span style="margin-left:5px;${c.alerte?'font-weight:600':''}">${val}</span></div>
+            ${c.detail?`<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${esc(c.detail)}</div>`:''}
+          </div>
+          ${c.alerte?boutonsJuger('point_attention', c.libelle):''}
+        </div>`;
+      });
+      h += `</div>`;
+    }
+
+    // --- zone basse : le releve libre
+    if(carPcb.length){
+      const neutreC = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">&middot;</span>`;
+      carPcb.sort((a,b)=>((b.importance==='attention')?1:0)-((a.importance==='attention')?1:0));
+      h += `<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--border2)">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Relevé libre &mdash; hors check-list</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
+      carPcb.forEach(c=>{
+        const a = c.importance==='attention';
+        h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
+          ${a?attP:neutreC}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;${a?'font-weight:500':'color:var(--text2)'}">${esc(c.caracteristique||'')}</div>
+            ${c.document?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(c.document)}${c.emplacement?' — '+esc(c.emplacement):''}</div>`:''}
+          </div>
+          ${boutonsJuger('caracteristique_pcb', c.caracteristique||'')}
+        </div>`;
+      });
+      h += `</div></div>`;
+    }
+    h += `</div>`;
   }
 
   // exigences de montage : colonnes, pastille d'alerte sur les operations speciales
@@ -1130,17 +1196,6 @@ function synthDossier(d){
   }
 
   // sources : check-list des parametres attendus, trouves ou non
-  // 17 criteres, dans l'ordre de lecture d'un plan de fabrication (validé le 25/07/2026)
-  const CHECKLIST = [
-    ['couches','Couches'], ['dimensions','Dimensions (L × H)'], ['epaisseur_mm','Épaisseur'],
-    ['materiau','Matériau'], ['flex_rigide_flex','Flex / rigide-flex'],
-    ['epaisseur_cuivre_um','Épaisseur de cuivre'], ['piste_mini_um','Piste mini'],
-    ['isolement_mini_um','Isolement mini'], ['percage_mini_mm','Perçage mini'],
-    ['vias_borgnes','Vias borgnes'], ['vias_enterres','Vias enterrés'],
-    ['bouchage_vias','Bouchage de vias'], ['impedance_controlee','Impédance contrôlée'],
-    ['finition','Finition'], ['vernis_epargne','Vernis épargne'],
-    ['serigraphie','Sérigraphie'], ['classe_ipc','Classe IPC']
-  ];
   const srcFusion = fusionnerSources(d.sources||[]);
   const parLibelle = {};
   srcFusion.forEach(s => { parLibelle[s.champ] = s; });
@@ -1148,31 +1203,21 @@ function synthDossier(d){
   const okP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--green-bg);color:var(--green-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&#10003;</span>`;
   const koP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--red-bg);color:var(--red-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&#10007;</span>`;
 
-  // Un critere SANS OBJET n'est ni trouve ni manquant : il ne s'applique pas a
-  // cette carte. L'afficher en croix rouge serait un faux reproche.
+  // La check-list detaillee vit desormais dans l'onglet Sources : c'est de la
+  // matiere de verification, pas de decision. Seul le score reste ici, parce
+  // qu'il repond en une seconde a la question "a-t-on tout vu ?".
   const SANS_OBJET_LBL = d.sans_trous_metallises ? ['Perçage mini'] : [];
-  const naP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">&ndash;</span>`;
   const applicables = CHECKLIST.filter(([,lbl])=>!SANS_OBJET_LBL.includes(lbl));
   const trouves = applicables.filter(([,lbl])=>parLibelle[lbl]).length;
-  h += `<div class="card"><h2><i class="ti ti-list-check"></i> Sources
+  h += `<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+      <i class="ti ti-list-check" style="color:var(--text3)"></i>
+      <span style="font-size:13px;font-weight:600">Sources des paramètres</span>
       <span class="badge ${trouves===applicables.length?'b-ok':'b-warn'}">${trouves} / ${applicables.length} trouvés</span>
-      ${SANS_OBJET_LBL.length?`<span class="badge b-info">${SANS_OBJET_LBL.length} sans objet</span>`:''}</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 18px">`;
-  for(const [,lbl] of CHECKLIST){
-    const na = SANS_OBJET_LBL.includes(lbl);
-    const s = na ? null : parLibelle[lbl];
-    h += `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
-      ${na?naP:(s?okP:koP)}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12.5px;${na?'color:var(--text2)':''}">${esc(lbl)}</div>
-        <div style="font-size:11px;color:${s?'var(--text2)':'var(--text3)'};margin-top:1px"
-             title="${s?esc(s.document+(s.emplacement?' — '+s.emplacement:'')):''}">
-          ${na ? 'sans objet — aucun trou métallisé sur cette carte'
-               : (s ? esc(s.document) + (s.emplacement?' — '+esc(s.emplacement):'') : 'non trouvé dans le dossier')}
-        </div>
-      </div></div>`;
-  }
-  h += `</div></div>`;
+      ${SANS_OBJET_LBL.length?`<span class="badge b-info">${SANS_OBJET_LBL.length} sans objet</span>`:''}
+    </div>
+    <button class="btn-s" onclick="tab('sources')">Voir le détail <i class="ti ti-arrow-right"></i></button>
+  </div>`;
 
   // questions
   if((d.questions_client||[]).length) h += `<div class="card warn"><h2><i class="ti ti-message-question"></i> À clarifier avec le client</h2>
