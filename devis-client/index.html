@@ -360,7 +360,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "1.9";
+const APP_VERSION = "2.0";
 const APP_DATE = "25/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1036,19 +1036,27 @@ function synthDossier(d){
   const okP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--green-bg);color:var(--green-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&#10003;</span>`;
   const koP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--red-bg);color:var(--red-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&#10007;</span>`;
 
-  const trouves = CHECKLIST.filter(([,lbl])=>parLibelle[lbl]).length;
+  // Un critere SANS OBJET n'est ni trouve ni manquant : il ne s'applique pas a
+  // cette carte. L'afficher en croix rouge serait un faux reproche.
+  const SANS_OBJET_LBL = d.sans_trous_metallises ? ['Perçage mini'] : [];
+  const naP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">&ndash;</span>`;
+  const applicables = CHECKLIST.filter(([,lbl])=>!SANS_OBJET_LBL.includes(lbl));
+  const trouves = applicables.filter(([,lbl])=>parLibelle[lbl]).length;
   h += `<div class="card"><h2><i class="ti ti-list-check"></i> Sources
-      <span class="badge ${trouves===CHECKLIST.length?'b-ok':'b-warn'}">${trouves} / ${CHECKLIST.length} trouvés</span></h2>
+      <span class="badge ${trouves===applicables.length?'b-ok':'b-warn'}">${trouves} / ${applicables.length} trouvés</span>
+      ${SANS_OBJET_LBL.length?`<span class="badge b-info">${SANS_OBJET_LBL.length} sans objet</span>`:''}</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 18px">`;
   for(const [,lbl] of CHECKLIST){
-    const s = parLibelle[lbl];
+    const na = SANS_OBJET_LBL.includes(lbl);
+    const s = na ? null : parLibelle[lbl];
     h += `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
-      ${s?okP:koP}
+      ${na?naP:(s?okP:koP)}
       <div style="flex:1;min-width:0">
-        <div style="font-size:12.5px">${esc(lbl)}</div>
+        <div style="font-size:12.5px;${na?'color:var(--text2)':''}">${esc(lbl)}</div>
         <div style="font-size:11px;color:${s?'var(--text2)':'var(--text3)'};margin-top:1px"
              title="${s?esc(s.document+(s.emplacement?' — '+s.emplacement:'')):''}">
-          ${s ? esc(s.document) + (s.emplacement?' — '+esc(s.emplacement):'') : 'non trouvé dans le dossier'}
+          ${na ? 'sans objet — aucun trou métallisé sur cette carte'
+               : (s ? esc(s.document) + (s.emplacement?' — '+esc(s.emplacement):'') : 'non trouvé dans le dossier')}
         </div>
       </div></div>`;
   }
