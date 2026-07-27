@@ -28,6 +28,11 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--accent)}
 .spacer{flex:1}
 .hdr-note{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.zoom-ctl{display:flex;align-items:center;gap:2px;margin-right:12px}
+.zoom-ctl button{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--text2);border:0.5px solid var(--border);border-radius:var(--radius);font-size:13px;cursor:pointer}
+.zoom-ctl button:hover{color:var(--text);border-color:var(--border2)}
+.zoom-ctl .zoom-val{min-width:38px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer}
+.zoom-ctl .zoom-val:hover{color:var(--text2)}
 
 .wrap{max-width:min(96vw,1800px);margin:0 auto;padding:20px}
 
@@ -124,8 +129,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 .mode-btn{border-radius:6px;padding:6px 14px;font-size:12.5px}
 @media print{
   @page{ size:A4; margin:14mm 12mm; }
-  html,body{ background:#fff!important; color:#111!important; font-size:10.5pt }
-  header,.tabs,#depot,#summary,#config,#fiche-client,#sig-btn,#sig-fond,.btn-p,.btn-s,.filter-btn{ display:none!important }
+  html,body{ background:#fff!important; color:#111!important; font-size:10.5pt; zoom:1!important }
+  header,.tabs,#depot,#summary,#config,#fiche-client,#sig-btn,#sig-fond,.btn-p,.btn-s,.filter-btn,.zoom-ctl{ display:none!important }
   .wrap{ max-width:none;padding:0 }
   #p-bom,#p-brut{ display:none!important }
   #p-synthese{ display:block!important }
@@ -251,6 +256,11 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Analyse dossier client</span></span>
   </div>
   <div class="spacer"></div>
+  <div class="zoom-ctl" title="Taille de l'interface — mémorisée sur ce navigateur. Cliquer le pourcentage pour revenir à 100%.">
+    <button onclick="changerZoom(-10)" title="Réduire"><i class="ti ti-minus"></i></button>
+    <span class="zoom-val" id="zoom-val" onclick="resetZoom()">100%</span>
+    <button onclick="changerZoom(10)" title="Agrandir"><i class="ti ti-plus"></i></button>
+  </div>
   <span class="hdr-note" id="hdr-version">v1.6 — 25/07/2026</span>
   <span class="hdr-note" id="hdr-mode" style="margin-left:10px">mode test</span>
   <button class="btn-s" onclick="toggleConfig()"><i class="ti ti-settings"></i> Réglages</button>
@@ -418,10 +428,37 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "5.1";
+const APP_VERSION = "5.2";
 const APP_DATE = "27/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
+// ---- Taille de l'interface : reglage par utilisateur, memorise par navigateur.
+// Motif : les tailles de l'appli sont calibrees petites (11-13px) ; confortables
+// sur un ecran Retina, trop petites sur un moniteur de bureau en 100%.
+// Le zoom met tout a l'echelle sans toucher aux tailles existantes.
+const CLE_ZOOM = 'devisClient_zoom';
+function lireZoom(){
+  let v = 100;
+  try{ v = parseInt(localStorage.getItem(CLE_ZOOM) || '100', 10); }catch(e){}
+  if(!(v >= 80 && v <= 160)) v = 100;
+  return v;
+}
+function appliquerZoom(v){
+  document.body.style.zoom = v / 100;
+  const el = document.getElementById('zoom-val');
+  if(el) el.textContent = v + '%';
+}
+function changerZoom(delta){
+  const v = Math.max(80, Math.min(160, lireZoom() + delta));
+  try{ localStorage.setItem(CLE_ZOOM, String(v)); }catch(e){}
+  appliquerZoom(v);
+}
+function resetZoom(){
+  try{ localStorage.setItem(CLE_ZOOM, '100'); }catch(e){}
+  appliquerZoom(100);
+}
+appliquerZoom(lireZoom());
 
 let FILES = [];
 let DATA = null;
