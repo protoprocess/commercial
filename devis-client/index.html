@@ -151,6 +151,13 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px}
 .tab{padding:11px 18px;color:var(--text3);border-bottom:2px solid transparent;cursor:pointer;font-size:12.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* Bandeau de fiche rouverte par lien : liseré plutôt que fond teinté, les
+   tons pastel en alpha deviennent invisibles sur fond sombre. */
+#bandeau-fiche{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 13px;margin-bottom:12px;border-radius:var(--radius);
+  background:var(--surface2);border-left:3px solid var(--accent);font-size:12px;color:var(--text2)}
+#bandeau-fiche .bf-t{color:var(--text);font-weight:500}
+#bandeau-fiche .bf-sep{color:var(--text3)}
 @media(max-width:760px){.grid2{grid-template-columns:1fr}}
 /* signalement : bouton flottant discret, toujours accessible */
 #sig-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:inline-flex;align-items:center;gap:7px;
@@ -372,6 +379,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 
   <!-- RÉSULTATS -->
   <div id="res" class="hidden">
+    <div id="bandeau-fiche" class="hidden"></div>
     <div class="tabs">
       <button class="tab active" data-p="synthese" onclick="tab('synthese')">Synthèse</button>
       <button class="tab" data-p="bom" onclick="tab('bom')">Nomenclature</button>
@@ -428,8 +436,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "5.2";
-const APP_DATE = "27/07/2026";
+const APP_VERSION = "5.3";
+const APP_DATE = "29/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -463,6 +471,9 @@ appliquerZoom(lireZoom());
 let FILES = [];
 let DATA = null;
 let ANALYSE_ID = 0;   // incremente a chaque nouvelle analyse : invalide les boucles precedentes
+// Renseignee uniquement quand la page est ouverte via ?fiche=<job_id> : la fiche
+// vient alors de la base, aucune analyse n'a tourne dans ce navigateur.
+let FICHE_LIEN = null;
 
 /* ---------- config ---------- */
 function cfg(){
@@ -786,6 +797,9 @@ function rouvrir(){
 function nouvelleAnalyse(){
   ANALYSE_ID++;              // invalide toute boucle d'interrogation encore active
   FILES = []; DATA = null; BOM_FILTER = 'tous'; DETECTION_INCONNUE = null;
+  FICHE_LIEN = null;
+  document.getElementById('bandeau-fiche').classList.add('hidden');
+  if(location.search) history.replaceState(null, '', location.pathname);
   renderFiles();
   document.getElementById('f-ref').value = '';
   document.getElementById('f-client').value = '';
@@ -888,8 +902,12 @@ function afficher(){
   const estDossier = d.decision_pcb !== undefined;
   document.getElementById('p-synthese').innerHTML = estDossier ? synthDossier(d) : synthBom(d);
   if(estDossier) rendreSources(d);
-  document.getElementById('p-bom').innerHTML = (d.bom_rows && d.bom_rows.length && !(d.bom_lignes||[]).length)
-    ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
+  const bomTraitee = (d.bom_lignes||d.lignes||[]).length > 0;
+  const bomBrute = (d.bom_rows||[]).length > 0;
+  document.getElementById('p-bom').innerHTML =
+      bomTraitee ? tableBom(d)
+    : (FICHE_LIEN && bomBrute) ? tableBomBrute(d)   // fiche rouverte : rien ne tourne
+    : bomBrute ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
     : tableBom(d);
   document.getElementById('p-brut').innerHTML = brut(d);
   tab('synthese');
@@ -1427,6 +1445,44 @@ function correspondFiltre(l, f){
   if(f==='nc') return !!l.a_ne_pas_cabler;
   return l.voie === f;
 }
+// Nomenclature telle que lue dans le fichier client, sans codification.
+// Utilisee quand la fiche est rouverte par lien : le traitement BOM n'est pas
+// stocke, seul le contenu brut l'est. Le relancer est un choix explicite.
+function tableBomBrute(d){
+  const rows = d.bom_rows || [];
+  const entetes = (d.bom_entetes && d.bom_entetes.length)
+    ? d.bom_entetes
+    : Object.keys(rows[0] || {});
+  // les colonnes vides sur toute la nomenclature n'apportent rien a l'ecran
+  const utiles = entetes.filter(c => rows.some(r => String(r[c] == null ? '' : r[c]).trim() !== ''));
+
+  let h = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature du client</h2>
+    <p class="hint" style="margin-bottom:10px">${rows.length} ligne(s) lue(s) dans
+    ${esc(d.bom_fichier_source || 'le fichier client')}. Cette fiche a été rouverte depuis un lien :
+    la codification n'est pas conservée en base, elle doit être relancée pour être affichée.</p>
+    <div style="margin-bottom:12px">
+      <button class="btn-p" id="btn-relance-bom" onclick="relancerBom()">
+        <i class="ti ti-refresh"></i> Relancer le traitement de la nomenclature</button>
+      <span class="hint" style="display:inline;margin-left:9px">environ une minute</span>
+    </div>`;
+
+  if(!rows.length) return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`;
+
+  h += `<div class="tblwrap"><table><thead><tr>` +
+       utiles.map(c=>`<th>${esc(c)}</th>`).join('') + `</tr></thead><tbody>`;
+  for(const r of rows){
+    h += `<tr>` + utiles.map(c=>`<td>${esc(r[c])}</td>`).join('') + `</tr>`;
+  }
+  return h + `</tbody></table></div></div>`;
+}
+
+// Relance uniquement la codification, sur la nomenclature deja en memoire.
+function relancerBom(){
+  const b = document.getElementById('btn-relance-bom');
+  if(b) b.disabled = true;
+  traiterBom(DATA.bom_rows || [], DATA.client || '');
+}
+
 function tableBom(d){
   const toutes = d.bom_lignes || d.lignes || [];
   const b64 = d.bom_xlsx_base64, nom = d.bom_xlsx_nom || 'BOM_traitee_Luminovo.xlsx';
@@ -1618,7 +1674,73 @@ function copierQuestions(){
   navigator.clipboard.writeText((DATA.questions_client||[]).map((q,i)=>(i+1)+'. '+q).join('\n'));
 }
 
-onModeChange(); saveConfig(); chargerClients();
+/* ---------- ouverture d'une fiche par lien ----------
+   Le job_id fait office de cle : 13 caracteres aleatoires. Le lien vit dans une
+   note du SO Odoo, donc deja derriere l'authentification Odoo.
+   Rien n'est ecrit ici : lecture seule.                                        */
+function dateFr(iso){
+  try{
+    const d = new Date(iso);
+    if(isNaN(d)) return String(iso||'');
+    return d.toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+  }catch(e){ return String(iso||''); }
+}
+
+function bandeauFiche(m){
+  const el = document.getElementById('bandeau-fiche');
+  const bouts = [
+    m.client ? esc(m.client) : null,
+    m.ref_projet ? esc(m.ref_projet) : null,
+    m.cree_le ? 'analysée le ' + esc(dateFr(m.cree_le)) : null
+  ].filter(Boolean);
+  const etat = m.statut === 'traite' ? 'rattachée'
+             : m.statut === 'ignore' ? 'écartée'
+             : 'en attente de relecture';
+  el.innerHTML =
+    `<i class="ti ti-link" style="color:var(--accent)"></i>
+     <span class="bf-t">Fiche rouverte</span>
+     <span class="bf-sep">·</span> ${bouts.join(' <span class="bf-sep">·</span> ')}
+     <span class="bf-sep">·</span> ${esc(etat)}
+     <span style="flex:1"></span>
+     <button class="btn-s" onclick="nouvelleAnalyse()"><i class="ti ti-plus"></i> Nouvelle analyse</button>`;
+  el.classList.remove('hidden');
+}
+
+async function chargerFicheDepuisLien(){
+  const params = new URLSearchParams(location.search);
+  const job = (params.get('fiche') || params.get('job') || '').trim();
+  if(!job) return;
+
+  const st = document.getElementById('status');
+  st.innerHTML = '<span class="spin"></span> Ouverture de la fiche\u2026';
+  try{
+    const r = await fetch(`${cfg().base}/webhook/devis-fiche?job=` + encodeURIComponent(job));
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if(!j.trouve) throw new Error(j.message || 'Fiche introuvable.');
+    if(!j.fiche_valide || !j.fiche) throw new Error('La fiche enregistrée est illisible.');
+
+    FICHE_LIEN = j;
+    DATA = j.fiche;
+    st.textContent = '';
+    appliquerDetections();
+    replier();
+    document.getElementById('summary-txt').textContent =
+      `${j.client || 'client non précisé'}${j.ref_projet ? ' / ' + j.ref_projet : ''} — fiche enregistrée`;
+    afficher();
+    bandeauFiche(j);
+  }catch(e){
+    const m = /load failed|failed to fetch|networkerror/i.test(e.message)
+      ? "Impossible de joindre n8n pour ouvrir la fiche."
+      : e.message;
+    st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(m)}</span>`;
+  }
+}
+
+onModeChange(); saveConfig();
+// L'ouverture par lien attend la liste des clients : sans elle, le client
+// detecte ne trouverait pas son option et s'afficherait a tort comme inconnu.
+chargerClients().then(chargerFicheDepuisLien).catch(chargerFicheDepuisLien);
 </script>
 </body>
 </html>
