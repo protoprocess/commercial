@@ -436,7 +436,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "5.3";
+const APP_VERSION = "5.4";
 const APP_DATE = "29/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -842,7 +842,10 @@ async function traiterBom(rows, client){
       body: JSON.stringify({
         client: client, rows: rows,
         nom_fichier_bom: DATA.bom_fichier_source || null,
-        entetes: DATA.bom_entetes || []
+        entetes: DATA.bom_entetes || [],
+        // identifiant de la fiche dans analyses_tampon : le workflow y rangera
+        // le resultat, pour que la reouverture du lien le relise sans retraiter
+        dossier_job_id: (FICHE_LIEN && FICHE_LIEN.job_id) || DATA.job_id || null
       })
     });
     const t = await r.text();
@@ -1462,8 +1465,8 @@ function tableBomBrute(d){
     la codification n'est pas conservée en base, elle doit être relancée pour être affichée.</p>
     <div style="margin-bottom:12px">
       <button class="btn-p" id="btn-relance-bom" onclick="relancerBom()">
-        <i class="ti ti-refresh"></i> Relancer le traitement de la nomenclature</button>
-      <span class="hint" style="display:inline;margin-left:9px">environ une minute</span>
+        <i class="ti ti-refresh"></i> Lancer le traitement de la nomenclature</button>
+      <span class="hint" style="display:inline;margin-left:9px">environ une minute — le résultat sera conservé pour les prochaines ouvertures</span>
     </div>`;
 
   if(!rows.length) return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`;
@@ -1488,6 +1491,7 @@ function tableBom(d){
   const b64 = d.bom_xlsx_base64, nom = d.bom_xlsx_nom || 'BOM_traitee_Luminovo.xlsx';
   let h = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature traitée
       <span style="flex:1"></span></h2>`;
+  if(d.bom_traite_le) h += `<p class="hint" style="margin-bottom:8px">Traitement du ${esc(dateFr(d.bom_traite_le))} — relu depuis la base, pas recalculé.</p>`;
   if(b64) h += `<div style="margin-bottom:12px"><button class="btn-p" onclick="dl()"><i class="ti ti-download"></i> Télécharger BOM traitée</button>
      <span class="hint" style="display:inline;margin-left:9px">Colonnes d'origine intactes + IPN + Statut PP</span></div>`;
   else if(toutes.length) h += `<p class="hint" style="margin-bottom:10px">Aucun fichier xlsx retourné.</p>`;
@@ -1722,6 +1726,18 @@ async function chargerFicheDepuisLien(){
 
     FICHE_LIEN = j;
     DATA = j.fiche;
+    // codification deja calculee pour ce dossier : on la recharge telle quelle,
+    // au lieu d afficher la BOM brute et de proposer un retraitement
+    if(j.bom_resultat && (j.bom_resultat.lignes||[]).length){
+      const b = j.bom_resultat;
+      DATA.bom_lignes = b.lignes || [];
+      DATA.bom_totaux = b.totaux || null;
+      DATA.bom_controles_luminovo = b.controles_luminovo || [];
+      DATA.bom_fiche_texte = b.fiche_texte || '';
+      DATA.bom_xlsx_nom = b.bom_xlsx_nom || null;
+      DATA.bom_xlsx_base64 = b.bom_xlsx_base64 || null;
+      DATA.bom_traite_le = j.bom_traite_le || null;
+    }
     st.textContent = '';
     appliquerDetections();
     replier();
