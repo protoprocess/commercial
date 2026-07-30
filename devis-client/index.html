@@ -270,6 +270,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   </div>
   <span class="hdr-note" id="hdr-version">v1.6 — 25/07/2026</span>
   <span class="hdr-note" id="hdr-mode" style="margin-left:10px">mode test</span>
+  <button class="btn-s" onclick="ouvrirAnalyses()" style="margin-right:6px"><i class="ti ti-list-search"></i> Mes analyses</button>
   <button class="btn-s" onclick="toggleConfig()"><i class="ti ti-settings"></i> Réglages</button>
 </header>
 
@@ -293,6 +294,17 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
     </div>
     <p class="hint">Les workflows sont publiés : le mode Production fonctionne directement. Le mode Test sert à voir l'exécution pas à pas dans n8n, en cliquant « Test workflow » juste avant l'envoi.</p>
     <div style="margin-top:10px"><button class="btn-p" onclick="saveConfig(true)"><i class="ti ti-check"></i> Enregistrer</button></div>
+  </div>
+
+  <div class="card hidden" id="analyses">
+    <h2><i class="ti ti-list-search"></i> Mes analyses</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:11px;flex-wrap:wrap">
+      <input class="f" id="an-q" placeholder="Client, référence, objet du mail…" style="flex:1;min-width:200px"
+             onkeydown="if(event.key==='Enter')chargerAnalyses()">
+      <button class="btn-p" onclick="chargerAnalyses()"><i class="ti ti-search"></i> Chercher</button>
+      <button class="btn-s" onclick="document.getElementById('analyses').classList.add('hidden')"><i class="ti ti-x"></i> Fermer</button>
+    </div>
+    <div id="an-liste"><p class="hint">Chargement…</p></div>
   </div>
 
   <!-- DÉPÔT -->
@@ -357,10 +369,20 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
     <div class="dz" id="dz" onclick="document.getElementById('fi').click()">
       <i class="ti ti-cloud-upload"></i>
       <p>Déposer les fichiers du dossier</p>
-      <p class="sub">Zip, ou plusieurs fichiers séparés — Gerber, nomenclature, pick &amp; place, plans PDF, mail .eml</p>
+      <p class="sub">Zip, Gerber, nomenclature, pick &amp; place, plans PDF — ou le <b>mail .eml</b>, dont les pièces jointes sont extraites automatiquement</p>
     </div>
     <input type="file" id="fi" multiple class="hidden" onchange="addFiles(this.files)">
     <div class="files" id="files"></div>
+
+    <div id="mail-ctx" class="hidden" style="margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+        <i class="ti ti-mail-opened" style="color:var(--accent)"></i>
+        <span style="font-size:12.5px;font-weight:600">Mail lu</span>
+        <span style="flex:1"></span>
+        <button class="btn-s" onclick="emlRetirer()" title="Oublier ce mail"><i class="ti ti-x"></i></button>
+      </div>
+      <div id="mail-ctx-corps"></div>
+    </div>
 
     <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <button class="btn-p" id="go" onclick="analyser()" disabled><i class="ti ti-player-play"></i> Analyser</button>
@@ -436,8 +458,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "5.4";
-const APP_DATE = "29/07/2026";
+const APP_VERSION = "6.0";
+const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -496,7 +518,12 @@ const dz = document.getElementById('dz');
 dz.addEventListener('drop',ev=>addFiles(ev.dataTransfer.files));
 
 function addFiles(list){
-  for(const f of list){ if(!FILES.some(x=>x.name===f.name && x.size===f.size)) FILES.push(f); }
+  const autres = [];
+  for(const f of list){
+    if(/\.eml$/i.test(f.name)){ lireEml(f); continue; }
+    autres.push(f);
+  }
+  for(const f of autres){ if(!FILES.some(x=>x.name===f.name && x.size===f.size)) FILES.push(f); }
   renderFiles();
 }
 function removeFile(i){ FILES.splice(i,1); renderFiles(); }
@@ -641,8 +668,16 @@ async function analyser(){
   const fd = new FormData();
   fd.append('client', nomClient);
   fd.append('ref_projet', document.getElementById('f-ref').value || '');
-  fd.append('mail_objet', document.getElementById('f-ref').value || '');
-  fd.append('mail_corps', document.getElementById('f-mail').value || '');
+  const commentaire = document.getElementById('f-mail').value || '';
+  fd.append('mail_objet', (MAIL_CTX && MAIL_CTX.objet) || document.getElementById('f-ref').value || '');
+  fd.append('mail_corps', MAIL_CTX
+    ? (MAIL_CTX.texte + (commentaire ? '\n\n--- commentaire saisi dans l\'appli ---\n' + commentaire : ''))
+    : commentaire);
+  if(MAIL_CTX) fd.append('contexte_mail', JSON.stringify({
+    message_id: MAIL_CTX.message_id || '', de: MAIL_CTX.de || '', a: MAIL_CTX.a || '',
+    objet: MAIL_CTX.objet || '', date: MAIL_CTX.date || '', mailer: MAIL_CTX.mailer || '',
+    pieces: (MAIL_CTX.pieces || []).map(p => ({ nom: p.nom, octets: p.octets, prof: p.prof, joint: !!p.joint }))
+  }));
   if(info) fd.append('client_fiche', JSON.stringify(info));
   FILES.forEach((f,i)=>fd.append('fichier'+i, f, f.name));
 
@@ -1757,6 +1792,382 @@ onModeChange(); saveConfig();
 // L'ouverture par lien attend la liste des clients : sans elle, le client
 // detecte ne trouverait pas son option et s'afficherait a tort comme inconnu.
 chargerClients().then(chargerFicheDepuisLien).catch(chargerFicheDepuisLien);
+
+/* ================================================================
+   v6.0 — LECTURE D'UN MAIL .eml DEPOSE
+   Tout se passe dans le navigateur : le .eml ne quitte jamais le poste.
+   On en tire le contexte (client, objet, corps) et, si le mail est
+   depose seul, ses pieces jointes, qui rejoignent la liste des
+   fichiers comme si elles avaient ete deposees a la main.
+   Le .eml lui-meme n'est jamais envoye : le parseur du workflow ne
+   descend pas dans les multipart imbriques et rend un corps pollue
+   sur les mails Outlook a message joint.
+   ================================================================ */
+let MAIL_CTX = null;      // contexte du dernier mail lu
+let EML_ARCHIVES = [];    // archives candidates quand il y en a plusieurs
+
+function emlDeplier(bloc){
+  const lignes = bloc.split(/\r?\n/), out = [];
+  for(const l of lignes){
+    if(/^[ \t]/.test(l) && out.length) out[out.length-1] += ' ' + l.trim();
+    else out.push(l);
+  }
+  const map = {};
+  for(const l of out){
+    const i = l.indexOf(':');
+    if(i < 1) continue;
+    const cle = l.slice(0,i).trim().toLowerCase();
+    const val = l.slice(i+1).trim();
+    if(map[cle] === undefined) map[cle] = val; else map[cle] += ' | ' + val;
+  }
+  return map;
+}
+function emlQP(s){
+  return String(s).replace(/=(?:\r?\n)/g,'')
+    .replace(/=([0-9A-Fa-f]{2})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));
+}
+function emlBinaire(latin1){
+  const u = new Uint8Array(latin1.length);
+  for(let i=0;i<latin1.length;i++) u[i] = latin1.charCodeAt(i) & 0xFF;
+  return u;
+}
+function emlOctets(brut, cte){
+  const enc = String(cte||'').toLowerCase();
+  if(enc.indexOf('base64') > -1){
+    const net = brut.replace(/[^A-Za-z0-9+/=]/g,'');
+    try{ return emlBinaire(atob(net)); }catch(e){ return new Uint8Array(0); }
+  }
+  if(enc.indexOf('quoted-printable') > -1) return emlBinaire(emlQP(brut));
+  return emlBinaire(brut);
+}
+function emlVersTexte(brut, cte, charset){
+  const cs = String(charset||'utf-8').toLowerCase();
+  const lab = (cs.indexOf('1252')>-1 || cs.indexOf('8859')>-1) ? 'windows-1252' : 'utf-8';
+  try{ return new TextDecoder(lab,{fatal:false}).decode(emlOctets(brut,cte)); }
+  catch(e){ return brut; }
+}
+function emlParam(v, nom){
+  if(!v) return null;
+  let m = new RegExp(nom+'\\*?\\s*=\\s*"([^"]*)"','i').exec(v);
+  if(m) return m[1];
+  m = new RegExp(nom+'\\*?[0-9]*\\s*=\\s*([^;\\s]+)','i').exec(v);
+  return m ? m[1].replace(/^"|"$/g,'') : null;
+}
+/* nom de fichier decoupe par Outlook : filename*0=".."; filename*1=".." */
+function emlNomLong(v){
+  if(!v) return null;
+  const bouts = [];
+  const re = /filename\*([0-9]+)\*?\s*=\s*"?([^";]*)"?/gi;
+  let m;
+  while((m = re.exec(v)) !== null) bouts.push([parseInt(m[1],10), m[2]]);
+  if(!bouts.length) return null;
+  bouts.sort((a,b)=>a[0]-b[0]);
+  return bouts.map(b=>b[1]).join('');
+}
+function emlMotEncode(s){
+  if(!s) return s;
+  return String(s).replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g,(m,cs,mode,data)=>{
+    try{
+      const cte = mode.toUpperCase()==='B' ? 'base64' : 'quoted-printable';
+      const d = mode.toUpperCase()==='B' ? data : data.replace(/_/g,' ');
+      return emlVersTexte(d, cte, cs);
+    }catch(e){ return data; }
+  }).replace(/\?=\s+=\?/g,'');
+}
+
+const EML_PLAFOND = 20000, EML_PROF_MAX = 6;
+
+function emlAnalyser(src, prof, res, racine){
+  if(prof > EML_PROF_MAX) return;
+  const sep = src.search(/\r?\n\r?\n/);
+  const entetes = sep < 0 ? {} : emlDeplier(src.slice(0,sep));
+  const corps   = sep < 0 ? src : src.slice(sep).replace(/^\r?\n\r?\n/,'');
+
+  if(racine){
+    res.message_id = (entetes['message-id']||'').replace(/^<|>$/g,'');
+    res.de     = emlMotEncode(entetes['from']||'');
+    res.a      = emlMotEncode(entetes['to']||'');
+    res.objet  = emlMotEncode(entetes['subject']||'');
+    res.date   = entetes['date']||'';
+    res.mailer = entetes['x-mailer']||entetes['user-agent']||'';
+  }
+
+  const ct    = entetes['content-type'] || 'text/plain';
+  const type  = ct.split(';')[0].trim().toLowerCase();
+  const cte   = entetes['content-transfer-encoding'] || '';
+  const disp  = entetes['content-disposition'] || '';
+  const nom   = emlNomLong(disp) || emlParam(disp,'filename') || emlParam(ct,'name');
+
+  if(type.indexOf('multipart/') === 0){
+    const b = emlParam(ct,'boundary');
+    if(!b){ res.anomalies.push('partie multipart sans frontière'); return; }
+    const morceaux = corps.split('--'+b);
+    for(let i=1;i<morceaux.length;i++){
+      if(/^--/.test(morceaux[i])) break;
+      emlAnalyser(morceaux[i].replace(/^\r?\n/,''), prof, res, false);
+    }
+    return;
+  }
+  if(type === 'message/rfc822'){
+    /* un mail joint : c'est une pièce jointe à part entière, pas un
+       morceau du message. Son texte n'alimente jamais la demande. */
+    const inter = { corps:[], pieces:[], anomalies:[] };
+    emlAnalyser(corps, prof+1, inter, false);
+    const objet = (corps.match(/\n[Ss]ubject:\s*([^\r\n]*)/)||[])[1] || 'message joint';
+    const date  = (corps.match(/\n[Dd]ate:\s*([^\r\n]*)/)||[])[1] || '';
+    res.pieces.push({ nom: emlMotEncode(objet.trim())+'.eml', type:'message/rfc822',
+                      octets: corps.length, prof: prof, joint:true, date: date.trim(),
+                      contenu: null, dedans: inter.pieces });
+    return;
+  }
+  if(type === 'text/plain' && !nom){
+    const t = emlVersTexte(corps, cte, emlParam(ct,'charset'));
+    if(t.trim()) res.corps.push({ prof:prof, texte:t.slice(0,EML_PLAFOND) });
+    return;
+  }
+  if(type === 'text/html' && !nom){ res.html = (res.html||0)+1; return; }
+
+  const net = corps.replace(/\s+/g,'').length;
+  const taille = /base64/i.test(cte) ? Math.floor(net*3/4) : corps.length;
+  res.pieces.push({ nom: emlMotEncode(nom||'(sans nom)'), type:type, octets:taille,
+                    prof:prof, inline:/inline/i.test(disp), brut:corps, cte:cte });
+}
+
+function emlNettoyer(t){
+  return String(t)
+    .replace(/\r\n?/g,'\n')
+    .replace(/https?:\/\/[^\s<>"]*(?:securelink|urldefense|safelinks)[^\s<>"]*/gi,'[lien réécrit]')
+    .replace(/https?:\/\/\S{120,}/g,'[lien long]')
+    .replace(/\uFFFC/g,'')
+    .replace(/\[cid:[^\]]+\]/gi,'')
+    .replace(/[ \t]+\n/g,'\n')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+}
+
+function emlParser(src){
+  const res = { message_id:'', de:'', a:'', objet:'', date:'', mailer:'',
+                corps:[], pieces:[], html:0, anomalies:[] };
+  emlAnalyser(src, 0, res, true);
+  /* seul le niveau 0 est la demande : un message joint est un document */
+  const n0 = res.corps.filter(c=>c.prof===0).map(c=>emlNettoyer(c.texte)).filter(Boolean);
+  res.texte = n0.join('\n\n');
+  if(!res.message_id) res.anomalies.push("pas d'identifiant de message : le fil Gmail ne pourra pas être retrouvé automatiquement");
+  if(!res.texte) res.anomalies.push('aucun corps en texte brut, seule une version HTML est présente');
+  return res;
+}
+
+/* ---- extensions retenues pour l'analyse ---- */
+const EML_ARCH = /\.(zip|rar|7z)$/i;
+const EML_ANALYSABLE = /\.(zip|rar|7z|xls|xlsx|xlsm|csv|ods|doc|docx|txt|pdf)$/i;
+const EML_PARASITE = /^(ATT[0-9]+\.txt|winmail\.dat|image[0-9]{3}\.(png|jpg|gif))$/i;
+
+function emlEstUtile(p){
+  if(p.joint) return false;
+  /* Apple Mail marque TOUTES ses pieces en inline, documents compris :
+     on ne rejette donc que les images inline, qui sont les signatures. */
+  if(p.inline && /^image\//i.test(p.type)) return false;
+  if(EML_PARASITE.test(p.nom)) return false;
+  if(!EML_ANALYSABLE.test(p.nom)) return false;
+  if(/\.pdf$/i.test(p.nom) && p.octets < 30720) return false;
+  return true;
+}
+
+function emlVersFichier(p){
+  const u = emlOctets(p.brut, p.cte);
+  return new File([u], p.nom, { type:'application/octet-stream' });
+}
+
+/* ---------- lecture d'un .eml deposé ---------- */
+async function lireEml(file){
+  const st = document.getElementById('status');
+  st.innerHTML = '<span class="spin"></span> Lecture du mail…';
+  try{
+    const u = new Uint8Array(await file.arrayBuffer());
+    let brut = '', CH = 32768;
+    for(let i=0;i<u.length;i+=CH) brut += String.fromCharCode.apply(null, u.subarray(i,i+CH));
+    const r = emlParser(brut);
+
+    /* Règle de dépôt : le mail seul livre aussi ses pièces jointes ;
+       déposé à côté d'autres fichiers, il n'apporte que son texte. */
+    const dejaDesFichiers = FILES.some(f => !f._eml);
+    MAIL_CTX = r;
+    EML_ARCHIVES = r.pieces
+      .filter(p => !p.joint)
+      .map(p => Object.assign({}, p, { retenue: !dejaDesFichiers && emlEstUtile(p) }));
+
+    emlSync();
+    emlAfficher(dejaDesFichiers);
+    emlPreremplir(r);
+    st.textContent = '';
+  }catch(e){
+    MAIL_CTX = null; EML_ARCHIVES = [];
+    st.innerHTML = '<span style="color:var(--red)">Mail illisible : ' + esc(e.message) + '</span>';
+  }
+}
+
+/* les pièces cochées rejoignent la liste des fichiers, les autres en sortent */
+function emlSync(){
+  for(let i=FILES.length-1;i>=0;i--) if(FILES[i]._eml) FILES.splice(i,1);
+  for(const p of EML_ARCHIVES){
+    if(!p.retenue) continue;
+    try{
+      const f = emlVersFichier(p);
+      f._eml = true;
+      FILES.push(f);
+    }catch(e){ /* une pièce illisible ne doit pas empêcher les autres */ }
+  }
+  renderFiles();
+}
+
+function emlBasculer(i){
+  if(!EML_ARCHIVES[i]) return;
+  EML_ARCHIVES[i].retenue = !EML_ARCHIVES[i].retenue;
+  emlSync(); emlAfficher();
+}
+
+function emlRetirer(){
+  MAIL_CTX = null; EML_ARCHIVES = [];
+  for(let i=FILES.length-1;i>=0;i--) if(FILES[i]._eml) FILES.splice(i,1);
+  document.getElementById('mail-ctx').classList.add('hidden');
+  renderFiles();
+}
+
+function emlKo(n){ return (n/1024).toFixed(0) + ' ko'; }
+
+function emlAfficher(corpsSeul){
+  const r = MAIL_CTX;
+  if(!r){ document.getElementById('mail-ctx').classList.add('hidden'); return; }
+  document.getElementById('mail-ctx').classList.remove('hidden');
+
+  const L = [];
+  L.push('<div style="font-size:12.5px;line-height:1.65">');
+  if(r.objet) L.push('<div><span style="color:var(--text3)">Objet</span> &nbsp;' + esc(r.objet) + '</div>');
+  if(r.de)    L.push('<div><span style="color:var(--text3)">De</span> &nbsp;' + esc(r.de) + '</div>');
+  if(r.date)  L.push('<div><span style="color:var(--text3)">Date</span> &nbsp;' + esc(r.date) + '</div>');
+  L.push('</div>');
+
+  if(r.texte){
+    const apercu = r.texte.length > 600 ? r.texte.slice(0,600) + '…' : r.texte;
+    L.push('<div style="margin-top:9px;padding:9px 11px;background:var(--bg);border-radius:var(--radius);'
+      + 'font-size:12px;color:var(--text2);white-space:pre-wrap;max-height:150px;overflow:auto">'
+      + esc(apercu) + '</div>');
+  }
+
+  if(EML_ARCHIVES.length){
+    L.push('<div style="margin-top:11px;font-size:12px;color:var(--text3);text-transform:uppercase;'
+      + 'letter-spacing:.4px;margin-bottom:5px">Pièces jointes du mail</div>');
+    EML_ARCHIVES.forEach((p,i) => {
+      const joint = p.joint;
+      L.push('<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;'
+        + (joint ? 'opacity:.65' : 'cursor:pointer') + '">');
+      L.push(joint
+        ? '<i class="ti ti-mail" style="color:var(--text3);width:14px"></i>'
+        : '<input type="checkbox" ' + (p.retenue ? 'checked' : '') + ' onchange="emlBasculer(' + i + ')">');
+      L.push('<i class="ti ' + icoFor(p.nom) + '" style="color:var(--text3)"></i>');
+      L.push('<span>' + esc(p.nom) + '</span>');
+      L.push('<span style="color:var(--text3)">' + emlKo(p.octets) + '</span>');
+      if(joint) L.push('<span style="color:var(--text3);font-style:italic">message joint, non analysé</span>');
+      L.push('</label>');
+      for(const d of (p.dedans||[])){
+        L.push('<div style="padding:2px 0 2px 30px;font-size:12px;color:var(--text3)">└─ '
+          + esc(d.nom) + ' · ' + emlKo(d.octets) + '</div>');
+      }
+    });
+  }
+
+  if(corpsSeul){
+    L.push('<p class="hint" style="margin-top:9px">Des fichiers étaient déjà déposés : '
+      + 'seul le texte du mail est repris. Cochez une pièce pour l\'ajouter quand même.</p>');
+  }
+  for(const a of (r.anomalies||[])){
+    L.push('<p class="hint" style="margin-top:7px;color:var(--amber)">'
+      + '<i class="ti ti-alert-triangle"></i> ' + esc(a) + '</p>');
+  }
+  document.getElementById('mail-ctx-corps').innerHTML = L.join('');
+}
+
+/* pré-remplissage : référence depuis l'objet, client par domaine connu.
+   L'expéditeur ne suffit pas — un mail transféré en interne porte notre
+   propre adresse, le vrai client n'étant cité que dans le corps. */
+function emlPreremplir(r){
+  const ref = document.getElementById('f-ref');
+  if(!ref.value && r.objet){
+    ref.value = r.objet.replace(/^\s*(re|fwd|fw|tr)\s*:\s*/i,'').trim().slice(0,120);
+  }
+  const sel = document.getElementById('f-client');
+  if(sel.value || !CLIENTS || !CLIENTS.length) return;
+
+  const vus = [];
+  const ajoute = t => String(t||'').replace(/[\w.+-]+@[\w.-]+\.\w+/g, m => { vus.push(m.toLowerCase()); return m; });
+  ajoute(r.de); ajoute(r.a); ajoute(r.texte);
+
+  const NOUS = 'proto-process.fr';
+  for(const mail of vus){
+    const dom = mail.split('@').pop();
+    if(dom === NOUS) continue;
+    const c = CLIENTS.find(x => x.domaine && String(x.domaine).toLowerCase() === dom);
+    if(c){ sel.value = c.nom; onClientChange(); return; }
+  }
+}
+
+/* ---------- écran « Mes analyses » ---------- */
+function ouvrirAnalyses(){
+  document.getElementById('analyses').classList.remove('hidden');
+  chargerAnalyses();
+}
+
+async function chargerAnalyses(){
+  const box = document.getElementById('an-liste');
+  const q = (document.getElementById('an-q').value || '').trim();
+  box.innerHTML = '<p class="hint"><span class="spin"></span> Chargement…</p>';
+  try{
+    const url = `${cfg().base}/webhook/devis-analyses` + (q ? '?q=' + encodeURIComponent(q) : '');
+    const rep = await fetch(url);
+    if(!rep.ok) throw new Error('HTTP ' + rep.status);
+    const j = await rep.json();
+    const lignes = j.analyses || [];
+    if(!lignes.length){ box.innerHTML = '<p class="hint">Aucune analyse trouvée.</p>'; return; }
+
+    const pastille = (t, fond, txt) =>
+      `<span style="background:${fond};color:${txt};font-size:11.5px;padding:2px 7px;border-radius:var(--radius);white-space:nowrap">${esc(t)}</span>`;
+    const vBadge = v => !v ? pastille('—','var(--surface2)','var(--text3)')
+      : v === 'RFQ'           ? pastille('RFQ','var(--red-bg)','var(--red-badge)')
+      : v === 'HORS_CAPACITE' ? pastille('hors capacité','var(--red-bg)','var(--red-badge)')
+      : v === 'STANDARD'      ? pastille('standard','var(--green-bg)','var(--green-badge)')
+      :                         pastille('indéterminé','var(--surface2)','var(--text3)');
+    const sBadge = st => st === 'a_relire' ? pastille('à relire','var(--amber-bg)','var(--amber-badge)')
+      : st === 'traite'   ? pastille('traité','var(--green-bg)','var(--green-badge)')
+      : st === 'echec'    ? pastille('échec','var(--red-bg)','var(--red-badge)')
+      : pastille(st || '—','var(--surface2)','var(--text3)');
+
+    box.innerHTML =
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+      + '<tr style="color:var(--text3);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px">'
+      + '<th style="text-align:left;padding:6px 8px">Date</th>'
+      + '<th style="text-align:left;padding:6px 8px">Client — référence</th>'
+      + '<th style="text-align:left;padding:6px 8px">Verdict</th>'
+      + '<th style="text-align:left;padding:6px 8px">Statut</th>'
+      + '<th style="text-align:right;padding:6px 8px">BOM</th></tr>'
+      + lignes.map(l => {
+          const d = l.cree_le ? new Date(l.cree_le) : null;
+          const jour = d ? String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') : '—';
+          const mail = l.depuis_mail ? ' <i class="ti ti-mail" style="color:var(--text3)" title="issue d\'un mail"></i>' : '';
+          return '<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="location.search=\'?fiche=' + encodeURIComponent(l.job_id) + '\'">'
+            + '<td style="padding:8px;color:var(--text2);white-space:nowrap">' + jour + '</td>'
+            + '<td style="padding:8px"><b>' + esc(l.client || '—') + '</b> — ' + esc(l.ref_projet || l.mail_objet || '') + mail + '</td>'
+            + '<td style="padding:8px">' + vBadge(l.verdict) + '</td>'
+            + '<td style="padding:8px">' + sBadge(l.statut) + '</td>'
+            + '<td style="padding:8px;text-align:right;color:var(--text2)">' + (l.bom_nb_lignes != null ? l.bom_nb_lignes : '—') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</table>'
+      + `<p class="hint" style="margin-top:9px">${lignes.length} analyse(s) — un clic sur une ligne rouvre sa fiche.</p>`;
+  }catch(e){
+    box.innerHTML = '<p class="hint" style="color:var(--amber)">Liste indisponible : ' + esc(e.message) + '</p>';
+  }
+}
+
 </script>
 </body>
 </html>
