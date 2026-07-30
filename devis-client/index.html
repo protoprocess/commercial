@@ -467,7 +467,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.3";
+const APP_VERSION = "6.4";
 const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -527,13 +527,15 @@ const dz = document.getElementById('dz');
 dz.addEventListener('drop',ev=>addFiles(ev.dataTransfer.files));
 
 function addFiles(list){
-  const autres = [];
-  for(const f of list){
-    if(/\.eml$/i.test(f.name)){ lireEml(f); continue; }
-    autres.push(f);
-  }
+  // Les fichiers ordinaires sont pousses AVANT la lecture du mail : la regle
+  // de depot teste la presence d autres fichiers, et l ordre inverse la faisait
+  // toujours conclure que le mail etait seul.
+  const autres = [], mails = [];
+  for(const f of list){ (/\.eml$/i.test(f.name) ? mails : autres).push(f); }
   for(const f of autres){ if(!FILES.some(x=>x.name===f.name && x.size===f.size)) FILES.push(f); }
   renderFiles();
+  if(mails.length){ for(const f of mails) lireEml(f, autres.length > 0); }
+  else if(autres.length && typeof MAIL_CTX !== 'undefined' && MAIL_CTX) emlDecocherTout();
 }
 function removeFile(i){ FILES.splice(i,1); renderFiles(); }
 function icoFor(n){
@@ -1968,7 +1970,11 @@ function emlParser(src){
 
 /* ---- extensions retenues pour l'analyse ---- */
 const EML_ARCH = /\.(zip|rar|7z)$/i;
-const EML_ANALYSABLE = /\.(zip|rar|7z|xls|xlsx|xlsm|csv|ods|doc|docx|txt|pdf)$/i;
+/* Les formats de pose (pick and place) sont des fichiers texte a extension
+   proprietaire : sans eux, l analyse conclut que le fichier de pose manque
+   alors qu il etait joint au mail. */
+const EML_POSE = /\.(pkp|pos|xy|cpl|mnt)$/i;
+const EML_ANALYSABLE = /\.(zip|rar|7z|xls|xlsx|xlsm|csv|ods|doc|docx|txt|pdf|pkp|pos|xy|cpl|mnt)$/i;
 const EML_PARASITE = /^(ATT[0-9]+\.txt|winmail\.dat|image[0-9]{3}\.(png|jpg|gif))$/i;
 
 function emlEstUtile(p){
@@ -1996,7 +2002,8 @@ const EML_MIME = {
   ods:'application/vnd.oasis.opendocument.spreadsheet',
   doc:'application/msword',
   docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif'
+  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif',
+  pkp:'text/plain', pos:'text/plain', xy:'text/plain', cpl:'text/plain', mnt:'text/plain'
 };
 function emlTypeMime(nom){
   const e = String(nom||'').split('.').pop().toLowerCase();
@@ -2009,7 +2016,7 @@ function emlVersFichier(p){
 }
 
 /* ---------- lecture d'un .eml deposé ---------- */
-async function lireEml(file){
+async function lireEml(file, avecDautresFichiers){
   const st = document.getElementById('status');
   st.innerHTML = '<span class="spin"></span> Lecture du mail…';
   try{
@@ -2019,9 +2026,22 @@ async function lireEml(file){
     const r = emlParser(brut);
 
     /* Règle de dépôt : le mail seul livre aussi ses pièces jointes ;
-       déposé à côté d'autres fichiers, il n'apporte que son texte. */
-    const dejaDesFichiers = FILES.some(f => !f._eml);
+       déposé à côté d'autres fichiers, il n'apporte que son texte.
+       L'information vient de addFiles, qui a poussé les autres fichiers
+       AVANT d'appeler la lecture — sinon la liste est encore vide et la
+       règle se trompe systématiquement sur un dépôt groupé. */
+    const dejaDesFichiers = !!avecDautresFichiers || FILES.some(f => !f._eml);
+    /* Les détections de l'analyse précédente restent affichées : sans ce
+       nettoyage, l'écran mélange deux dossiers — client d'un côté, mail de
+       l'autre. */
     MAIL_CTX = r;
+    try{
+      DETECTION_INCONNUE = null;
+      const hint = document.getElementById('client-hint');
+      if(hint) hint.innerHTML = '';
+      const selC = document.getElementById('f-client');
+      if(selC) { selC.value = ''; if(typeof onClientChange === 'function') onClientChange(); }
+    }catch(e){}
     EML_ARCHIVES = r.pieces
       .filter(p => !p.joint)
       .map(p => Object.assign({}, p, { retenue: !dejaDesFichiers && emlEstUtile(p) }));
@@ -2048,6 +2068,16 @@ function emlSync(){
     }catch(e){ /* une pièce illisible ne doit pas empêcher les autres */ }
   }
   renderFiles();
+}
+
+/* Des fichiers déposés après le mail appliquent la règle a posteriori :
+   le mail retombe à son seul rôle de contexte. */
+function emlDecocherTout(){
+  if(!MAIL_CTX) return;
+  let change = false;
+  for(const p of EML_ARCHIVES){ if(p.retenue){ p.retenue = false; change = true; } }
+  if(!change) return;
+  emlSync(); emlAfficher(true);
 }
 
 function emlBasculer(i){
@@ -2121,12 +2151,14 @@ function emlAfficher(corpsSeul){
    L'expéditeur ne suffit pas — un mail transféré en interne porte notre
    propre adresse, le vrai client n'étant cité que dans le corps. */
 function emlPreremplir(r){
+  /* Un nouveau mail redéfinit la référence : la garder ferait porter au
+     dossier courant le titre du précédent. */
   const ref = document.getElementById('f-ref');
-  if(!ref.value && r.objet){
+  if(r.objet){
     ref.value = r.objet.replace(/^\s*(re|fwd|fw|tr)\s*:\s*/i,'').trim().slice(0,120);
   }
   const sel = document.getElementById('f-client');
-  if(sel.value || !CLIENTS || !CLIENTS.length) return;
+  if(!CLIENTS || !CLIENTS.length) return;
 
   const vus = [];
   const ajoute = t => String(t||'').replace(/[\w.+-]+@[\w.-]+\.\w+/g, m => { vus.push(m.toLowerCase()); return m; });
