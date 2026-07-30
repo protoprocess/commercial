@@ -458,7 +458,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.1";
+const APP_VERSION = "6.2";
 const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1171,7 +1171,7 @@ function rendreSources(d){
   if(!zone) return;
   const sources = fusionnerSources(d.sources||[]);
   const parLibelle = {};
-  sources.forEach(s=>{ const l = LIBELLE_CHAMP[s.champ]; if(l && !parLibelle[l]) parLibelle[l] = s; });
+  sources.forEach(s=>{ if(s.champ && !parLibelle[s.champ]) parLibelle[s.champ] = s; });
   const okP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--green-bg);color:var(--green-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&check;</span>`;
   const koP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--red-bg);color:var(--red-badge);font-weight:700;font-size:11px;line-height:1;flex:none">&times;</span>`;
   const naP = `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:var(--surface2);color:var(--text3);font-weight:700;font-size:11px;line-height:1;flex:none">&ndash;</span>`;
