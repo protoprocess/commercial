@@ -458,7 +458,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.0";
+const APP_VERSION = "6.1";
 const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1973,9 +1973,30 @@ function emlEstUtile(p){
   return true;
 }
 
+/* Le type MIME n'est pas cosmetique : n8n en derive l'extension du binaire
+   (fileExtension), et son noeud de decompression refuse une archive dont
+   l'extension deduite vaut .bin — en renvoyant l'erreur dans son json tout
+   en rapportant un succes. Un octet-stream produit donc une fiche vide et
+   credible. Le nom du fichier, lui, n'est pas consulte. */
+const EML_MIME = {
+  zip:'application/zip', rar:'application/vnd.rar', '7z':'application/x-7z-compressed',
+  pdf:'application/pdf', csv:'text/csv', txt:'text/plain',
+  xls:'application/vnd.ms-excel',
+  xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xlsm:'application/vnd.ms-excel.sheet.macroEnabled.12',
+  ods:'application/vnd.oasis.opendocument.spreadsheet',
+  doc:'application/msword',
+  docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif'
+};
+function emlTypeMime(nom){
+  const e = String(nom||'').split('.').pop().toLowerCase();
+  return EML_MIME[e] || 'application/octet-stream';
+}
+
 function emlVersFichier(p){
   const u = emlOctets(p.brut, p.cte);
-  return new File([u], p.nom, { type:'application/octet-stream' });
+  return new File([u], p.nom, { type: emlTypeMime(p.nom) });
 }
 
 /* ---------- lecture d'un .eml deposé ---------- */
