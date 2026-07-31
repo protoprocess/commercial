@@ -474,8 +474,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.9";
-const APP_DATE = "31/07/2026";
+const APP_VERSION = "7.0";
+const APP_DATE = "01/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -764,7 +764,7 @@ function delaiPoll(i){
   return 15000;               // au-dela : cadence lente
 }
 
-async function suivreJob(job, nb){
+async function suivreJob(job, nb, garderSynthese){
   const c = cfg();
   const monId = ANALYSE_ID;
   const zone = document.getElementById('p-bom');
@@ -795,7 +795,11 @@ async function suivreJob(job, nb){
       DATA.bom_xlsx_nom = d.bom_xlsx_nom || null;
       DATA.bom_xlsx_base64 = d.bom_xlsx_base64 || null;
       try{
-        document.getElementById('p-synthese').innerHTML = synthBom({totaux:DATA.bom_totaux, controles_luminovo:DATA.bom_controles_luminovo});
+        // Sur un rechargement depuis une fiche ouverte, la synthese affichee est celle
+        // du DOSSIER : la remplacer par celle de la nomenclature ferait perdre l'analyse PCB.
+        if(!garderSynthese){
+          document.getElementById('p-synthese').innerHTML = synthBom({totaux:DATA.bom_totaux, controles_luminovo:DATA.bom_controles_luminovo});
+        }
         zone.innerHTML = tableBom(DATA);
         document.getElementById('p-brut').innerHTML = brut(DATA);
       }catch(e){
@@ -974,6 +978,46 @@ function afficher(){
 // Nomenclature trouvee dans le dossier mais impossible a lire. On nomme le
 // fichier et on donne le motif : sans cela, l'ecran vide est indiscernable
 // d'un dossier sans nomenclature.
+// Depose une nomenclature corrigee depuis une fiche deja ouverte : le fichier repart
+// dans la chaine d'ingestion habituelle, et seul le volet nomenclature est remplace.
+// Le resultat n'est PAS enregistre en base — il vit dans la page et part au rechargement.
+function blocRechargeBom(txt){
+  return `<div style="margin:12px 0 0;padding:11px 14px;background:var(--surface2);border-radius:var(--radius)">
+    <p style="margin:0 0 8px;font-size:12.5px;color:var(--text2)">${txt}</p>
+    <input type="file" id="bom-recharge" accept=".xls,.xlsx,.csv,.txt"
+           onchange="rechargerNomenclature(this)"
+           style="font-size:12px;color:var(--text2)">
+    <p class="hint" style="margin:7px 0 0">Le résultat s'affiche ici mais n'est pas conservé en base :
+    il disparaîtra si vous rechargez la page.</p>
+  </div>`;
+}
+
+async function rechargerNomenclature(input){
+  const f = input && input.files && input.files[0];
+  if(!f) return;
+  const zone = document.getElementById('p-bom');
+  const c = cfg();
+  zone.innerHTML = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2>
+    <p style="color:var(--text2)"><span class="spin"></span> Lecture de ${esc(f.name)}\u2026</p></div>`;
+  const fd = new FormData();
+  fd.append('client', (DATA && DATA.client) || '');
+  fd.append('fichier0', f, f.name);
+  try{
+    const r = await fetch(`${c.base}/${c.mode}/bom-client-ingestion`, { method:'POST', body: fd });
+    const t = await r.text();
+    if(!r.ok) throw new Error('HTTP ' + r.status + ' \u2014 ' + t.slice(0,180));
+    let lance; try{ lance = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0,180)); }
+    if(!lance.job_id) throw new Error("Aucun identifiant de traitement renvoyé — le fichier n'a pas été accepté.");
+    if(!DATA) DATA = {};
+    tab('bom');
+    suivreJob(lance.job_id, lance.nb_lignes || 0, true);
+  }catch(e){
+    zone.innerHTML = `<div class="card err"><h2><i class="ti ti-table"></i> Nomenclature</h2>
+      <p style="color:var(--red)">Rechargement impossible : ${esc(e.message)}</p>
+      ${blocRechargeBom('Vous pouvez réessayer avec un autre fichier.')}</div>`;
+  }
+}
+
 function bomIllisible(d){
   const nom = d.bom_fichier_source || 'le fichier';
   return `<div class="card">
@@ -983,6 +1027,7 @@ function bomIllisible(d){
       <p style="margin:0 0 8px;font-size:13px;color:var(--text2)">Fichier repéré dans le dossier : <b>${esc(nom)}</b></p>
       <p style="margin:0;font-size:12.5px;color:var(--text2)">${esc(d.bom_motif || 'Aucune ligne exploitable n\'a pu être extraite.')}</p>
     </div>
+    ${blocRechargeBom('Corrigez le fichier — la bonne feuille seule, réenregistrée — puis déposez-le ici pour relancer la nomenclature sans refaire toute l\'analyse.')}
     <p class="hint" style="margin-top:11px">Les autres parties de l'analyse restent valides — seule la nomenclature n'a pas pu être traitée.</p>
   </div>`;
 }
@@ -1821,9 +1866,7 @@ function bandeauFiche(m){
     `<i class="ti ti-link" style="color:var(--accent)"></i>
      <span class="bf-t">Fiche rouverte</span>
      <span class="bf-sep">·</span> ${bouts.join(' <span class="bf-sep">·</span> ')}
-     <span class="bf-sep">·</span> ${esc(etat)}
-     <span style="flex:1"></span>
-     <button class="btn-s" onclick="nouvelleAnalyse()"><i class="ti ti-plus"></i> Nouvelle analyse</button>`;
+     <span class="bf-sep">·</span> ${esc(etat)}`;
   el.classList.remove('hidden');
 }
 
