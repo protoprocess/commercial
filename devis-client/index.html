@@ -467,7 +467,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.4";
+const APP_VERSION = "6.5";
 const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -955,11 +955,28 @@ function afficher(){
   const bomBrute = (d.bom_rows||[]).length > 0;
   document.getElementById('p-bom').innerHTML =
       bomTraitee ? tableBom(d)
+    : d.bom_illisible ? bomIllisible(d)
     : (FICHE_LIEN && bomBrute) ? tableBomBrute(d)   // fiche rouverte : rien ne tourne
     : bomBrute ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
     : tableBom(d);
   document.getElementById('p-brut').innerHTML = brut(d);
   tab('synthese');
+}
+
+// Nomenclature trouvee dans le dossier mais impossible a lire. On nomme le
+// fichier et on donne le motif : sans cela, l'ecran vide est indiscernable
+// d'un dossier sans nomenclature.
+function bomIllisible(d){
+  const nom = d.bom_fichier_source || 'le fichier';
+  return `<div class="card">
+    <h2><i class="ti ti-table-off"></i> Nomenclature</h2>
+    <div style="border-left:3px solid var(--amber-badge);padding:11px 14px;background:var(--surface2);border-radius:var(--radius)">
+      <p style="margin:0 0 6px;font-weight:600;color:var(--amber)">Nomenclature présente mais illisible</p>
+      <p style="margin:0 0 8px;font-size:13px;color:var(--text2)">Fichier repéré dans le dossier : <b>${esc(nom)}</b></p>
+      <p style="margin:0;font-size:12.5px;color:var(--text2)">${esc(d.bom_motif || 'Aucune ligne exploitable n\'a pu être extraite.')}</p>
+    </div>
+    <p class="hint" style="margin-top:11px">Les autres parties de l'analyse restent valides — seule la nomenclature n'a pas pu être traitée.</p>
+  </div>`;
 }
 
 const LIBELLE_CHAMP = {
