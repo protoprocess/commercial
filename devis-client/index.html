@@ -264,7 +264,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 
 <header>
   <div class="logo">
-    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <img src="picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Analyse dossier client</span></span>
   </div>
   <div class="spacer"></div>
@@ -468,7 +468,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
 const APP_VERSION = "6.7";
-const APP_DATE = "31/07/2026";
+const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1303,6 +1303,15 @@ function synthDossier(d){
       </div></div>`;
   }
   h += `</div>`;
+  const nonLus = d.documents_non_lus || [];
+  if(nonLus.length){
+    h += `<div style="margin-top:11px;border-left:3px solid var(--amber-badge);padding:9px 12px;background:var(--surface2);border-radius:var(--radius)">
+      <div style="font-size:12.5px;font-weight:600;color:var(--amber);margin-bottom:4px">
+        <i class="ti ti-file-alert"></i> ${nonLus.length} document${nonLus.length>1?'s':''} non lu${nonLus.length>1?'s':''}</div>
+      <div style="font-size:11.5px;color:var(--text2);line-height:1.6">${nonLus.map(f=>esc(f)).join('<br>')}</div>
+      <p class="hint" style="margin:6px 0 0">Présents dans le dossier, mais leur contenu n'a pas pu être lu : les critères qu'ils contiennent n'ont pas été pris en compte.</p>
+    </div>`;
+  }
   const LIB_AUTRES = { specs:'spécifications', mails:'mails du client' };
   const autres = Object.keys(LIB_AUTRES).filter(k=>(inv[k]||[]).length);
   if(autres.length){
