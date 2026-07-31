@@ -264,7 +264,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 
 <header>
   <div class="logo">
-    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <img src="picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Analyse dossier client</span></span>
   </div>
   <div class="spacer"></div>
@@ -409,6 +409,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   </div>
 
   <!-- RÉSULTATS -->
+  <div id="gmail-libelles" style="margin:0 0 9px"></div>
   <div id="res" class="hidden">
     <div id="bandeau-fiche" class="hidden"></div>
     <div class="tabs">
@@ -468,7 +469,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
 const APP_VERSION = "6.8";
-const APP_DATE = "31/07/2026";
+const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -710,6 +711,7 @@ async function analyser(){
     // second appel : traitement de la nomenclature, separe pour ne pas
     // depasser le temps de reponse d'un webhook sur une grosse BOM
     if(!modeBom && (DATA.bom_rows||[]).length) traiterBom();
+    if(!modeBom) poserLibellesGmail();
   }catch(e){
     const m = /load failed|failed to fetch|networkerror/i.test(e.message)
       ? "Appel bloqué par le navigateur ou workflow non démarré. Vérifiez que le workflow tourne dans n8n (bouton « Test workflow ») ou publiez-le."
@@ -2233,6 +2235,47 @@ function emlPreremplir(r){
     if(dom === NOUS) continue;
     const c = CLIENTS.find(x => x.domaine && String(x.domaine).toLowerCase() === dom);
     if(c){ sel.value = c.nom; onClientChange(); return; }
+  }
+}
+
+/* ---------- libellés Gmail du verdict ---------- */
+/* Pose sur le fil d'origine les seuls libellés qu'aucun humain ne peut
+   déduire sans avoir lu le dossier. Sans .eml déposé il n'y a pas de fil
+   à étiqueter, et la fonction s'arrête d'elle-même.
+   Volontairement non bloquant : l'analyse est déjà affichée quand l'appel
+   part, et une écriture Gmail qui échoue ne doit rien lui retirer. */
+async function poserLibellesGmail(){
+  const d = DATA || {};
+  const mid = (MAIL_CTX && MAIL_CTX.message_id) || null;
+  if(!mid) return;
+  const zone = document.getElementById('gmail-libelles');
+  if(zone) zone.innerHTML = '<span class="hint"><span class="spin"></span> Étiquetage du mail…</span>';
+  try{
+    const rep = await fetch(`${cfg().base}/webhook/devis-libelles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message_id: mid,
+        job_id: d.job_id || '',
+        client: d.client || '',
+        decision_pcb: d.decision_pcb || '',
+        bom_illisible: !!d.bom_illisible,
+        quantites: (d.demande && d.demande.quantites) || []
+      })
+    });
+    if(!rep.ok) throw new Error('HTTP ' + rep.status);
+    const j = await rep.json();
+    if(!zone) return;
+    if(j.pose && (j.libelles || []).length){
+      zone.innerHTML = '<span class="hint"><i class="ti ti-tag" style="color:var(--green)"></i> Mail étiqueté : <b>'
+        + (j.libelles || []).map(esc).join('</b>, <b>') + '</b></span>';
+    } else {
+      zone.innerHTML = '<span class="hint"><i class="ti ti-tag-off"></i> '
+        + esc(j.motif || 'aucun libellé posé') + '</span>';
+    }
+  }catch(e){
+    if(zone) zone.innerHTML = '<span class="hint" style="color:var(--amber)"><i class="ti ti-alert-triangle"></i> '
+      + 'Étiquetage du mail impossible : ' + esc(e.message) + " — l'analyse reste valide.</span>";
   }
 }
 
