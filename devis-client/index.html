@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proto Process / Analyse dossier client — v1.6 — 25/07/2026</title>
+<!-- La version est posee au chargement depuis APP_VERSION : ne rien ecrire de versionne ici. --><title>Proto Process / Analyse dossier client</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
 :root{
@@ -34,10 +34,12 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .spacer{flex:1}
 .hdr-note{font-size:11px;color:var(--text3);font-family:var(--mono)}
 .zoom-ctl{display:flex;align-items:center;gap:2px;margin-right:12px}
-.zoom-ctl button{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--text2);border:0.5px solid var(--border);border-radius:var(--radius);font-size:13px;cursor:pointer}
+/* Les deux boutons portent un caractere texte, pas une icone : le signe moins et le signe plus
+   existent dans toutes les polices. Aucune dependance au CDN d'icones, donc plus de case vide. */
+.zoom-ctl button{width:24px;height:24px;padding:0;line-height:22px;text-align:center;background:transparent;color:var(--text2);border:0.5px solid var(--border);border-radius:var(--radius);font-size:15px;font-family:var(--sans);cursor:pointer}
 .zoom-ctl button:hover{color:var(--text);border-color:var(--border2)}
-.zoom-ctl .zoom-val{min-width:38px;text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);cursor:pointer}
-.zoom-ctl .zoom-val:hover{color:var(--text2)}
+.zoom-ctl .zoom-val{min-width:38px;text-align:center;font-size:11px;color:var(--text2);font-family:var(--mono);cursor:pointer}
+.zoom-ctl .zoom-val:hover{color:var(--text)}
 
 .wrap{max-width:min(96vw,1800px);margin:0 auto;padding:20px}
 
@@ -269,9 +271,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   </div>
   <div class="spacer"></div>
   <div class="zoom-ctl" title="Taille de l'interface — mémorisée sur ce navigateur. Cliquer le pourcentage pour revenir à 100%.">
-    <button onclick="changerZoom(-10)" title="Réduire"><i class="ti ti-minus"></i></button>
+    <button onclick="changerZoom(-10)" title="Réduire" aria-label="Réduire la taille de l'interface">&#8722;</button>
     <span class="zoom-val" id="zoom-val" onclick="resetZoom()">100%</span>
-    <button onclick="changerZoom(10)" title="Agrandir"><i class="ti ti-plus"></i></button>
+    <button onclick="changerZoom(10)" title="Agrandir" aria-label="Agrandir la taille de l'interface">+</button>
   </div>
   <span class="hdr-note" id="hdr-version">v1.6 — 25/07/2026</span>
   <span class="hdr-note" id="hdr-mode" style="margin-left:10px">mode test</span>
@@ -312,7 +314,11 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
       <input class="f" id="an-q" placeholder="Client, référence, objet du mail…" style="flex:1;min-width:200px"
              onkeydown="if(event.key==='Enter')chargerAnalyses()">
       <button class="btn-p" onclick="chargerAnalyses()"><i class="ti ti-search"></i> Chercher</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="an-masquees" onchange="chargerAnalyses()"> Afficher les masquées
+      </label>
     </div>
+    <div id="an-msg" style="font-size:12px;margin-bottom:9px"></div>
     <div id="an-liste"><p class="hint">Chargement…</p></div>
   </div>
 
@@ -468,8 +474,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.8";
-const APP_DATE = "30/07/2026";
+const APP_VERSION = "6.9";
+const APP_DATE = "31/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -2312,6 +2318,17 @@ async function chargerAnalyses(){
     const lignes = j.analyses || [];
     if(!lignes.length){ box.innerHTML = '<p class="hint">Aucune analyse trouvée.</p>'; return; }
 
+    // Les analyses de test sont rangees en statut ignore et sortent de la liste par defaut.
+    // Rien n'est supprime : la case a cocher les fait revenir a tout moment.
+    const voirMasquees = !!(document.getElementById('an-masquees') || {}).checked;
+    const nbMasquees = lignes.filter(l => l.statut === 'ignore').length;
+    const visibles = voirMasquees ? lignes : lignes.filter(l => l.statut !== 'ignore');
+    if(!visibles.length){
+      box.innerHTML = '<p class="hint">Aucune analyse à afficher — '
+        + nbMasquees + ' masquée(s). Cochez « Afficher les masquées » pour les voir.</p>';
+      return;
+    }
+
     const pastille = (t, fond, txt) =>
       `<span style="background:${fond};color:${txt};font-size:11.5px;padding:2px 7px;border-radius:var(--radius);white-space:nowrap">${esc(t)}</span>`;
     const vBadge = v => !v ? pastille('—','var(--surface2)','var(--text3)')
@@ -2322,6 +2339,7 @@ async function chargerAnalyses(){
     const sBadge = st => st === 'a_relire' ? pastille('à relire','var(--amber-bg)','var(--amber-badge)')
       : st === 'traite'   ? pastille('traité','var(--green-bg)','var(--green-badge)')
       : st === 'echec'    ? pastille('échec','var(--red-bg)','var(--red-badge)')
+      : st === 'ignore'   ? pastille('masquée','var(--surface2)','var(--text3)')
       : pastille(st || '—','var(--surface2)','var(--text3)');
 
     box.innerHTML =
@@ -2331,8 +2349,9 @@ async function chargerAnalyses(){
       + '<th style="text-align:left;padding:6px 8px">Client — référence</th>'
       + '<th style="text-align:left;padding:6px 8px">Verdict</th>'
       + '<th style="text-align:left;padding:6px 8px">Statut</th>'
-      + '<th style="text-align:right;padding:6px 8px">BOM</th></tr>'
-      + lignes.map(l => {
+      + '<th style="text-align:right;padding:6px 8px">BOM</th>'
+      + '<th style="text-align:right;padding:6px 8px"></th></tr>'
+      + visibles.map(l => {
           const d = l.cree_le ? new Date(l.cree_le) : null;
           const jour = d ? String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') : '—';
           const mail = l.depuis_mail ? ' <i class="ti ti-mail" style="color:var(--text3)" title="issue d\'un mail"></i>' : '';
@@ -2342,12 +2361,50 @@ async function chargerAnalyses(){
             + '<td style="padding:8px">' + vBadge(l.verdict) + '</td>'
             + '<td style="padding:8px">' + sBadge(l.statut) + '</td>'
             + '<td style="padding:8px;text-align:right;color:var(--text2)">' + (l.bom_nb_lignes != null ? l.bom_nb_lignes : '—') + '</td>'
+            + '<td style="padding:8px;text-align:right">' + boutonMasquer(l) + '</td>'
             + '</tr>';
         }).join('')
       + '</table>'
-      + `<p class="hint" style="margin-top:9px">${lignes.length} analyse(s) — un clic sur une ligne rouvre sa fiche.</p>`;
+      + `<p class="hint" style="margin-top:9px">${visibles.length} analyse(s) affichée(s)`
+      + (nbMasquees && !voirMasquees ? `, ${nbMasquees} masquée(s)` : '')
+      + ` — un clic sur une ligne rouvre sa fiche.</p>`;
   }catch(e){
     box.innerHTML = '<p class="hint" style="color:var(--amber)">Liste indisponible : ' + esc(e.message) + '</p>';
+  }
+}
+
+// Masquer n'efface rien : l'analyse passe en statut ignore et sort de la liste par defaut.
+// Le geste est reversible depuis la case « Afficher les masquees ».
+function boutonMasquer(l){
+  const vers = l.statut === 'ignore' ? 'a_relire' : 'ignore';
+  const mot  = l.statut === 'ignore' ? 'Réafficher' : 'Masquer';
+  const titre = l.statut === 'ignore'
+    ? 'Remettre cette analyse dans la liste'
+    : 'Sortir cette analyse de la liste — réversible, rien n\'est supprimé';
+  return '<button class="btn-s" title="' + titre + '" style="padding:3px 9px;font-size:11.5px"'
+    + ' onclick="event.stopPropagation();basculerAnalyse(\'' + esc(l.job_id) + '\',\'' + vers + '\',this)">'
+    + mot + '</button>';
+}
+
+async function basculerAnalyse(jobId, statut, btn){
+  const msg = document.getElementById('an-msg');
+  const motInitial = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = '…'; }
+  if(msg) msg.innerHTML = '';
+  try{
+    const r = await fetch(`${cfg().base}/webhook/devis-analyse-statut`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId, statut: statut })
+    });
+    const t = await r.text();
+    let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0,160)); }
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    if(!j.ok)  throw new Error(j.motif || 'Le serveur n\'a modifié aucune analyse.');
+    chargerAnalyses();
+  }catch(e){
+    if(btn){ btn.disabled = false; btn.textContent = motInitial; }
+    if(msg) msg.innerHTML = '<span style="color:var(--amber)">Statut non modifié : ' + esc(e.message) + '</span>';
   }
 }
 
