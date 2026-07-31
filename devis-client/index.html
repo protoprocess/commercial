@@ -467,7 +467,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "6.5";
+const APP_VERSION = "6.6";
 const APP_DATE = "30/07/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1504,12 +1504,32 @@ function synthBom(d){
 }
 
 let BOM_FILTER = 'tous';
-function setBomFilter(f){ BOM_FILTER = f; document.getElementById('p-bom').innerHTML = tableBom(DATA); }
+let BOM_Q = '';
+function setBomFilter(f){ BOM_FILTER = f; rendreBom(); }
+/* Le tableau est reconstruit a chaque frappe : on rend la main au champ,
+   curseur en fin de saisie, sinon on perd le focus des la premiere lettre. */
+function setBomQ(v){
+  BOM_Q = v; rendreBom();
+  const c = document.getElementById('bom-q');
+  if(c){ c.focus(); c.setSelectionRange(c.value.length, c.value.length); }
+}
+function rendreBom(){ document.getElementById('p-bom').innerHTML = tableBom(DATA); }
 function correspondFiltre(l, f){
   if(f==='tous') return true;
   if(f==='incertain') return l.confiance==='low';
   if(f==='nc') return !!l.a_ne_pas_cabler;
+  if(f==='ecarte') return !!l.mpn_ecarte;
   return l.voie === f;
+}
+/* Recherche libre sur tout ce qui identifie une ligne, y compris la reference
+   ecartee : c'est souvent elle qu'on cherche quand on verifie un ecart. */
+function correspondRecherche(l, q){
+  if(!q) return true;
+  const t = String(q).trim().toLowerCase();
+  if(!t) return true;
+  return [(l.designateurs||[]).join(' '), l.mpn, l.ipn_propose, l.description_client,
+          l.valeur, l.boitier, l.famille, l.mpn_ecarte]
+    .some(c => c && String(c).toLowerCase().includes(t));
 }
 // Nomenclature telle que lue dans le fichier client, sans codification.
 // Utilisee quand la fiche est rouverte par lien : le traitement BOM n'est pas
@@ -1561,16 +1581,22 @@ function tableBom(d){
 
   if(!toutes.length){ return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`; }
 
+  h += `<div style="margin-bottom:10px"><input class="f" id="bom-q" value="${esc(BOM_Q)}"
+     placeholder="Rechercher un repère, un MPN, un IPN, une description…"
+     oninput="setBomQ(this.value)" style="width:100%;max-width:520px"></div>`;
+
   const compte = f => toutes.filter(l=>correspondFiltre(l,f)).length;
+  // La pastille des references ecartees n'apparait que si le detecteur en a
+  // trouve : les nomenclatures traitees avant lui n'ont pas ces champs.
   const pills = [
     ['tous','Toutes'],['MPN','MPN'],['CODIFIE','Codifiées'],['REPLI_STOCK','Repli stock'],
-    ['PCB','PCB'],['nc','Non câblées'],['incertain','Confiance faible']
+    ['PCB','PCB'],['nc','Non câblées'],['incertain','Confiance faible'],['ecarte','MPN écartés']
   ].filter(([f])=>f==='tous'||compte(f)>0);
   h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">` +
     pills.map(([f,lbl])=>`<button class="filter-btn${BOM_FILTER===f?' active':''}" onclick="setBomFilter('${f}')">${esc(lbl)} <span style="opacity:.7">${compte(f)}</span></button>`).join('') +
     `</div>`;
 
-  const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER));
+  const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER) && correspondRecherche(l,BOM_Q));
   h += `<div class="tblwrap"><table><thead><tr>
     <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
     <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th></tr></thead><tbody>`;
@@ -1587,12 +1613,23 @@ function tableBom(d){
       <td>${esc(l.famille||'')}</td>
       <td class="mono">${esc(l.valeur||'')}</td>
       <td class="mono">${esc(l.boitier||'')}</td>
-      <td class="mono">${esc(l.mpn||'')}</td>
+      <td class="mono">${cellMpn(l)}</td>
       <td class="mono" style="color:${l.ipn_propose?'var(--accent)':'var(--text3)'}">${esc(l.ipn_propose||'')}</td>
       <td>${st.html}</td>
       <td>${badgeConf(l.confiance)}</td></tr>`;
   }
   return h + `</tbody></table></div></div>`;
+}
+
+/* Colonne MPN. Quand une reference client a ete ecartee, on montre laquelle
+   et pourquoi : une decision du systeme contre la BOM du client ne doit
+   jamais rester invisible. */
+function cellMpn(l){
+  if(!l.mpn_ecarte) return esc(l.mpn||'');
+  const motif = l.mpn_ecarte_motif || 'référence jugée non fiable';
+  const court = String(motif).length > 70 ? String(motif).slice(0,70) + '…' : String(motif);
+  return `<span style="text-decoration:line-through;color:var(--text3)" title="${esc(motif)}">${esc(l.mpn_ecarte)}</span>`
+       + `<span style="display:block;margin-top:2px;font-size:10.5px;line-height:1.35;color:var(--amber);white-space:normal" title="${esc(motif)}">${esc(court)}</span>`;
 }
 
 function statutLigne(l){
