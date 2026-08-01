@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proto Process / Fiche de vie</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
+  --text:#e2e8f0; --text2:#94a3b8; --text3:#64748b;
+  --accent:#F07B1F; --accent-bg:#2a1f10; --pp-blue:#5BC4D8;
+  --green:#86c564; --green-bg:#EAF3DE; --green-badge:#3B6D11;
+  --amber:#eab676; --amber-bg:#FAEEDA; --amber-badge:#854F0B;
+  --red:#f09595;   --red-bg:#FCEBEB;   --red-badge:#A32D2D;
+  --pink:#ED93B1;  --pink-bg:#FBEAF0;  --pink-badge:#993556;
+  --radius:6px; --radius-lg:10px;
+  --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.55}
+
+header{background:#0f1117;min-height:52px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:8px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;align-items:center;font-size:13px;font-weight:500}
+.logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--accent)}
+.spacer{flex:1}
+.hdr-note{font-size:11px;color:var(--text3);font-family:var(--mono)}
+
+.wrap{max-width:min(96vw,1100px);margin:0 auto;padding:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px;margin-bottom:13px}
+.card h2{font-size:13px;font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+.card h2 i{color:var(--accent);font-size:15px}
+.card.warn{border-left:3px solid var(--amber-badge)}
+.card.ok{border-left:3px solid var(--green-badge)}
+
+.btn-p{padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);
+  font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px}
+.btn-p:disabled{opacity:.45;cursor:not-allowed}
+.btn-s{padding:7px 13px;background:transparent;color:var(--text2);border:.5px solid var(--border);
+  border-radius:var(--radius);font-size:12.5px;cursor:pointer;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px}
+.btn-s:hover{border-color:var(--border2);color:var(--text)}
+
+input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);padding:9px 11px;font-size:14px;font-family:inherit;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--border2)}
+textarea{resize:vertical;min-height:70px;line-height:1.5}
+label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.hint{font-size:12px;color:var(--text3)}
+.rangee{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.rangee>div{flex:1;min-width:150px}
+
+.pastille{display:inline-block;padding:2px 8px;border-radius:11px;font-size:11px;font-weight:500}
+.met{margin-bottom:14px}
+.met-t{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;
+  margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.ent{padding:9px 0;border-bottom:1px solid var(--border)}
+.ent:last-child{border-bottom:none}
+.ent-h{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:3px;font-size:11.5px;color:var(--text3)}
+.ent-txt{font-size:13.5px;color:var(--text);line-height:1.5}
+.ent-rep{margin:6px 0 0 14px;padding-left:11px;border-left:2px solid var(--border2)}
+.qz{background:var(--surface2);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px}
+
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.tag{padding:6px 11px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
+.tag:hover{border-color:var(--accent);color:var(--text)}
+@media(max-width:620px){
+  .wrap{padding:11px;max-width:100vw}
+  .rangee>div{min-width:100%}
+}
+</style>
+</head>
+<body>
+<!-- ===== ACCES PROTO PROCESS ===== -->
+<script>
+(function(){
+  var KEY='pp_access_code', HDR='X-PP-Auth', HOST='protoprocess.app.n8n.cloud';
+  function get(){try{return localStorage.getItem(KEY)||''}catch(e){return ''}}
+  function set(v){try{localStorage.setItem(KEY,v)}catch(e){}}
+  function del(){try{localStorage.removeItem(KEY)}catch(e){}}
+
+  /* 1) Interception installee EN PREMIER : ne depend d'aucun element HTML */
+  var _f = window.fetch;
+  window.fetch = function(input, init){
+    var url = '';
+    try { url = (typeof input === 'string') ? input : ((input && input.url) || ''); } catch(e){}
+    if (url.indexOf(HOST) === -1) { return _f.apply(this, arguments); }
+    init = init || {};
+    try { var h = new Headers(init.headers || {}); h.set(HDR, get()); init.headers = h; } catch(e){}
+    return _f.call(this, input, init).then(function(r){
+      if (r && (r.status === 401 || r.status === 403)) { del(); demander("Code d'acces refuse. Ressaisissez-le."); }
+      return r;
+    });
+  };
+
+  /* 2) Ecran construit en JS : aucune dependance au HTML de l'appli */
+  var box = null;
+  function construire(){
+    if (box) return box;
+    box = document.createElement('div');
+    box.id = 'pp-gate';
+    box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#0a0c12;display:none;'
+      + 'align-items:center;justify-content:center;padding:20px;'
+      + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
+    box.innerHTML =
+      '<div style="background:#1a2030;border:1px solid #262e42;border-radius:10px;padding:26px;max-width:380px;width:100%">'
+      + '<div style="font-size:13px;font-weight:500;margin-bottom:14px">'
+      +   '<span style="color:#fff">PROTO PROCESS</span><span style="color:#444;margin:0 3px">/</span>'
+      +   '<span style="color:#F07B1F">Acces</span></div>'
+      + '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55;margin-bottom:16px">'
+      +   "Saisissez le code d'acces interne. Il ne vous sera demande qu'une fois sur cet appareil.</div>"
+      + '<input id="pp-in" type="password" placeholder="Code d acces" autocomplete="off" '
+      +   'style="width:100%;background:#161b27;border:1px solid #262e42;border-radius:6px;color:#e2e8f0;'
+      +   'padding:9px 11px;font-size:13px;outline:none;font-family:inherit;box-sizing:border-box">'
+      + '<div id="pp-err" style="font-size:12px;color:#f09595;margin-top:9px;min-height:16px"></div>'
+      + '<button id="pp-btn" style="width:100%;margin-top:12px;padding:9px;background:#F07B1F;color:#fff;'
+      +   'border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Valider</button>'
+      + '</div>';
+    document.body.appendChild(box);
+    var inp = box.querySelector('#pp-in'), btn = box.querySelector('#pp-btn');
+    btn.addEventListener('click', function(){
+      var v = (inp.value || '').trim();
+      if (!v) { box.querySelector('#pp-err').textContent = 'Code requis.'; return; }
+      set(v); inp.value = ''; box.style.display = 'none'; location.reload();
+    });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { btn.click(); } });
+    return box;
+  }
+
+  function demander(msg){
+    if (!document.body) { document.addEventListener('DOMContentLoaded', function(){ demander(msg); }); return; }
+    var b = construire();
+    b.querySelector('#pp-err').textContent = msg || '';
+    b.style.display = 'flex';
+    setTimeout(function(){ try { b.querySelector('#pp-in').focus(); } catch(e){} }, 50);
+  }
+
+  window.ppChangerCode = function(){ del(); demander(''); };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ if (!get()) demander(''); });
+  } else if (!get()) { demander(''); }
+})();
+</script>
+<header>
+  <div class="logo">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Fiche de vie</span></span>
+  </div>
+  <div class="spacer"></div>
+  <span class="hdr-note" id="hdr-qui"></span>
+  <span class="hdr-note" id="hdr-version"></span>
+</header>
+
+<div class="wrap">
+  <div class="card" id="choix">
+    <h2><i class="ti ti-search"></i> Quelle carte&nbsp;?</h2>
+    <input id="q" placeholder="Client, r\u00e9f\u00e9rence, libell\u00e9\u2026" oninput="chercher(this.value)" autocomplete="off">
+    <div id="res" style="margin-top:10px"></div>
+  </div>
+
+  <div id="fiche" style="display:none"></div>
+</div>
+
+<script>
+const APP_VERSION = "1.0";
+const APP_DATE = "01/08/2026";
+document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
+document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
+
+const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
+const QUI = 'pp_fdv_initiales';
+const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
+
+// Propositions de saisie par metier. Elles repondent au vrai obstacle releve par
+// Olivier : les operateurs ne savent pas QUOI noter. Un champ vide ne produit rien ;
+// une proposition qu'on clique produit une premiere phrase qu'on complete.
+// Tirees des causes de non-conformite deja constatees (F07).
+const PROPOS = {
+  DEVIS:      ["Point \u00e0 clarifier avant chiffrage", "Contrainte particuli\u00e8re de ce client"],
+  BOM:        ["Composant obsol\u00e8te ou fin de vie", "R\u00e9f\u00e9rence client ambigu\u00eb"],
+  APPRO:      ["Composant indisponible", "D\u00e9lai long \u00e0 anticiper", "\u00c9quivalent \u00e0 faire valider"],
+  METHODES:   ["Point \u00e0 signaler au dossier de fab", "Outillage ou programme sp\u00e9cifique"],
+  CMS:        ["Composant d\u00e9licat \u00e0 poser", "Pi\u00e8ge de pose sur cette carte", "Pin-in-paste"],
+  CTRL_CMS:   ["D\u00e9faut r\u00e9current \u00e0 surveiller", "Zone difficile \u00e0 contr\u00f4ler"],
+  TRAD:       ["Traversants \u00e0 souder \u00e0 la main", "Ordre de pose impos\u00e9"],
+  MECA:       ["Composant \u00e0 coller", "Montage sp\u00e9cifique"],
+  TESTS:      ["Proc\u00e9dure de test particuli\u00e8re", "R\u00e9sultat \u00e0 documenter"],
+  CTRL_FINAL: ["Point de contr\u00f4le sp\u00e9cifique client"],
+  EMBALLAGE:  ["Conditionnement impos\u00e9 par le client"],
+  DIVERS_PROD:["Observation de production"],
+  RECLAMATION:["R\u00e9clamation client", "Suite donn\u00e9e"]
+};
+
+let PRODUITS = [], FICHE = null;
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => (
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function qui(){ try{ return localStorage.getItem(QUI)||''; }catch(e){ return ''; } }
+function setQui(v){ try{ localStorage.setItem(QUI, v); }catch(e){} majQui(); }
+function majQui(){
+  const el = document.getElementById('hdr-qui');
+  el.innerHTML = qui()
+    ? `<span style="cursor:pointer" onclick="demanderQui()" title="Changer d\'op\u00e9rateur">${esc(qui())}</span>`
+    : '';
+}
+
+// Les initiales sont demandees UNE FOIS et memorisees sur l'appareil : sur un
+// telephone perso, exiger un compte ou une installation tuerait l'usage.
+function demanderQui(){
+  const f = document.createElement('div');
+  f.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.7);display:flex;'
+    + 'align-items:center;justify-content:center;padding:18px';
+  f.innerHTML = `<div class="card" style="max-width:340px;width:100%;margin:0">
+    <h2><i class="ti ti-user"></i> Qui \u00eates-vous&nbsp;?</h2>
+    <p class="hint" style="margin-bottom:11px">Vos initiales, pour savoir \u00e0 qui demander des pr\u00e9cisions. Une seule fois sur cet appareil.</p>
+    <div class="tags">${EQUIPE.map(i =>
+      `<button class="tag" onclick="setQui('${i}');this.closest('div[style]').parentNode.remove();rendre()">${i}</button>`
+    ).join('')}</div></div>`;
+  document.body.appendChild(f);
+}
+
+async function charger(){
+  try{
+    const r = await fetch(`${BASE}/produits`);
+    const j = await r.json();
+    PRODUITS = (j && j.produits) || [];
+  }catch(e){ PRODUITS = []; }
+  const p = new URLSearchParams(location.search).get('produit');
+  if(p) ouvrir(parseInt(p,10)); else chercher('');
+}
+
+function chercher(q){
+  const box = document.getElementById('res');
+  const n = String(q||'').toLowerCase().trim();
+  const l = (n.length < 1 ? PRODUITS : PRODUITS.filter(p =>
+    [p.ref_carte, p.libelle_carte, p.nom_client, p.cle_produit]
+      .some(v => String(v||'').toLowerCase().includes(n)))).slice(0, 30);
+  if(!l.length){
+    box.innerHTML = '<p class="hint">Aucune carte. Une carte appara\u00eet ici une fois qu\'un dossier lui a \u00e9t\u00e9 rattach\u00e9 dans l\'analyse de devis.</p>';
+    return;
+  }
+  box.innerHTML = l.map(p => `<div class="ent" style="cursor:pointer" onclick="ouvrir(${p.id})">
+    <div class="ent-txt"><b>${esc(p.ref_carte)}</b>${p.libelle_carte ? ' \u2014 ' + esc(p.libelle_carte) : ''}</div>
+    <div class="ent-h">${esc(p.nom_client||'')} <span style="color:var(--text3)">\u00b7 ${esc(p.cle_produit||'')}</span></div>
+  </div>`).join('');
+}
+
+async function ouvrir(id){
+  const f = document.getElementById('fiche');
+  document.getElementById('choix').style.display = 'none';
+  f.style.display = '';
+  f.innerHTML = '<div class="card"><p class="hint">Chargement\u2026</p></div>';
+  try{
+    const r = await fetch(`${BASE}/fiche-de-vie?produit=${encodeURIComponent(id)}`);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.motif || 'Fiche introuvable.');
+    FICHE = j;
+    if(!qui()) demanderQui();
+    rendre();
+  }catch(e){
+    f.innerHTML = `<div class="card"><p style="color:var(--amber)">${esc(e.message)}</p>
+      <button class="btn-s" style="margin-top:9px" onclick="retour()">Retour</button></div>`;
+  }
+}
+
+function retour(){
+  FICHE = null;
+  document.getElementById('fiche').style.display = 'none';
+  document.getElementById('choix').style.display = '';
+  history.replaceState(null,'',location.pathname);
+}
+
+function badge(e){
+  if(e.etat === 'en_attente') return `<span class="pastille" style="background:var(--amber-bg);color:var(--amber-badge)">en attente</span>`;
+  if(e.type === 'reponse_client') return `<span class="pastille" style="background:var(--green-bg);color:var(--green-badge)">r\u00e9ponse</span>`;
+  if(e.type === 'question_client') return `<span class="pastille" style="background:var(--green-bg);color:var(--green-badge)">r\u00e9solu</span>`;
+  return '';
+}
+
+function ligne(e, tousDedans){
+  const reps = (tousDedans||[]).filter(x => Number(x.repond_a) === Number(e.id));
+  return `<div class="ent">
+    <div class="ent-h">
+      <b style="color:var(--text2)">${esc(e.auteur||'?')}</b>
+      <span>${new Date(e.cree_le).toLocaleDateString('fr-FR')}</span>
+      ${e.indice ? '<span>\u00b7 ' + esc(e.indice) + '</span>' : ''}
+      ${e.repere ? '<span style="font-family:var(--mono);color:var(--accent)">\u00b7 ' + esc(e.repere) + '</span>' : ''}
+      ${badge(e)}
+      ${e.visible_client ? '<span class="pastille" style="background:var(--surface2);color:var(--pp-blue)"><i class="ti ti-eye"></i> client</span>' : ''}
+    </div>
+    <div class="ent-txt">${esc(e.texte_brut)}</div>
+    ${e.mpn ? '<div class="ent-h" style="font-family:var(--mono)">' + esc(e.mpn) + '</div>' : ''}
+    ${e.etat === 'en_attente' ? `<button class="btn-s" style="margin-top:6px" onclick="repondre(${e.id})"><i class="ti ti-corner-down-right"></i> R\u00e9pondre</button>` : ''}
+    ${reps.map(r => `<div class="ent-rep">
+      <div class="ent-h"><b style="color:var(--text2)">${esc(r.auteur||'?')}</b>
+        <span>${new Date(r.cree_le).toLocaleDateString('fr-FR')}</span>${badge(r)}</div>
+      <div class="ent-txt">${esc(r.texte_brut)}</div></div>`).join('')}
+  </div>`;
+}
+
+function rendre(){
+  majQui();
+  const p = FICHE.produit, tous = FICHE.entrees || [];
+  // Les reponses s'affichent SOUS leur question, pas comme des entrees isolees.
+  const racines = tous.filter(e => !e.repond_a);
+  const parMet = (FICHE.par_metier||[]).map(m => ({
+    ...m, entrees: m.entrees.filter(e => !e.repond_a)
+  })).filter(m => m.entrees.length);
+
+  document.getElementById('fiche').innerHTML = `
+  <div class="card">
+    <div style="display:flex;gap:9px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:15px;font-weight:600">${esc(p.ref_carte)}</div>
+        <div class="hint">${esc(p.libelle_carte||'')} \u00b7 ${esc(p.nom_client||'')}</div>
+      </div>
+      <button class="btn-s" onclick="retour()"><i class="ti ti-arrow-left"></i> Autre carte</button>
+    </div>
+  </div>
+
+  ${FICHE.nb_en_attente ? `<div class="card warn">
+    <h2><i class="ti ti-help"></i> ${FICHE.nb_en_attente} question(s) sans r\u00e9ponse</h2>
+    ${FICHE.en_attente.map(q => `<div class="qz">
+      <div class="ent-h"><b style="color:var(--text2)">${esc(q.auteur||'?')}</b>
+        <span>${new Date(q.cree_le).toLocaleDateString('fr-FR')}</span>
+        ${q.repere ? '<span style="font-family:var(--mono);color:var(--accent)">\u00b7 ' + esc(q.repere) + '</span>' : ''}</div>
+      <div class="ent-txt">${esc(q.texte_brut)}</div>
+      <button class="btn-s" style="margin-top:7px" onclick="repondre(${q.id})"><i class="ti ti-corner-down-right"></i> R\u00e9pondre</button>
+    </div>`).join('')}
+  </div>` : ''}
+
+  <div class="card" id="saisie">
+    <h2><i class="ti ti-plus"></i> Ajouter</h2>
+    <div id="zone-saisie"></div>
+  </div>
+
+  <div class="card">
+    <h2><i class="ti ti-list"></i> Ce qu\'on sait sur cette carte</h2>
+    ${parMet.length
+      ? parMet.map(m => `<div class="met"><div class="met-t">${esc(m.libelle)}</div>
+          ${m.entrees.map(e => ligne(e, tous)).join('')}</div>`).join('')
+      : '<p class="hint">Rien de not\u00e9 pour l\'instant. La premi\u00e8re note sera lue par celui qui pr\u00e9parera la fabrication.</p>'}
+  </div>`;
+  formSaisie();
+}
+
+let REPOND_A = null;
+
+function repondre(id){
+  REPOND_A = id;
+  formSaisie();
+  document.getElementById('saisie').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function formSaisie(){
+  const z = document.getElementById('zone-saisie');
+  if(!z) return;
+  const et = (FICHE.etapes||[]);
+  const q = REPOND_A ? (FICHE.entrees||[]).find(e => Number(e.id) === Number(REPOND_A)) : null;
+  z.innerHTML = `
+    ${q ? `<div class="qz" style="border-left:2px solid var(--amber-badge)">
+      <div class="hint">R\u00e9ponse \u00e0 la question de ${esc(q.auteur||'?')}</div>
+      <div class="ent-txt">${esc(q.texte_brut)}</div>
+      <button class="btn-s" style="margin-top:6px" onclick="REPOND_A=null;formSaisie()">Annuler</button>
+    </div>` : ''}
+    <div class="rangee">
+      <div><label class="f">M\u00e9tier</label>
+        <select id="s-etape" onchange="majPropos()">
+          ${et.map(e => `<option value="${e.code}">${esc(e.libelle)}</option>`).join('')}
+        </select></div>
+      <div style="max-width:120px"><label class="f">Rep\u00e8re</label>
+        <input id="s-rep" placeholder="C12" autocomplete="off"></div>
+    </div>
+    <div id="propos" class="tags"></div>
+    <textarea id="s-txt" placeholder="Ce qu\'il faut retenir\u2026"></textarea>
+    <div class="rangee" style="margin-top:10px">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;flex:none;font-size:12.5px;color:var(--text2)">
+        <input type="checkbox" id="s-cli" style="width:auto" ${q ? 'checked' : ''}>
+        <span><i class="ti ti-eye"></i> Visible par le client</span></label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;flex:none;font-size:12.5px;color:var(--text2)">
+        <input type="checkbox" id="s-q" style="width:auto" ${q ? 'disabled' : ''}>
+        <span><i class="ti ti-help"></i> C\'est une question au client</span></label>
+      <div style="flex:1"></div>
+      <button class="btn-p" id="s-go" onclick="envoyer()">Enregistrer</button>
+    </div>
+    <div id="s-msg" style="font-size:12.5px;margin-top:8px"></div>`;
+  majPropos();
+}
+
+function majPropos(){
+  const c = (document.getElementById('s-etape')||{}).value;
+  const z = document.getElementById('propos');
+  if(!z) return;
+  const l = PROPOS[c] || [];
+  z.innerHTML = l.map(t => `<button class="tag" onclick="poser(this)">${esc(t)}</button>`).join('');
+}
+
+function poser(b){
+  const t = document.getElementById('s-txt');
+  const v = b.textContent;
+  t.value = t.value.trim() ? (t.value.trim() + ' \u2014 ' + v) : (v + ' : ');
+  t.focus();
+}
+
+async function envoyer(){
+  const msg = document.getElementById('s-msg'), btn = document.getElementById('s-go');
+  const txt = (document.getElementById('s-txt').value||'').trim();
+  if(!txt){ msg.innerHTML = '<span style="color:var(--amber)">\u00c9crivez d\'abord ce qu\'il faut retenir.</span>'; return; }
+  if(!qui()){ demanderQui(); return; }
+  const estQ = document.getElementById('s-q').checked;
+  const corps = {
+    produit_id: FICHE.produit.id,
+    etape_code: document.getElementById('s-etape').value,
+    auteur: qui(),
+    texte_brut: txt,
+    repere: (document.getElementById('s-rep').value||'').trim() || null,
+    visible_client: document.getElementById('s-cli').checked,
+    source: 'fiche-de-vie'
+  };
+  if(REPOND_A){ corps.repond_a = REPOND_A; corps.type = 'reponse_client'; }
+  else if(estQ){ corps.type = 'question_client'; }
+
+  btn.disabled = true; msg.innerHTML = 'Enregistrement\u2026';
+  try{
+    const r = await fetch(`${BASE}/fiche-de-vie-ajout`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corps)
+    });
+    const t = await r.text();
+    let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('R\u00e9ponse illisible : ' + t.slice(0,130)); }
+    if(!j.ok) throw new Error(j.motif || 'Enregistrement refus\u00e9.');
+    REPOND_A = null;
+    await ouvrir(FICHE.produit.id);
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--amber)">${esc(e.message)}</span>`;
+  }
+}
+
+charger();
+</script>
+</body>
+</html>
