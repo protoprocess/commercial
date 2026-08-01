@@ -67,6 +67,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
 .tag{padding:6px 11px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);
   color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
 .tag:hover{border-color:var(--accent);color:var(--text)}
+.tag.on{border-color:var(--accent);color:var(--text);background:var(--accent-bg)}
 @media(max-width:620px){
   .wrap{padding:11px;max-width:100vw}
   .rangee>div{min-width:100%}
@@ -165,7 +166,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
 </div>
 
 <script>
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 const APP_DATE = "01/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -178,21 +179,9 @@ const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
 // Olivier : les operateurs ne savent pas QUOI noter. Un champ vide ne produit rien ;
 // une proposition qu'on clique produit une premiere phrase qu'on complete.
 // Tirees des causes de non-conformite deja constatees (F07).
-const PROPOS = {
-  DEVIS:      ["Point \u00e0 clarifier avant chiffrage", "Contrainte particuli\u00e8re de ce client"],
-  BOM:        ["Composant obsol\u00e8te ou fin de vie", "R\u00e9f\u00e9rence client ambigu\u00eb"],
-  APPRO:      ["Composant indisponible", "D\u00e9lai long \u00e0 anticiper", "\u00c9quivalent \u00e0 faire valider"],
-  METHODES:   ["Point \u00e0 signaler au dossier de fab", "Outillage ou programme sp\u00e9cifique"],
-  CMS:        ["Composant d\u00e9licat \u00e0 poser", "Pi\u00e8ge de pose sur cette carte", "Pin-in-paste"],
-  CTRL_CMS:   ["D\u00e9faut r\u00e9current \u00e0 surveiller", "Zone difficile \u00e0 contr\u00f4ler"],
-  TRAD:       ["Traversants \u00e0 souder \u00e0 la main", "Ordre de pose impos\u00e9"],
-  MECA:       ["Composant \u00e0 coller", "Montage sp\u00e9cifique"],
-  TESTS:      ["Proc\u00e9dure de test particuli\u00e8re", "R\u00e9sultat \u00e0 documenter"],
-  CTRL_FINAL: ["Point de contr\u00f4le sp\u00e9cifique client"],
-  EMBALLAGE:  ["Conditionnement impos\u00e9 par le client"],
-  DIVERS_PROD:["Observation de production"],
-  RECLAMATION:["R\u00e9clamation client", "Suite donn\u00e9e"]
-};
+// Les amorces de saisie viennent de la base (table ref_propositions) et non
+// de ce fichier : la liste doit pouvoir vivre sans republier l'appli.
+let PROPOS = {};
 
 let PRODUITS = [], FICHE = null;
 
@@ -259,6 +248,7 @@ async function ouvrir(id){
     const j = await r.json();
     if(!j.ok) throw new Error(j.motif || 'Fiche introuvable.');
     FICHE = j;
+    PROPOS = j.propositions || {};
     if(!qui()) demanderQui();
     rendre();
   }catch(e){
@@ -294,6 +284,8 @@ function ligne(e, tousDedans){
     </div>
     <div class="ent-txt">${esc(e.texte_brut)}</div>
     ${e.mpn ? '<div class="ent-h" style="font-family:var(--mono)">' + esc(e.mpn) + '</div>' : ''}
+    ${e.lien ? '<div class="ent-h"><a href="' + esc(e.lien) + '" target="_blank" rel="noopener" style="color:var(--pp-blue)"><i class="ti ti-external-link"></i> Ouvrir le lien</a></div>' : ''}
+    ${(e.poles&&e.poles.length) ? '<div class="ent-h">aussi pour : ' + e.poles.map(esc).join(', ') + '</div>' : ''}
     ${e.etat === 'en_attente' ? `<button class="btn-s" style="margin-top:6px" onclick="repondre(${e.id})"><i class="ti ti-corner-down-right"></i> R\u00e9pondre</button>` : ''}
     ${reps.map(r => `<div class="ent-rep">
       <div class="ent-h"><b style="color:var(--text2)">${esc(r.auteur||'?')}</b>
@@ -368,13 +360,21 @@ function formSaisie(){
       <button class="btn-s" style="margin-top:6px" onclick="REPOND_A=null;formSaisie()">Annuler</button>
     </div>` : ''}
     <div class="rangee">
-      <div><label class="f">M\u00e9tier</label>
+      <div><label class="f">Concerne d\'abord</label>
         <select id="s-etape" onchange="majPropos()">
           ${et.map(e => `<option value="${e.code}">${esc(e.libelle)}</option>`).join('')}
         </select></div>
-      <div style="max-width:120px"><label class="f">Rep\u00e8re</label>
+      <div style="max-width:130px"><label class="f">Rep\u00e8re</label>
         <input id="s-rep" placeholder="C12" autocomplete="off"></div>
+      <div><label class="f">MPN</label>
+        <input id="s-mpn" placeholder="R\u00e9f\u00e9rence fabricant" autocomplete="off"></div>
     </div>
+    <div><label class="f">Doit aussi \u00eatre vu par</label>
+      <div class="tags" id="s-poles">
+        ${et.map(e => `<button class="tag" data-code="${e.code}" onclick="togglePole(this)">${esc(e.libelle)}</button>`).join('')}
+      </div></div>
+    <div style="margin-bottom:9px"><label class="f">Lien (Luminovo, document\u2026)</label>
+      <input id="s-lien" placeholder="https://\u2026" autocomplete="off"></div>
     <div id="propos" class="tags"></div>
     <textarea id="s-txt" placeholder="Ce qu\'il faut retenir\u2026"></textarea>
     <div class="rangee" style="margin-top:10px">
@@ -389,6 +389,14 @@ function formSaisie(){
     </div>
     <div id="s-msg" style="font-size:12.5px;margin-top:8px"></div>`;
   majPropos();
+}
+
+function togglePole(b){
+  // Une info peut concerner PLUSIEURS metiers : trouvee au chiffrage, elle vise le
+  // TRAD mais les METHODES doivent la voir pour la porter au dossier de fabrication.
+  b.classList.toggle('on');
+  b.style.borderColor = b.classList.contains('on') ? 'var(--accent)' : '';
+  b.style.color = b.classList.contains('on') ? 'var(--text)' : '';
 }
 
 function majPropos(){
@@ -418,6 +426,9 @@ async function envoyer(){
     auteur: qui(),
     texte_brut: txt,
     repere: (document.getElementById('s-rep').value||'').trim() || null,
+    mpn: (document.getElementById('s-mpn').value||'').trim() || null,
+    lien: (document.getElementById('s-lien').value||'').trim() || null,
+    poles: [...document.querySelectorAll('#s-poles .tag.on')].map(b => b.dataset.code),
     visible_client: document.getElementById('s-cli').checked,
     source: 'fiche-de-vie'
   };
