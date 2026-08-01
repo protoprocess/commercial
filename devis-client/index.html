@@ -165,6 +165,21 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   background:var(--surface2);border-left:3px solid var(--accent);font-size:12px;color:var(--text2)}
 #bandeau-fiche .bf-t{color:var(--text);font-weight:500}
 #bandeau-fiche .bf-sep{color:var(--text3)}
+/* Bloc de rattachement : meme famille visuelle que le bandeau, lisere ambre tant
+   que le dossier n est pas rattache, vert une fois fait. */
+#rattachement{padding:11px 14px;margin-bottom:12px;border-radius:var(--radius);
+  background:var(--surface2);border-left:3px solid var(--amber-badge);font-size:12.5px;color:var(--text2)}
+#rattachement.ok{border-left-color:var(--green-badge)}
+#rattachement h3{margin:0 0 9px;font-size:12.5px;font-weight:600;color:var(--text)}
+#rattachement .rt-l{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+#rattachement .rt-e{font-size:11.5px;color:var(--text3);min-width:74px}
+#rattachement input,#rattachement select{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--text);padding:6px 9px;font-size:12.5px;font-family:inherit;min-width:190px}
+#rattachement .rt-msg{margin-top:8px;font-size:12px}
+#rattachement .rt-sug{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  max-height:200px;overflow:auto;margin-top:4px}
+#rattachement .rt-sug div{padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border)}
+#rattachement .rt-sug div:hover{background:var(--surface2);color:var(--text)}
 @media(max-width:760px){.grid2{grid-template-columns:1fr}}
 /* signalement : bouton flottant discret, toujours accessible */
 #sig-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:inline-flex;align-items:center;gap:7px;
@@ -418,6 +433,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   <div id="gmail-libelles" style="margin:0 0 9px"></div>
   <div id="res" class="hidden">
     <div id="bandeau-fiche" class="hidden"></div>
+    <div id="rattachement" class="hidden"></div>
     <div class="tabs">
       <button class="tab active" data-p="synthese" onclick="tab('synthese')">Synthèse</button>
       <button class="tab" data-p="bom" onclick="tab('bom')">Nomenclature</button>
@@ -474,7 +490,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.0";
+const APP_VERSION = "7.1";
 const APP_DATE = "01/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -857,6 +873,9 @@ function nouvelleAnalyse(){
   FILES = []; DATA = null; BOM_FILTER = 'tous'; DETECTION_INCONNUE = null;
   FICHE_LIEN = null;
   document.getElementById('bandeau-fiche').classList.add('hidden');
+  const rt = document.getElementById('rattachement');
+  if(rt){ rt.classList.add('hidden'); rt.classList.remove('ok'); rt.innerHTML = ''; }
+  RT.client = null; RT.produits = [];
   if(location.search) history.replaceState(null, '', location.pathname);
   renderFiles();
   document.getElementById('f-ref').value = '';
@@ -1870,6 +1889,242 @@ function bandeauFiche(m){
   el.classList.remove('hidden');
 }
 
+// ===================== RATTACHEMENT PRODUIT (v7.1) =====================
+// Se joue au moment ou un humain REPREND le dossier pour traiter le devis :
+// l analyse automatique ne peut rien rattacher, c est un jugement metier.
+// Deux temps : le CLIENT d abord (sans lui, pas de cle produit), la CARTE ensuite.
+// Odoo est la seule verite d identite client ; clients_alias ne retient que les
+// noms d usage sous lesquels PP le designe (Roboteq pour Nidec, ILL pour Institut
+// Laue Langevin). Rien n est ecrit dans Odoo par cet ecran.
+let RT = { societes: [], alias: [], client: null, produits: [], charge: false };
+
+// URL de l instance Odoo, utilisee UNIQUEMENT pour ouvrir un onglet vers la creation
+// de contact. Aucune ecriture n est faite par cet ecran. ATTENTION : l adresse fournie
+// le 01/08 est une branche de developpement Odoo.sh (protoprocess-main-16873066.dev),
+// et ces URL CHANGENT a chaque reconstruction de branche. Le jour ou le bouton ouvre
+// un onglet vide, c est ici et nulle part ailleurs qu il faut corriger.
+const ODOO_URL = 'https://protoprocess-main-16873066.dev.odoo.com';
+
+const rtNorm = v => String(v || '')
+  .toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+async function rtCharger(){
+  if(RT.charge) return;
+  const c = cfg();
+  const [s, a] = await Promise.all([
+    fetch(`${c.base}/webhook/po-societes`).then(r => r.json()).catch(() => null),
+    fetch(`${c.base}/webhook/clients-alias`).then(r => r.json()).catch(() => null)
+  ]);
+  RT.societes = (s && s.societes) || [];
+  RT.alias    = (a && a.alias) || [];
+  RT.charge   = true;
+}
+
+// Le libelle du dossier passe d abord par les alias appris, puis par le nom Odoo.
+// Aucune correspondance approximative : mieux vaut se taire que proposer a cote.
+function rtDeviner(libelle){
+  const n = rtNorm(libelle);
+  if(!n) return null;
+  const al = RT.alias.find(x => x.alias_normalise === n);
+  if(al){
+    const s = RT.societes.find(y => Number(y.id) === Number(al.odoo_partner_id));
+    return s ? Object.assign({}, s, { _via: 'alias' }) : null;
+  }
+  const s = RT.societes.find(y => y.nom_normalise === n);
+  return s ? Object.assign({}, s, { _via: 'nom' }) : null;
+}
+
+async function rtAfficher(){
+  const el = document.getElementById('rattachement');
+  if(!el || !FICHE_LIEN) return;
+  el.classList.remove('hidden');
+  el.innerHTML = '<p class="hint"><span class="spin"></span> Chargement des clients…</p>';
+
+  // Deja rattache : on le dit et on s arrete la.
+  if(FICHE_LIEN.produit_id){
+    el.classList.add('ok');
+    el.innerHTML = `<h3><i class="ti ti-check"></i> Dossier rattaché</h3>
+      <p style="margin:0">Carte n° ${esc(String(FICHE_LIEN.produit_id))} — ce dossier est déjà rattaché.</p>`;
+    return;
+  }
+
+  try{ await rtCharger(); }
+  catch(e){
+    el.innerHTML = `<p style="color:var(--amber);margin:0">Clients indisponibles : ${esc(e.message)}</p>`;
+    return;
+  }
+
+  const libelle = (DATA && DATA.client) || (FICHE_LIEN.meta && FICHE_LIEN.meta.client) || '';
+  RT.client = rtDeviner(libelle);
+  rtRendre();
+}
+
+function rtRendre(){
+  const el = document.getElementById('rattachement');
+  const libelle = (DATA && DATA.client) || '';
+  let h = `<h3><i class="ti ti-link"></i> Rattacher ce dossier à une carte</h3>`;
+
+  if(!RT.client){
+    h += `<div class="rt-l"><span class="rt-e">Client</span>
+      <input id="rt-q" placeholder="Nom du client dans Odoo…" value="${esc(libelle)}"
+             oninput="rtChercher(this.value)" autocomplete="off">
+      <button class="btn-s" onclick="window.open(ODOO_URL + '/odoo/contacts/new','_blank')">
+        <i class="ti ti-external-link"></i> Créer le client dans Odoo</button>
+      <button class="btn-s" onclick="RT.charge=false;rtAfficher()"><i class="ti ti-refresh"></i> Rafraîchir</button></div>
+      <div id="rt-sug" class="rt-sug hidden"></div>
+      <p class="hint" style="margin:6px 0 0">Le libellé du dossier « ${esc(libelle || '—')} » n'est associé à aucun client connu.</p>`;
+    el.innerHTML = h;
+    rtChercher(libelle);
+    return;
+  }
+
+  const c = RT.client;
+  const via = c._via === 'alias' ? 'libellé déjà connu' : 'nom identique dans Odoo';
+  h += `<div class="rt-l"><span class="rt-e">Client</span>
+    <b style="color:var(--text)">${esc(c.nom)}</b>
+    <span style="color:var(--text3)">${esc(c.code || 'sans code')}</span>
+    <span class="hint" style="display:inline">(${esc(via)})</span>
+    <button class="btn-s" onclick="RT.client=null;RT.produits=[];rtRendre()">Changer</button></div>`;
+
+  h += `<div class="rt-l"><span class="rt-e">Carte</span>
+    <select id="rt-carte" onchange="rtCarteChange()">
+      <option value="">— chargement… —</option>
+    </select></div>
+    <div id="rt-neuve"></div>
+    <div class="rt-l" style="margin-top:4px">
+      <button class="btn-p" id="rt-go" onclick="rtValider()">Rattacher</button>
+      <span id="rt-msg" class="rt-msg"></span>
+    </div>`;
+  el.innerHTML = h;
+  rtChargerCartes();
+}
+
+function rtChercher(q){
+  const box = document.getElementById('rt-sug');
+  if(!box) return;
+  const n = rtNorm(q);
+  if(n.length < 2){ box.classList.add('hidden'); return; }
+  const res = RT.societes.filter(s => s.nom_normalise.indexOf(n) >= 0).slice(0, 12);
+  if(!res.length){
+    box.classList.remove('hidden');
+    box.innerHTML = `<div style="cursor:default;color:var(--text3)">Aucun client Odoo ne correspond.</div>`;
+    return;
+  }
+  box.classList.remove('hidden');
+  box.innerHTML = res.map(s =>
+    `<div onclick="rtChoisir(${s.id})"><b style="color:var(--text)">${esc(s.nom)}</b>
+     <span style="color:var(--text3)"> · ${esc(s.code || 'sans code')}</span></div>`).join('');
+}
+
+// Choisir un client MEMORISE le libellé du dossier comme alias : le geste ne sert
+// pas qu une fois. Un libellé déjà pris par un autre client est refusé côté n8n.
+async function rtChoisir(id){
+  const s = RT.societes.find(x => Number(x.id) === Number(id));
+  if(!s) return;
+  RT.client = Object.assign({}, s, { _via: 'choisi' });
+  RT.produits = [];
+  const libelle = (DATA && DATA.client) || '';
+  if(libelle && rtNorm(libelle) !== s.nom_normalise){
+    try{
+      const r = await fetch(`${cfg().base}/webhook/clients-alias-ajout`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ alias: libelle, odoo_partner_id: s.id,
+                               odoo_code: s.code, odoo_nom: s.nom, cree_par: 'devis-client' })
+      });
+      const j = await r.json();
+      if(j && j.ok) RT.alias.push({ alias: libelle, alias_normalise: rtNorm(libelle), odoo_partner_id: s.id });
+    }catch(e){ /* l alias est un confort, son echec ne doit pas bloquer le rattachement */ }
+  }
+  rtRendre();
+}
+
+async function rtChargerCartes(){
+  const sel = document.getElementById('rt-carte');
+  if(!sel || !RT.client) return;
+  try{
+    const r = await fetch(`${cfg().base}/webhook/produits?partner=` + encodeURIComponent(RT.client.id));
+    const j = await r.json();
+    RT.produits = (j && j.produits) || [];
+  }catch(e){ RT.produits = []; }
+  sel.innerHTML =
+    RT.produits.map(p => `<option value="${p.id}">${esc(p.ref_carte)}${p.libelle_carte ? ' — ' + esc(p.libelle_carte) : ''}</option>`).join('')
+    + `<option value="__neuve__">＋ Nouvelle carte</option>`;
+  if(!RT.produits.length) sel.value = '__neuve__';
+  rtCarteChange();
+}
+
+function rtCarteChange(){
+  const sel = document.getElementById('rt-carte');
+  const zone = document.getElementById('rt-neuve');
+  if(!sel || !zone) return;
+  if(sel.value !== '__neuve__'){ zone.innerHTML = ''; return; }
+  const ref = (DATA && (DATA.ref_projet || '')) || '';
+  zone.innerHTML = `
+    <div class="rt-l"><span class="rt-e">Référence</span>
+      <input id="rt-ref" value="${esc(ref)}" placeholder="Référence de la carte, sans indice">
+      <span class="hint" style="display:inline">clé : ${esc(RT.client.code || 'CLI?')}-<span id="rt-cle">…</span></span></div>
+    <div class="rt-l"><span class="rt-e">Libellé</span>
+      <input id="rt-lib" placeholder="Désignation lisible de la carte"></div>
+    <div class="rt-l"><span class="rt-e">Indice</span>
+      <input id="rt-ind" placeholder="V1, REV B…" style="min-width:110px">
+      <span class="hint" style="display:inline">porté par l'alias, jamais par la clé produit</span></div>`;
+  const i = document.getElementById('rt-ref');
+  const maj = () => { document.getElementById('rt-cle').textContent = (i.value || '…').trim(); };
+  i.addEventListener('input', maj); maj();
+}
+
+async function rtValider(){
+  const sel = document.getElementById('rt-carte');
+  const msg = document.getElementById('rt-msg');
+  const btn = document.getElementById('rt-go');
+  if(!sel || !RT.client) return;
+  const neuve = sel.value === '__neuve__';
+  const corps = {
+    job_id: FICHE_LIEN && FICHE_LIEN.job_id,
+    odoo_partner_id: RT.client.id,
+    nom_client: RT.client.nom,
+    code_client: RT.client.code || null,
+    alias: (DATA && DATA.ref_projet) || null,
+    alias_type: 'ref_document_client'
+  };
+  if(neuve){
+    const ref = (document.getElementById('rt-ref').value || '').trim();
+    if(!ref){ msg.innerHTML = '<span style="color:var(--amber)">La référence de la carte est nécessaire.</span>'; return; }
+    if(!corps.code_client){ msg.innerHTML = '<span style="color:var(--amber)">Ce client n\'a pas de code dans Odoo : la clé produit ne peut pas être construite.</span>'; return; }
+    corps.ref_carte     = ref;
+    corps.libelle_carte = (document.getElementById('rt-lib').value || '').trim() || null;
+    corps.indice        = (document.getElementById('rt-ind').value || '').trim() || null;
+  }else{
+    corps.produit_id = parseInt(sel.value, 10);
+  }
+  btn.disabled = true;
+  msg.innerHTML = '<span class="spin"></span> Enregistrement…';
+  try{
+    const r = await fetch(`${cfg().base}/webhook/produit-rattacher`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corps)
+    });
+    const t = await r.text();
+    let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0,150)); }
+    if(!j.ok) throw new Error(j.motif || 'Rattachement refusé.');
+    // Le compteur fait foi : une carte enregistree sans analyse rattachee serait
+    // un demi-resultat, et c est exactement ce qu on ne veut pas laisser passer.
+    if(Number(j.analyses_rattachees) !== 1) throw new Error("La carte est enregistrée mais l'analyse n'a pas été rattachée.");
+    FICHE_LIEN.produit_id = j.produit_id;
+    const el = document.getElementById('rattachement');
+    el.classList.add('ok');
+    el.innerHTML = `<h3><i class="ti ti-check"></i> Dossier rattaché</h3>
+      <p style="margin:0"><b style="color:var(--text)">${esc(j.cle_produit || '')}</b>
+      ${j.libelle_carte ? ' — ' + esc(j.libelle_carte) : ''}
+      <span style="color:var(--text3)"> · ${esc(j.etat === 'cree' ? 'carte créée' : 'carte déjà connue')}</span></p>`;
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--amber)">${esc(e.message)}</span>`;
+  }
+}
+
 async function chargerFicheDepuisLien(){
   const params = new URLSearchParams(location.search);
   const job = (params.get('fiche') || params.get('job') || '').trim();
@@ -1905,6 +2160,7 @@ async function chargerFicheDepuisLien(){
       `${j.client || 'client non précisé'}${j.ref_projet ? ' / ' + j.ref_projet : ''} — fiche enregistrée`;
     afficher();
     bandeauFiche(j);
+    rtAfficher();
   }catch(e){
     const m = /load failed|failed to fetch|networkerror/i.test(e.message)
       ? "Impossible de joindre n8n pour ouvrir la fiche."
