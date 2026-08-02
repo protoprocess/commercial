@@ -39,7 +39,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.6';
+var VERSION = '1.7';
 var DATE = '02/08/2026';
 
 /* --- etat interne. Un seul montage a la fois par page : les deux hotes n en
@@ -246,6 +246,23 @@ function meta(e){
 
 /* Une seule fonction rend toutes les entrees : c est l ETAT qui commande ce qui
    s affiche, il n y a pas deux familles de lignes a tenir a jour separement. */
+/* Liens vers les pieces jointes. Fonction unique, appelee par l entree ET par la
+   reponse : les reponses ont leur propre rendu, et cette liste n y figurait pas —
+   un fichier joint a une reponse etait donc invisible (constat d Olivier, 02/08).
+   L URL de lecture n est PAS demandee au rendu : une fiche de vingt entrees
+   declencherait vingt appels n8n a chaque ouverture, pour des pieces que personne
+   n ouvrira. Elle est signee AU CLIC, et vaut une heure. */
+function piecesLiens(e){
+  if (!e || !e.photos || !e.photos.length) return '';
+  return '<p style="margin:6px 0 0">' + e.photos.map(function(c){
+    var nom = String(c).split('/').pop().replace(/^[a-z0-9]{8}-/, '');
+    var img = /\.(jpe?g|png|webp|heic|heif)$/i.test(nom);
+    return '<button class="btn-s" style="margin:0 6px 4px 0" onclick="PPFicheDeVie.ouvrirPiece(\'' +
+      esc(c) + '\')"><i class="ti ' + (img ? 'ti-photo' : 'ti-file-text') + '"></i> ' +
+      esc(nom) + '</button>';
+  }).join('') + '</p>';
+}
+
 function ligne(e){
   var attend = e.etat === 'en_attente';
   var cli = e.visible_client === true;
@@ -263,18 +280,7 @@ function ligne(e){
   if (e.poles && e.poles.length)
     h += '<p class="hint" style="margin:2px 0 0">aussi pour : ' + e.poles.map(esc).join(', ') + '</p>';
 
-  // L URL de lecture n est PAS demandee au rendu : une fiche de vingt entrees
-  // declencherait vingt appels n8n a chaque ouverture, pour des pieces que
-  // personne n ouvrira. Elle est signee au clic, et vaut une heure.
-  if (e.photos && e.photos.length){
-    h += '<p style="margin:6px 0 0">' + e.photos.map(function(c){
-      var nom = String(c).split('/').pop().replace(/^[a-z0-9]{8}-/, '');
-      var img = /\.(jpe?g|png|webp|heic|heif)$/i.test(nom);
-      return '<button class="btn-s" style="margin:0 6px 4px 0" onclick="PPFicheDeVie.ouvrirPiece(\'' +
-        esc(c) + '\')"><i class="ti ' + (img ? 'ti-photo' : 'ti-file-text') + '"></i> ' +
-        esc(nom) + '</button>';
-    }).join('') + '</p>';
-  }
+  h += piecesLiens(e);
 
   if (e.lien) h += '<a class="btn-s" style="margin-top:7px;text-decoration:none;display:inline-block"' +
     ' target="_blank" href="' + esc(e.lien) + '"><i class="ti ti-external-link"></i> Luminovo</a>';
@@ -320,7 +326,8 @@ function ligne(e){
   reps.forEach(function(r){
     h += '<div class="fdv-e" style="margin:6px 0 0 14px;border-left-color:var(--green-badge)">' +
       '<p style="margin:0 0 3px">' + esc(r.texte_brut || '') + '</p>' +
-      '<p class="hint" style="margin:0">' + meta(r) + '</p></div>';
+      '<p class="hint" style="margin:0">' + meta(r) + '</p>' +
+      piecesLiens(r) + '</div>';
   });
 
   return h + '</div>';
