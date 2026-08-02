@@ -574,7 +574,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.0";
+const APP_VERSION = "9.1";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1132,8 +1132,15 @@ async function odooCreer(forcer){
                              quantites: qtes.length ? qtes : [1], essai: !!ODOO.essai,
                              confirme_existant: !!forcer })
     });
-    const j = await r.json().catch(()=>null);
-    if(!j) throw new Error('Réponse illisible.');
+    const brut = await r.text();
+    let j = null;
+    try{ j = JSON.parse(brut); }catch(e){ j = null; }
+    if(!j){
+      // Le workflow s est interrompu : n8n ne rend plus de JSON. On affiche ce
+      // qu il a dit, tronque, plutot qu un message opaque qui n aide personne.
+      const extrait = brut.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+      throw new Error(`Odoo ou n8n a refusé l'opération (HTTP ${r.status}). ${extrait || 'Aucun détail renvoyé.'}`);
+    }
     if(j.ok !== true){
       // Blocage : on pose la question plutot que d annoncer une erreur seche.
       btn.disabled = false;
