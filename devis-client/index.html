@@ -87,6 +87,11 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 thead .fdv-ckc{background:var(--surface2)}
 .fdv-barre:empty{display:none;margin:0;padding:0;border:0}
 input.fdv-ck{accent-color:var(--blue);cursor:pointer;width:17px;height:17px;margin:0}
+/* La case precede le texte du point, alignee en haut : les messages RFQ font
+   parfois trois lignes, une case centree verticalement flotterait au milieu. */
+.synth-l{display:flex;gap:9px;align-items:flex-start}
+.synth-l>span{flex:1}
+input.synth-ck{margin-top:2px;flex:none}
 .fdv-barre .fdv-c{padding:3px 10px;font-size:11px}
 .fdv-barre .fdv-c.on{font-weight:600}
 .fdv-barre>div:first-child{font-size:12px;color:var(--text2)}
@@ -1436,6 +1441,7 @@ function rendreSources(d){
 }
 
 function synthDossier(d){
+  SYNTH_PTS = {};
   const v = VERDICT[d.decision_pcb] || {cls:'',ico:'ti-help-circle',t:d.decision_pcb||'—',s:''};
   const dem = d.demande || {};
   let h = '';
@@ -1447,11 +1453,13 @@ function synthDossier(d){
       <div><div class="ttl">${esc(v.t)}</div><div class="sub">${esc(v.s)}</div></div>
     </div>`;
   if(horsCap && d.hors_capacite){
-    h += `<ul class="li" style="margin-top:11px"><li class="rfq">${esc(d.hors_capacite.message)}</li></ul>`;
+    h += `<ul class="li" style="margin-top:11px"><li class="rfq"><span class="synth-l">${
+      synthCase('hc', d.hors_capacite.message, 'question_interne')}<span>${esc(d.hors_capacite.message)}</span></span></li></ul>`;
   }
   if((d.declencheurs_rfq||[]).length){
     h += `<ul class="li" style="margin-top:11px">` +
-      d.declencheurs_rfq.map(x=>`<li class="rfq">${esc(x.message)}</li>`).join('') + `</ul>`;
+      d.declencheurs_rfq.map((x,i)=>`<li class="rfq"><span class="synth-l">${
+        synthCase('r'+i, x.message, 'question_interne')}<span>${esc(x.message)}</span></span></li>`).join('') + `</ul>`;
   }
   h += `</div>`;
 
@@ -1633,7 +1641,8 @@ function synthDossier(d){
     h += `</div></div>`;
   }
   if((d.autres_exigences||[]).length) h += `<div class="card"><h2><i class="ti ti-note"></i> Autres exigences</h2>
-    <ul class="li">${d.autres_exigences.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+    <ul class="li">${d.autres_exigences.map((x,i)=>`<li><span class="synth-l">${synthCase('e'+i, x, 'note')}<span>${esc(x)}</span></span></li>`).join('')}</ul>
+    ${barreFicheDeVie()}</div>`;
 
   // liste maison : ce qu'elle a reellement change sur ce dossier.
   // Sans ce retour, impossible de savoir si le mecanisme sert a quelque chose.
@@ -1687,7 +1696,8 @@ function synthDossier(d){
 
   // questions
   if((d.questions_client||[]).length) h += `<div class="card warn"><h2><i class="ti ti-message-question"></i> À clarifier avec le client</h2>
-    <ul class="li">${d.questions_client.map(q=>`<li class="warn">${esc(q)}</li>`).join('')}</ul>
+    ${barreFicheDeVie()}
+    <ul class="li">${d.questions_client.map((q,i)=>`<li class="warn"><span class="synth-l">${synthCase('q'+i, q, 'question_client')}<span>${esc(q)}</span></span></li>`).join('')}</ul>
     <div style="margin-top:11px"><button class="btn-s" onclick="copierQuestions()"><i class="ti ti-copy"></i> Copier la liste</button></div></div>`;
 
   return h;
@@ -1803,6 +1813,21 @@ function tableBomBrute(d){
 /* Repere et MPN d une ligne BRUTE : les en-tetes varient d un client a l autre,
    on les reconnait donc par leur forme plutot que par un nom fige. Si rien ne
    correspond, on ne devine pas — mieux vaut un champ vide qu un champ faux. */
+/* Elements de la SYNTHESE cochables vers la fiche de vie. Cle prefixee s: pour
+   ne pas entrer en collision avec les lignes de nomenclature (t: traite, b: brut).
+   Le registre est reconstruit a chaque rendu de la synthese : il ne survit pas a
+   un changement de dossier, ce qui evite de verser le point d un autre dossier. */
+let SYNTH_PTS = {};
+
+function synthCase(cle, texte, type){
+  if(!texte) return '';
+  SYNTH_PTS[cle] = { texte: String(texte), type: type || 'question_interne' };
+  const ix = 's:' + cle;
+  return `<input type="checkbox" class="fdv-ck synth-ck" ${BOM_SEL.has(ix)?'checked':''}
+    onchange="bomSel('${ix}', this.checked)" title="Ajouter à la fiche de vie"
+    aria-label="Ajouter ce point à la fiche de vie">`;
+}
+
 function bomChampBrut(r, motifs){
   for(const c of Object.keys(r || {})){
     const n = String(c).toLowerCase().replace(/[\s_.\-]/g,'');
@@ -1898,6 +1923,11 @@ function bomSel(ix, on){
 }
 
 function bomLigneParIndex(ix){
+  if(String(ix).charAt(0) === 's'){
+    const pt = SYNTH_PTS[String(ix).slice(2)];
+    return pt ? { _synth:true, _type: pt.type, designateurs: [], mpn: null,
+                  description_client: pt.texte } : null;
+  }
   const n = Number(String(ix).slice(2));
   if(String(ix).charAt(0) === 'b'){
     const r = ((DATA && DATA.bom_rows) || [])[n];
@@ -1923,6 +1953,7 @@ function fdvTexteLigne(l){
     return `${rep} — MPN client ${l.mpn_ecarte} écarté : ${m}`;
   }
   if(l.a_ne_pas_cabler) return `${rep} — ligne non câblée`;
+  if(l._synth) return l.description_client;
   if(l._brut){
     // Nomenclature non encore codifiee : aucun motif calcule n existe, on reprend
     // ce que le client a ecrit plutot que d inventer une raison.
@@ -1947,12 +1978,21 @@ function barreFicheDeVie(){
   // chiffrage est un point a retrouver et a regler A LA COMMANDE (demande
   // d Olivier, 02/08). Le type est donc toujours question_interne — l entree
   // reste en attente jusqu a ce que quelqu un la resolve.
+  // Un point de synthese porte deja son sens dans son texte : lui demander un
+  // motif de nomenclature n aurait aucun sens.
+  if(!bomBesoinMotif()){
+    return `<div id="fdv-barre" class="fdv-barre">
+      <span>${n} point${n>1?'s':''} à verser dans la fiche de vie</span>
+      <button class="btn-p" id="fdv-verser" onclick="bomVerser()"><i class="ti ti-notebook"></i> Ajouter</button>
+      <button class="btn-s" onclick="bomVider()">Tout décocher</button>
+      <span id="fdv-barre-msg" class="hint"></span></div>`;
+  }
   const motifs = bomMotifs();
   return `<div id="fdv-barre" class="fdv-barre">
     <div style="width:100%">Pourquoi ces ${n} ligne${n>1?'s':''} ? — elles resteront en suspens jusqu'à ce qu'on les règle</div>
     <div class="fdv-props" style="margin:0">${motifs.map(m =>
       `<span class="fdv-c ${BOM_MOTIF===m?'on':''}" onclick="bomMotif(${JSON.stringify(m).replace(/"/g,'&#34;')})">${esc(m)}</span>`).join('')}</div>
-    <button class="btn-p" id="fdv-verser" onclick="bomVerser()"${BOM_MOTIF?'':' disabled title="Choisissez un motif"'}><i class="ti ti-notebook"></i> Ajouter</button>
+    <button class="btn-p" id="fdv-verser" onclick="bomVerser()"${(BOM_MOTIF||!bomBesoinMotif())?'':' disabled title="Choisissez un motif"'}><i class="ti ti-notebook"></i> Ajouter</button>
     <button class="btn-s" onclick="bomVider()">Tout décocher</button>
     <span id="fdv-barre-msg" class="hint"></span></div>`;
 }
@@ -1963,6 +2003,11 @@ function barreFicheDeVie(){
 function bomMotifs(){
   const p = window.PPFicheDeVie ? PPFicheDeVie.propositions('BOM') : [];
   return p.length ? p : ['Pas disponible','Non défini (UNDEF)','Introuvable chez les distributeurs','Incohérent'];
+}
+// Le motif ne concerne que les lignes de nomenclature : s il n y a que des
+// points de synthese coches, on ne le demande pas.
+function bomBesoinMotif(){
+  return Array.from(BOM_SEL).some(k => String(k).charAt(0) !== 's');
 }
 function bomMotif(m){ BOM_MOTIF = m; const b = document.getElementById('fdv-barre'); if(b) b.outerHTML = barreFicheDeVie(); }
 function bomVider(){ BOM_SEL.clear(); rendreBom(); }
@@ -1980,17 +2025,21 @@ async function bomVerser(){
     const l = bomLigneParIndex(i);
     const txt = fdvTexteLigne(l);
     if(!txt){ rates.push(i); continue; }
+    // Un point de synthese porte son propre type — une question a clarifier part
+    // AU CLIENT — et il ignore le motif, qui n a de sens que pour une ligne de BOM.
+    const estSynth = !!(l && l._synth);
+    const typeLigne = estSynth ? (l._type || 'question_interne') : 'question_interne';
     msg.textContent = `Enregistrement ${ok + rates.length + 1} sur ${liste.length}\u2026`;
     try{
       await fdvPoster({
         produit_id: fdvProduitId(),
         etape_code: 'DEVIS',
         auteur: fdvAuteur(),
-        texte_brut: BOM_MOTIF ? `${BOM_MOTIF} — ${txt}` : txt,
+        texte_brut: (!estSynth && BOM_MOTIF) ? `${BOM_MOTIF} — ${txt}` : txt,
         repere: (l.designateurs||[]).join(', ') || null,
         mpn: l.mpn || l.mpn_ecarte || null,
-        type: 'question_interne',
-        source: 'devis-client/bom'
+        type: typeLigne,
+        source: estSynth ? 'devis-client/synthese' : 'devis-client/bom'
       });
       ok++; BOM_SEL.delete(i);
     }catch(e){ rates.push(i); }
