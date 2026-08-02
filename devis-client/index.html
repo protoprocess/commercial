@@ -89,6 +89,17 @@ thead .fdv-ckc{background:var(--surface2)}
 input.fdv-ck{accent-color:var(--blue);cursor:pointer;width:17px;height:17px;margin:0}
 /* La case precede le texte du point, alignee en haut : les messages RFQ font
    parfois trois lignes, une case centree verticalement flotterait au milieu. */
+/* Panneau de creation Odoo : liseré d accent pour signaler qu on quitte le
+   perimetre reversible. */
+.odoo-p{margin-top:4px;padding:11px 13px;background:var(--surface2);
+  border-left:3px solid var(--blue);border-radius:var(--radius)}
+.odoo-f{display:block;font-size:11px;color:var(--text3);margin-bottom:3px}
+.odoo-r{display:flex;gap:16px;align-items:flex-end;margin-top:11px;flex-wrap:wrap}
+.odoo-ck{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer}
+.odoo-ck input{width:auto;accent-color:var(--blue)}
+.odoo-rec{margin-top:11px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius)}
+#rattachement .odoo-p input{background:var(--surface);border:1px solid var(--border);
+  color:var(--text);border-radius:var(--radius);padding:6px 9px;font-size:12.5px}
 .synth-l{display:flex;gap:9px;align-items:flex-start}
 .synth-l>span{flex:1}
 input.synth-ck{margin-top:2px;flex:none}
@@ -559,7 +570,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "8.8";
+const APP_VERSION = "8.9";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -973,6 +984,132 @@ function tab(p){
   ['synthese','bom','sources','brut','fiche'].forEach(x=>
     document.getElementById('p-'+x).classList.toggle('hidden', x!==p));
   if(p==='fiche') fdvOuvrir();
+}
+
+/* ---------- DEVIS ODOO ----------
+   LA SEULE ECRITURE DU PROJET QUI NE SE DEFAIT PAS. Le devis brouillon se
+   supprime, l article non : il s archive. D ou un ecran de confirmation en deux
+   temps — on VERIFIE d abord en lecture seule, on montre ce qui sera cree, et
+   l humain seul declenche.
+   UN ARTICLE PAR INDICE (decision d Olivier, 02/08) : la reference de la version
+   est donc pre-remplie MAIS MODIFIABLE, parce qu un fichier client la nomme mal
+   une fois sur trois et que c est ici qu on a le dossier sous les yeux. */
+let ODOO = { etat: 'ferme', data: null, msg: null, essai: false };
+
+function blocOdoo(){
+  if(!(FICHE_LIEN && FICHE_LIEN.produit_id)) return '';
+  if(ODOO.etat === 'ferme'){
+    return `<button class="btn-s" onclick="odooVerifier()">
+      <i class="ti ti-file-invoice"></i> Créer le devis Odoo</button>`;
+  }
+  if(ODOO.etat === 'charge'){
+    return `<p class="hint" style="margin:0"><span class="spin"></span> Lecture d'Odoo…</p>`;
+  }
+  const d = ODOO.data || {};
+  if(ODOO.etat === 'erreur'){
+    return `<p style="margin:0 0 8px;color:var(--red)">${esc(ODOO.msg || '')}</p>
+      <button class="btn-s" onclick="odooFermer()">Fermer</button>`;
+  }
+
+  const versions = (d.versions_connues || []).filter(v => v && v.nom);
+  return `<div class="odoo-p">
+    <p style="margin:0 0 3px;font-size:13px;font-weight:500">Créer le devis dans Odoo</p>
+    <p class="hint" style="margin:0 0 11px">${esc(d.client || '')} · carte ${esc(String(d.produit_id || ''))}</p>
+
+    <label class="odoo-f">Référence de cette version</label>
+    <input id="odoo-ref" value="${esc(d.reference || '')}" oninput="odooRefChange()"
+      style="width:100%;max-width:300px;font-family:var(--mono)">
+    ${versions.length
+      ? `<p class="hint" style="margin:5px 0 0">Déjà dans Odoo : ${versions.map(v=>esc(v.nom)).join(' · ')}</p>`
+      : `<p class="hint" style="margin:5px 0 0">Aucune version de cette carte n'existe encore dans Odoo.</p>`}
+
+    <div class="odoo-r">
+      <div><label class="odoo-f">Quantité</label>
+        <input id="odoo-qte" value="1" style="width:90px"></div>
+      <label class="odoo-ck"><input type="checkbox" id="odoo-essai" ${ODOO.essai?'checked':''}
+        onchange="ODOO.essai=this.checked"> Essai <span class="hint">— préfixe ZZ ESSAI, pour archiver après</span></label>
+    </div>
+
+    <div class="odoo-rec">
+      <p class="hint" style="margin:0 0 6px">Ce qui sera créé</p>
+      <p style="margin:0 0 3px;font-size:12.5px">Article <span class="mono">${esc((ODOO.essai?'ZZ ESSAI - ':'') + (d.nom_article || ''))}</span>
+        <span class="badge ${d.existe_deja?'fdv-b-att':'fdv-b-ok'}">${d.existe_deja?'existe déjà':'nouveau'}</span></p>
+      <p class="hint" style="margin:0 0 3px">Référence interne : ${esc(d.reference_interne || '—')} · Catégorie : Protos</p>
+      <p class="hint" style="margin:0">Devis brouillon pour ${esc(d.client || '')}, une ligne</p>
+    </div>
+
+    <p class="hint" style="margin:9px 0 0">Le devis brouillon se supprime sans trace.
+      <b style="color:var(--text2)">L'article, non</b> — il s'archive.</p>
+
+    <div class="fdv-l">
+      <button class="btn-p" id="odoo-go" onclick="odooCreer(false)">
+        <i class="ti ti-check"></i> Créer dans Odoo</button>
+      <button class="btn-s" onclick="odooFermer()">Annuler</button>
+      <span id="odoo-msg" class="hint"></span>
+    </div></div>`;
+}
+
+// Seul le conteneur data-odoo est reconstruit : le reste du bandeau de
+// rattachement n est jamais touche.
+function odooRendu(){
+  const el = document.getElementById('rattachement');
+  if(!el) return;
+  const anc = el.querySelector('[data-odoo]');
+  if(anc) anc.outerHTML = `<div data-odoo>${blocOdoo()}</div>`;
+}
+
+function odooFermer(){ ODOO = { etat:'ferme', data:null, msg:null, essai: ODOO.essai }; odooRendu(); }
+function odooRefChange(){ /* la reference est relue au moment du clic */ }
+
+async function odooVerifier(){
+  ODOO.etat = 'charge'; odooRendu();
+  const c = cfg();
+  try{
+    const r = await fetch(`${c.base}/${c.mode}/odoo-devis-verifier?produit=${encodeURIComponent(fdvProduitId())}`);
+    const j = await r.json().catch(()=>null);
+    if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+    ODOO.data = j; ODOO.etat = 'ouvert';
+  }catch(e){
+    ODOO.etat = 'erreur'; ODOO.msg = e.message;
+  }
+  odooRendu();
+}
+
+/* Le blocage n est pas une erreur : c est le signal qu une re-commande est peut-etre
+   passee par l analyse sans raison, ou que le client a renvoye des fichiers
+   differents sous le meme nom. On affiche la question et on laisse le choix. */
+async function odooCreer(forcer){
+  const msg = document.getElementById('odoo-msg');
+  const btn = document.getElementById('odoo-go');
+  const ref = (document.getElementById('odoo-ref').value || '').trim();
+  if(!ref){ msg.textContent = 'Il faut une référence.'; return; }
+  const qte = parseFloat((document.getElementById('odoo-qte').value || '1').replace(',', '.'));
+
+  btn.disabled = true;
+  msg.textContent = 'Création dans Odoo…';
+  const c = cfg();
+  try{
+    const r = await fetch(`${c.base}/${c.mode}/odoo-devis-creer`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produit_id: fdvProduitId(), reference: ref,
+                             quantite: (qte > 0 ? qte : 1), essai: !!ODOO.essai,
+                             confirme_existant: !!forcer })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!j) throw new Error('Réponse illisible.');
+    if(j.ok !== true){
+      // Blocage : on pose la question plutot que d annoncer une erreur seche.
+      btn.disabled = false;
+      msg.innerHTML = `<span style="color:var(--amber);display:block;margin-top:6px">${esc(j.motif || 'Création refusée.')}</span>
+        <button class="btn-s" style="margin-top:7px" onclick="odooCreer(true)">Créer quand même</button>`;
+      return;
+    }
+    msg.innerHTML = `<span style="color:var(--green)">Devis n° ${esc(String(j.devis_id))} créé${j.article_cree ? ', article créé' : ', article réutilisé'}.</span>`;
+    btn.disabled = true;
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
 }
 
 /* ---------- FICHE DE VIE ----------
@@ -2298,7 +2435,8 @@ async function rtAfficher(){
   if(FICHE_LIEN.produit_id){
     el.classList.add('ok');
     el.innerHTML = `<h3><i class="ti ti-check"></i> Dossier rattaché</h3>
-      <p style="margin:0">Carte n° ${esc(String(FICHE_LIEN.produit_id))} — ce dossier est déjà rattaché.</p>`;
+      <p style="margin:0 0 10px">Carte n° ${esc(String(FICHE_LIEN.produit_id))} — ce dossier est déjà rattaché.</p>
+      <div data-odoo>${blocOdoo()}</div>`;
     return;
   }
 
@@ -2470,9 +2608,10 @@ async function rtValider(){
     const el = document.getElementById('rattachement');
     el.classList.add('ok');
     el.innerHTML = `<h3><i class="ti ti-check"></i> Dossier rattaché</h3>
-      <p style="margin:0"><b style="color:var(--text)">${esc(j.cle_produit || '')}</b>
+      <p style="margin:0 0 10px"><b style="color:var(--text)">${esc(j.cle_produit || '')}</b>
       ${j.libelle_carte ? ' — ' + esc(j.libelle_carte) : ''}
-      <span style="color:var(--text3)"> · ${esc(j.etat === 'cree' ? 'carte créée' : 'carte déjà connue')}</span></p>`;
+      <span style="color:var(--text3)"> · ${esc(j.etat === 'cree' ? 'carte créée' : 'carte déjà connue')}</span></p>
+      <div data-odoo>${blocOdoo()}</div>`;
   }catch(e){
     btn.disabled = false;
     msg.innerHTML = `<span style="color:var(--amber)">${esc(e.message)}</span>`;
