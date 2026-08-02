@@ -8,7 +8,7 @@
 <!-- Module commun de la fiche de vie. Le ?v= est la parade au cache : sans lui,
      une correction du module resterait invisible et on conclurait a tort qu elle
      n a pas ete faite. La version reelle est affichee en pied de fiche. -->
-<script src="../shared/fiche-de-vie.js?v=1.3"></script>
+<script src="../shared/fiche-de-vie.js?v=1.4"></script>
 <style>
 :root{
   --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
@@ -88,6 +88,7 @@ thead .fdv-ckc{background:var(--surface2)}
 .fdv-barre:empty{display:none;margin:0;padding:0;border:0}
 input.fdv-ck{accent-color:var(--blue);cursor:pointer;width:17px;height:17px;margin:0}
 .fdv-barre .fdv-c{padding:3px 10px;font-size:11px}
+.fdv-barre .fdv-c.on{font-weight:600}
 .fdv-barre>div:first-child{font-size:12px;color:var(--text2)}
 .fdv-m{border-bottom:1px solid var(--border)}
 .fdv-mh{display:flex;align-items:center;gap:8px;padding:9px 2px;cursor:pointer;
@@ -553,7 +554,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "8.3";
+const APP_VERSION = "8.4";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1758,6 +1759,14 @@ function tableBomBrute(d){
     : Object.keys(rows[0] || {});
   // les colonnes vides sur toute la nomenclature n'apportent rien a l'ecran
   const utiles = entetes.filter(c => rows.some(r => String(r[c] == null ? '' : r[c]).trim() !== ''));
+  // COL_n est le nom de repli donne a une colonne sans en-tete dans le fichier
+  // client. L afficher tel quel donne l impression d une colonne parasite alors
+  // qu elle porte de vraies valeurs : on le dit franchement plutot que de la
+  // masquer, la masquer ferait disparaitre une donnee du client sans le dire.
+  const titreCol = c => /^COL_\d+$/i.test(String(c)) ? 'sans titre' : c;
+  const filtre = String(BOM_Q || '').trim().toLowerCase();
+  const visibles = !filtre ? rows : rows.filter(r =>
+    utiles.some(c => String(r[c] == null ? '' : r[c]).toLowerCase().includes(filtre)));
 
   let h = `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature du client</h2>
     <p class="hint" style="margin-bottom:10px">${rows.length} ligne(s) lue(s) dans
@@ -1771,13 +1780,19 @@ function tableBomBrute(d){
 
   if(!rows.length) return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`;
 
+  // Meme identifiant que le champ du tableau traite : setBomQ rend le focus par
+  // cet id, et un seul des deux tableaux est rendu a la fois — pas de collision.
+  h += `<div style="margin-bottom:10px"><input class="f" id="bom-q" value="${esc(BOM_Q)}"
+     placeholder="Rechercher un repère, une référence, une description…"
+     oninput="setBomQ(this.value)" style="width:100%;max-width:520px">
+     ${filtre ? `<span class="hint" style="display:inline;margin-left:9px">${visibles.length} sur ${rows.length}</span>` : ''}</div>`;
   h += barreFicheDeVie();
   h += `<div class="tblwrap"><table><thead><tr>` +
-       utiles.map(c=>`<th>${esc(c)}</th>`).join('') +
+       utiles.map(c=>`<th${/^COL_\d+$/i.test(String(c))?' style="color:var(--text3);font-style:italic"':''}>${esc(titreCol(c))}</th>`).join('') +
        `<th class="fdv-ckc" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>` +
        `</tr></thead><tbody>`;
-  rows.forEach((r, i) => {
-    const ix = 'b:' + i;
+  visibles.forEach((r) => {
+    const ix = 'b:' + rows.indexOf(r);
     h += `<tr>` + utiles.map(c=>`<td>${esc(r[c])}</td>`).join('') +
       `<td class="fdv-ckc"><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
         onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td></tr>`;
