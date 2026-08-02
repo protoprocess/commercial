@@ -538,7 +538,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.8";
+const APP_VERSION = "7.9";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1165,57 +1165,40 @@ function fdvRepondre(id, estClient){
 function fdvRendre(){
   const d = FDV.data || {}, el = document.getElementById('p-fiche');
   const p = d.produit || {};
-  const att = d.en_attente || [];
-  // Les deux boucles portent l etat en_attente : les melanger ferait croire qu on
-  // attend le client alors que la balle est dans notre camp.
-  const attPP  = att.filter(x => x.visible_client !== true);
-  const attCli = att.filter(x => x.visible_client === true);
 
+  // Une seule liste, filtrable. La carte "En suspens" faisait doublon avec le
+  // filtre "A resoudre chez nous" : deux vues de la meme chose par deux chemins
+  // finissent toujours par diverger, et le filtre semblait sans effet puisque la
+  // liste qu il pilotait etait reléguee en bas de page.
   let h = `<div class="card">
     <h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
     <p class="hint" style="margin:0 0 10px">${esc(p.cle_produit||'')}${p.libelle_carte?' \u2014 '+esc(p.libelle_carte):''}${p.nom_client?' \u00b7 '+esc(p.nom_client):''}</p>
     ${fdvBarreFiltres()}
+    ${fdvJournal()}
   </div>`;
 
-  // La saisie passe avant la consultation : 80 % des productions sont des cartes
-  // neuves, l AJOUT est donc le geste principal.
   h += fdvFormulaire();
-
-  if(att.length){
-    h += `<div class="card"><h2><i class="ti ti-clock"></i> En suspens (${att.length})</h2>`;
-    if(attPP.length)  h += `<p class="fdv-t">À résoudre chez nous</p>` + attPP.map(fdvLigneAttente).join('');
-    if(attCli.length) h += `<p class="fdv-t">En attente du client</p>` + attCli.map(fdvLigneAttente).join('');
-    h += `</div>`;
-  }
-
-  h += fdvJournal();
   el.innerHTML = h;
   fdvCompteur();
 }
 
-/* Journal filtrable et replie par metier. En liste continue le journal devient
-   vite illisible des qu il grossit — le repli en fait une table des matieres,
-   et les filtres evitent d avoir a tout parcourir des yeux. */
 function fdvJournal(){
   const d = FDV.data || {};
+  const tous = d.entrees || [];
+  if(!tous.length) return `<p class="hint" style="margin:10px 0 0">Aucune entrée pour cette carte.</p>`;
+
   const parM = (d.par_metier || []).map(m => Object.assign({}, m, {
     // filter passe (element, index, tableau) : appeler fdvGarde directement lui
     // ferait recevoir l INDEX comme filtre, et tout passerait. Bug du 02/08.
     entrees: (m.entrees || []).filter(e => fdvGarde(e))
   })).filter(m => m.entrees.length);
 
-  const tous = d.entrees || [];
+  if(!parM.length) return `<p class="hint" style="margin:10px 0 0">Aucune entrée pour ce filtre.</p>`;
 
-  let h = `<div class="card"><h2><i class="ti ti-list-details"></i> Ce qu'on sait sur cette carte
-    <span style="flex:1"></span></h2>`;
-
-  if(!tous.length) return h + `<p class="hint" style="margin:0">Aucune entrée pour l'instant.</p></div>`;
-  if(!parM.length) return h + `<p class="hint" style="margin:0">Aucune entrée pour ce filtre.</p></div>`;
-
-  // Deplie d office quand il n y a qu un metier, et quand un filtre est actif :
-  // filtrer puis devoir deplier pour voir le resultat donne l impression que le
-  // filtre ne fait rien.
+  // Deplie quand il n y a qu un metier, et des qu un filtre est actif : filtrer
+  // puis devoir deplier pour voir le resultat donne l impression que rien ne bouge.
   const deplierTout = parM.length === 1 || (FDV.filtre && FDV.filtre !== 'tous');
+  let h = '<div style="margin-top:10px">';
   parM.forEach(m => {
     const ouvert = deplierTout || FDV.ouverts.has(m.code || '');
     h += `<div class="fdv-m">
@@ -1225,16 +1208,54 @@ function fdvJournal(){
         <span class="fdv-mn">${m.entrees.length}</span></div>
       <div class="${ouvert?'':'hidden'}">${m.entrees.map(fdvLigneEntree).join('')}</div></div>`;
   });
-  return h + `</div>`;
+  return h + '</div>';
 }
 
-/* Les filtres vivent en tete de l onglet et non dans le journal : ils portent sur
-   la fiche entiere, pas sur une seule de ses cartes (retour d Olivier, 02/08). */
+function fdvMeta(e){
+  const b = [];
+  if(e.auteur) b.push(esc(e.auteur));
+  if(e.indice) b.push(esc(e.indice));
+  if(e.repere) b.push(esc(e.repere));
+  if(e.mpn) b.push(esc(e.mpn));
+  if(e.cree_le){ try{ b.push(new Date(e.cree_le).toLocaleDateString('fr-FR')); }catch(x){} }
+  return b.join(' \u00b7 ');
+}
+
+/* Une seule fonction rend toutes les entrees. Le bouton Repondre n apparait que
+   sur celles qui attendent : c est l etat qui commande l affichage, il n y a pas
+   deux familles de lignes a tenir a jour separement. */
+function fdvLigneEntree(e){
+  const attend = e.etat === 'en_attente';
+  const cli = e.visible_client === true;
+  let cls = attend ? 'fdv-att' : (cli ? 'fdv-cli' : '');
+  let tag = '';
+  if(attend) tag = `<span class="badge ${cli?'fdv-b-cli':'fdv-b-att'}">${cli?'attend le client':'à résoudre chez nous'}</span>`;
+  else if(e.etat === 'resolu') tag = `<span class="badge fdv-b-ok">résolu</span>`;
+  if(cli && !attend) tag += ` <span class="badge fdv-b-cli">client</span>`;
+
+  return `<div class="fdv-e ${cls}">
+    <p style="margin:0 0 3px">${esc(e.texte_brut||'')} ${tag}</p>
+    <p class="hint" style="margin:0">${fdvMeta(e)}</p>
+    ${attend ? `<button class="btn-s" style="margin-top:7px" onclick="fdvRepondre(${e.id}, ${cli})">
+      <i class="ti ti-corner-down-right"></i> Répondre</button>` : ''}
+    ${e.lien ? ` <a class="btn-s" style="margin-top:7px;text-decoration:none" target="_blank"
+      href="${esc(e.lien)}"><i class="ti ti-external-link"></i> Luminovo</a>` : ''}
+    ${attend ? `<div class="fdv-rep hidden" id="fdv-rep-${e.id}">
+      <textarea rows="2" placeholder="Ce qui règle le point\u2026"></textarea>
+      <div class="fdv-l">
+        <button class="btn-p" onclick="fdvEnvoyerReponse(${e.id})"><i class="ti ti-check"></i> Répondre</button>
+        <span class="hint fdv-rep-msg"></span></div></div>` : ''}</div>`;
+}
+
+/* Cinq filtres au lieu de quatre : separer ce qui attend le CLIENT de ce qui
+   attend PP evite de croire que la balle est dans son camp alors qu elle est
+   dans le notre. C est ce que faisait l ancienne carte En suspens. */
 function fdvBarreFiltres(){
   const tous = (FDV.data && FDV.data.entrees) || [];
   if(!tous.length) return '';
   const cpt = f => tous.filter(e => fdvGarde(e, f)).length;
-  const l = [['tous','Tout'],['attente','En attente'],['resolu','Résolu'],['client','Visible client']]
+  const l = [['tous','Tout'],['attente_pp','À résoudre chez nous'],
+             ['attente_client','Attend le client'],['resolu','Résolu'],['client','Visible client']]
     .filter(([f]) => f === 'tous' || cpt(f) > 0);
   return `<div style="display:flex;gap:6px;flex-wrap:wrap">` + l.map(([f,lb]) =>
     `<button class="filter-btn${FDV.filtre===f?' active':''}" onclick="fdvFiltre('${f}')">${esc(lb)} <span style="opacity:.7">${cpt(f)}</span></button>`
@@ -1244,9 +1265,10 @@ function fdvBarreFiltres(){
 function fdvGarde(e, f){
   const flt = (f === undefined) ? FDV.filtre : f;
   if(!flt || flt === 'tous') return true;
-  if(flt === 'attente') return e.etat === 'en_attente';
-  if(flt === 'resolu')  return e.etat === 'resolu';
-  if(flt === 'client')  return e.visible_client === true;
+  if(flt === 'attente_pp')     return e.etat === 'en_attente' && e.visible_client !== true;
+  if(flt === 'attente_client')  return e.etat === 'en_attente' && e.visible_client === true;
+  if(flt === 'resolu')          return e.etat === 'resolu';
+  if(flt === 'client')          return e.visible_client === true;
   return true;
 }
 
