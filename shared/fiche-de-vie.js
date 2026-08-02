@@ -39,7 +39,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.2';
+var VERSION = '1.3';
 var DATE = '02/08/2026';
 
 /* --- etat interne. Un seul montage a la fois par page : les deux hotes n en
@@ -54,6 +54,10 @@ var photo = null;       // blob compresse, non encore envoyable
 var amorces = [];
 var CLE_QUI = 'pp_fdv_initiales';   // meme cle que l appli atelier : les
                                     // initiales suivent l operateur, pas l ecran
+// Liste fermee. Les postes sont PARTAGES a l atelier : un champ libre pre-rempli
+// ferait signer par le precedent operateur sans que personne s en apercoive.
+// A passer en base le jour ou l equipe bouge souvent (meme logique que ref_etapes).
+var EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
 
 function esc(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -89,9 +93,12 @@ function css(){
     '.fdv-e.fdv-att{border-left-color:var(--amber-badge)}',
     '.fdv-e.fdv-cli{border-left-color:var(--green-badge)}',
     '.fdv-props{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}',
-    '.fdv-p{border:1px solid var(--border);background:var(--surface);color:var(--text2);',
-    '  border-radius:20px;padding:4px 11px;font-size:11.5px;cursor:pointer}',
-    '.fdv-p:hover{border-color:var(--blue);color:var(--text)}',
+    // Amorces en pastel ambre pour les distinguer au premier coup d oeil des
+    // pastilles de metier et de destination, qui sont neutres ou orangees.
+    // Fond pastel => texte fonce (charte §3), sinon illisible.
+    '.fdv-p{border:1px solid transparent;background:var(--amber-bg);color:var(--amber-badge);',
+    '  border-radius:20px;padding:4px 11px;font-size:11.5px;cursor:pointer;font-weight:500}',
+    '.fdv-p:hover{border-color:var(--amber-badge)}',
     '.fdv-c{border:1px solid var(--border);background:var(--surface);color:var(--text2);',
     '  border-radius:20px;padding:5px 13px;font-size:11.5px;cursor:pointer;user-select:none}',
     '.fdv-c:hover{border-color:var(--border2);color:var(--text)}',
@@ -114,6 +121,11 @@ function css(){
     '.fdv-b-ok{background:var(--green-bg);color:var(--green-badge)}',
     '.fdv-b-cli{background:var(--green-bg);color:var(--green-badge)}',
     '#pp-fdv-ver{margin-top:10px;font-size:10.5px;color:var(--text3);text-align:right}',
+    '.fdv-h{font-size:17px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:8px}',
+    '.fdv-h2{font-size:14px;font-weight:600;color:var(--blue);margin:0 0 10px;',
+    '  display:flex;align-items:center;gap:7px}',
+    '.fdv-saisie{background:var(--surface2);border:1px solid var(--border2)}',
+    '.fdv-f2{display:block;font-size:12.5px;font-weight:600;color:var(--blue);margin:12px 0 6px}',
     '.fdv-zone textarea,.fdv-zone input,.fdv-zone select{background:var(--surface);',
     '  border:1px solid var(--border);color:var(--text);border-radius:6px;',
     '  padding:7px 10px;font-size:12.5px;font-family:inherit;width:100%}',
@@ -268,9 +280,11 @@ function journal(){
 
   if (!parM.length) return '<p class="hint" style="margin:10px 0 0">Aucune entrée pour ce filtre.</p>';
 
-  // Deplie quand il n y a qu un metier, et des qu un filtre est actif : filtrer
-  // puis devoir deplier donne l impression que le filtre ne fait rien.
-  var deplierTout = parM.length === 1 || (filtre && filtre !== 'tous');
+  // Replie par defaut, meme s il n y a qu un seul metier : arriver sur un fil
+  // deroule repousse la zone de saisie hors de l ecran, alors que l AJOUT est le
+  // geste principal (80 % des productions sont des cartes neuves).
+  // Seul un filtre actif deplie : sinon filtrer semblerait ne rien faire.
+  var deplierTout = (filtre && filtre !== 'tous');
   var h = '<div style="margin-top:10px">';
   parM.forEach(function(m){
     var code = m.code || '';
@@ -295,7 +309,8 @@ function formulaire(){
                ['question_interne','À résoudre chez nous'],
                ['question_client','Question au client']];
 
-  var h = '<div class="card fdv-zone"><h2><i class="ti ti-plus"></i> Ajouter une note</h2>';
+  var h = '<div class="card fdv-zone fdv-saisie">' +
+    '<p class="fdv-h2"><i class="ti ti-plus"></i> Ajouter une note</p>';
 
   if (O.choixMetier && etapes.length){
     h += '<p class="fdv-t" style="margin-top:0">Pour quel métier ?</p><div class="fdv-props">' +
@@ -328,7 +343,7 @@ function formulaire(){
     if (etapes.length){
       // Une info peut concerner PLUSIEURS metiers : trouvee au chiffrage, elle vise
       // le TRAD mais les METHODES doivent la voir pour la porter au dossier de fab.
-      h += '<label class="fdv-f">Doit aussi être vu par</label><div class="fdv-props">' +
+      h += '<label class="fdv-f2">Doit aussi être vu par</label><div class="fdv-props">' +
         etapes.filter(function(e){ return e.code !== etape; }).map(function(e){
           return '<span class="fdv-c' + (poles.indexOf(e.code) >= 0 ? ' on' : '') +
             '" onclick="PPFicheDeVie.basculerPole(\'' + esc(e.code) + '\')">' + esc(e.libelle) + '</span>';
@@ -361,9 +376,21 @@ function formulaire(){
       '<span><i class="ti ti-eye"></i> Visible par le client</span></label>';
   }
 
-  h += '<div class="fdv-l">' +
-    '<input id="fdv-auteur" placeholder="Initiales" value="' + esc(qui()) + '" style="max-width:100px">' +
-    '<button class="btn-p" id="fdv-ok" onclick="PPFicheDeVie.enregistrer()">' +
+  // Postes partages a l atelier : l identite est choisie dans une liste fermee et
+  // le bouton reste inactif tant qu elle n est pas renseignee. Un champ libre
+  // pre-rempli ferait signer par le precedent operateur, sans le moindre signal.
+  var moi = qui();
+  var liste = (O.equipe || EQUIPE);
+  if (moi && liste.indexOf(moi) < 0) liste = liste.concat([moi]);
+  h += '<label class="fdv-f2">Vos initiales</label>' +
+    '<div class="fdv-l" style="margin-top:0">' +
+    '<select id="fdv-auteur" onchange="PPFicheDeVie.choisirAuteur(this.value)">' +
+    '<option value=""' + (moi ? '' : ' selected') + '>\u2014 choisir \u2014</option>' +
+    liste.map(function(i){
+      return '<option value="' + esc(i) + '"' + (i === moi ? ' selected' : '') + '>' + esc(i) + '</option>';
+    }).join('') + '</select>' +
+    '<button class="btn-p" id="fdv-ok" onclick="PPFicheDeVie.enregistrer()"' +
+      (moi ? '' : ' disabled title="Choisissez d\'abord vos initiales"') + '>' +
     '<i class="ti ti-check"></i> Enregistrer</button>' +
     '<span id="fdv-msg" class="hint"></span></div>';
 
@@ -378,7 +405,7 @@ function rendre(){
   // Une seule liste, filtrable, placee DIRECTEMENT sous les filtres. Une carte
   // « En suspens » separee ferait doublon avec le filtre, et le filtre semblerait
   // sans effet puisqu il piloterait une liste releguee plus bas.
-  var h = '<div class="card"><h2><i class="ti ti-notebook"></i> Fiche de vie</h2>' +
+  var h = '<div class="card"><h2 class="fdv-h"><i class="ti ti-notebook"></i> Fiche de vie</h2>' +
     '<p class="hint" style="margin:0 0 10px">' + esc(p.cle_produit || '') +
       (p.libelle_carte ? ' \u2014 ' + esc(p.libelle_carte) : '') +
       (p.nom_client ? ' \u00b7 ' + esc(p.nom_client) : '') + '</p>' +
@@ -399,6 +426,13 @@ function auteur(){
   var v = e ? (e.value || '').trim() : '';
   if (v) setQui(v);
   return v || null;
+}
+
+// Une reponse est signee comme une note : meme exigence, meme liste.
+function auteurOuStop(msg){
+  var v = auteur();
+  if (!v && msg) msg.innerHTML = '<span style="color:var(--amber)">Choisissez d\'abord vos initiales.</span>';
+  return v;
 }
 
 /* Une seule porte vers le webhook. Deux fonctions paralleles qui postent la meme
@@ -491,6 +525,11 @@ global.PPFicheDeVie = {
   filtrer: function(f){ filtre = f; rendre(); },
   replier: function(code){ ouverts[code] = !ouverts[code]; rendre(); },
   choisirType: function(v){ O._type = v; rendre(); },
+  choisirAuteur: function(v){
+    if (v) setQui(v);
+    var b = el('fdv-ok');
+    if (b){ b.disabled = !v; if (v) b.removeAttribute('title'); }
+  },
   basculerVisible: function(b){ O._visibleClient = !!b; },
   basculerPole: function(code){
     var i = poles.indexOf(code);
@@ -536,11 +575,12 @@ global.PPFicheDeVie = {
     var btn = z.querySelector('button');
     var txt = (ta.value || '').trim();
     if (!txt){ msg.textContent = 'Il faut un texte.'; return; }
+    var qq = auteurOuStop(msg); if (!qq) return;
     btn.disabled = true; msg.textContent = 'Enregistrement\u2026';
     poster({
       produit_id: produitId(),
       etape_code: O.etapeDefaut || 'DEVIS',
-      auteur: auteur(),
+      auteur: qq,
       texte_brut: txt,
       repond_a: id,
       type: O._repondClient ? 'reponse_client' : 'reponse_interne',
@@ -558,6 +598,7 @@ global.PPFicheDeVie = {
     var msg = el('fdv-msg'), btn = el('fdv-ok');
     var txt = (el('fdv-txt').value || '').trim();
     if (!txt){ msg.textContent = 'Il faut un texte.'; return; }
+    if (!auteurOuStop(msg)) return;
     btn.disabled = true; msg.textContent = 'Enregistrement\u2026';
     var val = function(id){
       var e = el(id); var v = e ? (e.value || '').trim() : '';
