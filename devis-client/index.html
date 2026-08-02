@@ -78,8 +78,8 @@ input.fdv-ck{accent-color:var(--blue);cursor:pointer}
 .fdv-mh{display:flex;align-items:center;gap:8px;padding:9px 2px;cursor:pointer;
   font-size:12px;font-weight:500;color:var(--text2);user-select:none}
 .fdv-mh:hover{color:var(--text)}
-.fdv-mn{margin-left:auto;padding:1px 8px;border-radius:20px;background:var(--surface2);
-  color:var(--text3);font-size:10.5px}
+.fdv-mn{padding:1px 9px;border-radius:20px;background:var(--blue-bg);
+  color:var(--blue);font-size:11px;font-weight:600}
 .fdv-dz{margin-top:9px;padding:14px;border:1px dashed var(--border2);border-radius:var(--radius);
   text-align:center;font-size:12px;color:var(--text3);cursor:pointer}
 .fdv-dz:hover,.fdv-dz.over{border-color:var(--blue);color:var(--text2)}
@@ -538,7 +538,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.5";
+const APP_VERSION = "7.7";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1173,7 +1173,8 @@ function fdvRendre(){
 
   let h = `<div class="card">
     <h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
-    <p class="hint" style="margin:0">${esc(p.cle_produit||'')}${p.libelle_carte?' \u2014 '+esc(p.libelle_carte):''}${p.nom_client?' \u00b7 '+esc(p.nom_client):''}</p>
+    <p class="hint" style="margin:0 0 10px">${esc(p.cle_produit||'')}${p.libelle_carte?' \u2014 '+esc(p.libelle_carte):''}${p.nom_client?' \u00b7 '+esc(p.nom_client):''}</p>
+    ${fdvBarreFiltres()}
   </div>`;
 
   // La saisie passe avant la consultation : 80 % des productions sont des cartes
@@ -1198,27 +1199,23 @@ function fdvRendre(){
 function fdvJournal(){
   const d = FDV.data || {};
   const parM = (d.par_metier || []).map(m => Object.assign({}, m, {
-    entrees: (m.entrees || []).filter(fdvGarde)
+    // filter passe (element, index, tableau) : appeler fdvGarde directement lui
+    // ferait recevoir l INDEX comme filtre, et tout passerait. Bug du 02/08.
+    entrees: (m.entrees || []).filter(e => fdvGarde(e))
   })).filter(m => m.entrees.length);
 
   const tous = d.entrees || [];
-  const cpt = f => tous.filter(e => fdvGarde(e, f)).length;
-  const filtres = [['tous','Tout'],['attente','En attente'],['resolu','Résolu'],['client','Visible client']]
-    .filter(([f]) => f === 'tous' || cpt(f) > 0);
 
   let h = `<div class="card"><h2><i class="ti ti-list-details"></i> Ce qu'on sait sur cette carte
     <span style="flex:1"></span></h2>`;
 
   if(!tous.length) return h + `<p class="hint" style="margin:0">Aucune entrée pour l'instant.</p></div>`;
-
-  h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px">` +
-    filtres.map(([f,l]) => `<button class="filter-btn${FDV.filtre===f?' active':''}" onclick="fdvFiltre('${f}')">${esc(l)} <span style="opacity:.7">${cpt(f)}</span></button>`).join('') +
-    `</div>`;
-
   if(!parM.length) return h + `<p class="hint" style="margin:0">Aucune entrée pour ce filtre.</p></div>`;
 
-  // Un seul metier : deplie d office, replier une liste unique n a pas de sens.
-  const deplierTout = parM.length === 1;
+  // Deplie d office quand il n y a qu un metier, et quand un filtre est actif :
+  // filtrer puis devoir deplier pour voir le resultat donne l impression que le
+  // filtre ne fait rien.
+  const deplierTout = parM.length === 1 || (FDV.filtre && FDV.filtre !== 'tous');
   parM.forEach(m => {
     const ouvert = deplierTout || FDV.ouverts.has(m.code || '');
     h += `<div class="fdv-m">
@@ -1229,6 +1226,19 @@ function fdvJournal(){
       <div class="${ouvert?'':'hidden'}">${m.entrees.map(fdvLigneEntree).join('')}</div></div>`;
   });
   return h + `</div>`;
+}
+
+/* Les filtres vivent en tete de l onglet et non dans le journal : ils portent sur
+   la fiche entiere, pas sur une seule de ses cartes (retour d Olivier, 02/08). */
+function fdvBarreFiltres(){
+  const tous = (FDV.data && FDV.data.entrees) || [];
+  if(!tous.length) return '';
+  const cpt = f => tous.filter(e => fdvGarde(e, f)).length;
+  const l = [['tous','Tout'],['attente','En attente'],['resolu','Résolu'],['client','Visible client']]
+    .filter(([f]) => f === 'tous' || cpt(f) > 0);
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap">` + l.map(([f,lb]) =>
+    `<button class="filter-btn${FDV.filtre===f?' active':''}" onclick="fdvFiltre('${f}')">${esc(lb)} <span style="opacity:.7">${cpt(f)}</span></button>`
+  ).join('') + `</div>`;
 }
 
 function fdvGarde(e, f){
@@ -2063,11 +2073,29 @@ function tableBomBrute(d){
   if(!rows.length) return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`;
 
   h += `<div class="tblwrap"><table><thead><tr>` +
+       `<th style="width:26px" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>` +
        utiles.map(c=>`<th>${esc(c)}</th>`).join('') + `</tr></thead><tbody>`;
-  for(const r of rows){
-    h += `<tr>` + utiles.map(c=>`<td>${esc(r[c])}</td>`).join('') + `</tr>`;
+  rows.forEach((r, i) => {
+    const ix = 'b:' + i;
+    h += `<tr><td><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
+      onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td>` +
+      utiles.map(c=>`<td>${esc(r[c])}</td>`).join('') + `</tr>`;
+  });
+  return h + `</tbody></table></div>${barreFicheDeVie()}</div>`;
+}
+
+/* Repere et MPN d une ligne BRUTE : les en-tetes varient d un client a l autre,
+   on les reconnait donc par leur forme plutot que par un nom fige. Si rien ne
+   correspond, on ne devine pas — mieux vaut un champ vide qu un champ faux. */
+function bomChampBrut(r, motifs){
+  for(const c of Object.keys(r || {})){
+    const n = String(c).toLowerCase().replace(/[\s_.\-]/g,'');
+    if(motifs.some(m => n.indexOf(m) >= 0)){
+      const v = String(r[c] == null ? '' : r[c]).trim();
+      if(v) return v;
+    }
   }
-  return h + `</tbody></table></div></div>`;
+  return null;
 }
 
 // Relance uniquement la codification, sur la nomenclature deja en memoire.
@@ -2116,10 +2144,10 @@ function tableBom(d){
     const desc = l.description_client
       ? `<span title="${esc(l.description_client)}">${esc(l.description_client)}</span>`
       : `<span style="color:var(--text3);font-style:italic">pas de description</span>`;
-    const ix = (l.ligne_index ?? -1);
+    const ix = 't:' + (l.ligne_index ?? -1);
     h += `<tr>
-      <td><input type="checkbox" class="fdv-ck" data-ix="${ix}" ${BOM_SEL.has(ix)?'checked':''}
-          onchange="bomSel(${ix}, this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td>
+      <td><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
+          onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td>
       <td class="${cellCls} mono">${esc((l.designateurs||[]).join(', ')|| ('ligne '+((l.ligne_index??0)+1)))}</td>
       <td style="max-width:280px;font-size:11.5px;color:var(--text2)">${desc}</td>
       <td>${esc(l.famille||'')}</td>
@@ -2143,8 +2171,18 @@ function bomSel(ix, on){
 }
 
 function bomLigneParIndex(ix){
+  const n = Number(String(ix).slice(2));
+  if(String(ix).charAt(0) === 'b'){
+    const r = ((DATA && DATA.bom_rows) || [])[n];
+    if(!r) return null;
+    const rep = bomChampBrut(r, ['designator','designateur','repere','ref','reference']);
+    const mpn = bomChampBrut(r, ['reffabricant','reffab','mpn','manufacturerpart','partnumber']);
+    const des = bomChampBrut(r, ['description','comment','designation','valeur','value']);
+    return { _brut:true, designateurs: rep ? [rep] : [], mpn: mpn,
+             description_client: des, ligne_index: n };
+  }
   const t = (DATA && (DATA.bom_lignes || DATA.lignes)) || [];
-  return t.find(l => (l.ligne_index ?? -1) === ix) || null;
+  return t.find(l => (l.ligne_index ?? -1) === n) || null;
 }
 
 /* Texte de depart d une ligne cochee : le motif que l appli connait DEJA, et a
@@ -2158,6 +2196,13 @@ function fdvTexteLigne(l){
     return `${rep} — MPN client ${l.mpn_ecarte} écarté : ${m}`;
   }
   if(l.a_ne_pas_cabler) return `${rep} — ligne non câblée`;
+  if(l._brut){
+    // Nomenclature non encore codifiee : aucun motif calcule n existe, on reprend
+    // ce que le client a ecrit plutot que d inventer une raison.
+    const d = l.description_client || '';
+    const m = l.mpn ? ` (${l.mpn})` : '';
+    return (rep || 'ligne ' + ((l.ligne_index||0)+1)) + (d ? ` — ${d}${m}` : m);
+  }
   if(l.confiance != null && Number(l.confiance) < 0.5) return `${rep} — codification peu sûre, à vérifier`;
   const d = l.description_client || l.valeur || '';
   return d ? `${rep} — ${d}` : rep;
