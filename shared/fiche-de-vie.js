@@ -39,7 +39,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.3';
+var VERSION = '1.4';
 var DATE = '02/08/2026';
 
 /* --- etat interne. Un seul montage a la fois par page : les deux hotes n en
@@ -93,16 +93,17 @@ function css(){
     '.fdv-e.fdv-att{border-left-color:var(--amber-badge)}',
     '.fdv-e.fdv-cli{border-left-color:var(--green-badge)}',
     '.fdv-props{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}',
-    // Amorces en pastel ambre pour les distinguer au premier coup d oeil des
-    // pastilles de metier et de destination, qui sont neutres ou orangees.
-    // Fond pastel => texte fonce (charte §3), sinon illisible.
-    '.fdv-p{border:1px solid transparent;background:var(--amber-bg);color:var(--amber-badge);',
-    '  border-radius:20px;padding:4px 11px;font-size:11.5px;cursor:pointer;font-weight:500}',
-    '.fdv-p:hover{border-color:var(--amber-badge)}',
+    // Amorces volontairement NEUTRES : ce ne sont que des suggestions de
+    // formulation. L ambre est reserve a ce qui est SELECTIONNE — metier, pole,
+    // destination — car choisir le bon metier est le geste qui compte.
+    '.fdv-p{border:1px solid var(--border);background:var(--surface);color:var(--text2);',
+    '  border-radius:20px;padding:4px 11px;font-size:11.5px;cursor:pointer}',
+    '.fdv-p:hover{border-color:var(--border2);color:var(--text)}',
     '.fdv-c{border:1px solid var(--border);background:var(--surface);color:var(--text2);',
     '  border-radius:20px;padding:5px 13px;font-size:11.5px;cursor:pointer;user-select:none}',
     '.fdv-c:hover{border-color:var(--border2);color:var(--text)}',
-    '.fdv-c.on{background:var(--blue);color:#fff;border-color:transparent}',
+    '.fdv-c.on{background:var(--amber-bg);color:var(--amber-badge);border-color:transparent;',
+    '  font-weight:600}',
     '.fdv-l{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}',
     '.fdv-rep{margin-top:9px;padding-top:9px;border-top:1px solid var(--border)}',
     '.fdv-m{border-bottom:1px solid var(--border)}',
@@ -121,7 +122,21 @@ function css(){
     '.fdv-b-ok{background:var(--green-bg);color:var(--green-badge)}',
     '.fdv-b-cli{background:var(--green-bg);color:var(--green-badge)}',
     '#pp-fdv-ver{margin-top:10px;font-size:10.5px;color:var(--text3);text-align:right}',
-    '.fdv-h{font-size:17px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:8px}',
+    // .card h2 des hotes a une specificite superieure a .fdv-h : le titre gardait
+    // 13 px et sa couleur d origine. Deux niveaux ici, la regle passe partout.
+    '.card h2.fdv-h,h2.fdv-h{font-size:17px;font-weight:600;color:var(--blue);',
+    '  display:flex;align-items:center;gap:8px;margin-bottom:4px}',
+    // Classes autrefois empruntees a l hote. Absentes cote atelier, elles y
+    // rendaient le repli sans effet. Le module les porte maintenant lui-meme.
+    '.fdv-hide{display:none!important}',
+    '.fdv-fb{border:1px solid var(--border);background:var(--surface);color:var(--text2);',
+    '  border-radius:20px;padding:5px 12px;font-size:11.5px;cursor:pointer;font-family:inherit}',
+    '.fdv-fb.active{background:var(--blue);color:#fff;border-color:transparent}',
+    '.fdv-bd{display:inline-block;padding:1px 8px;border-radius:20px;font-size:10.5px;font-weight:600}',
+    '.fdv-spin{display:inline-block;width:11px;height:11px;border:2px solid var(--border2);',
+    '  border-top-color:var(--blue);border-radius:50%;animation:fdvspin .7s linear infinite;',
+    '  vertical-align:-1px;margin-right:5px}',
+    '@keyframes fdvspin{to{transform:rotate(360deg)}}',
     '.fdv-h2{font-size:14px;font-weight:600;color:var(--blue);margin:0 0 10px;',
     '  display:flex;align-items:center;gap:7px}',
     '.fdv-saisie{background:var(--surface2);border:1px solid var(--border2)}',
@@ -160,7 +175,7 @@ function charger(){
   }
 
   z.innerHTML = '<div class="card"><h2><i class="ti ti-notebook"></i> Fiche de vie</h2>' +
-    '<p style="margin:0;color:var(--text2)"><span class="spin"></span> Lecture du journal\u2026</p></div>';
+    '<p style="margin:0;color:var(--text2)"><span class="fdv-spin"></span> Lecture du journal\u2026</p></div>';
 
   return fetch(O.base + '/fiche-de-vie?produit=' + encodeURIComponent(id))
     .then(function(r){ return r.json().catch(function(){ return null; })
@@ -201,7 +216,7 @@ function barreFiltres(){
            ['attente_client','Attend le client'],['resolu','Résolu'],['client','Visible client']]
     .filter(function(x){ return x[0] === 'tous' || cpt(x[0]) > 0; });
   return '<div style="display:flex;gap:6px;flex-wrap:wrap">' + l.map(function(x){
-    return '<button class="filter-btn' + (filtre === x[0] ? ' active' : '') +
+    return '<button class="fdv-fb' + (filtre === x[0] ? ' active' : '') +
       '" onclick="PPFicheDeVie.filtrer(\'' + x[0] + '\')">' + esc(x[1]) +
       ' <span style="opacity:.7">' + cpt(x[0]) + '</span></button>';
   }).join('') + '</div>';
@@ -225,10 +240,10 @@ function ligne(e){
   var cli = e.visible_client === true;
   var cls = attend ? 'fdv-att' : (cli ? 'fdv-cli' : '');
   var tag = '';
-  if (attend) tag = '<span class="badge ' + (cli ? 'fdv-b-cli' : 'fdv-b-att') + '">' +
-    (cli ? 'attend le client' : 'à résoudre chez nous') + '</span>';
-  else if (e.etat === 'resolu') tag = '<span class="badge fdv-b-ok">résolu</span>';
-  if (cli && !attend) tag += ' <span class="badge fdv-b-cli">client</span>';
+  if (attend) tag = '<span class="fdv-bd ' + (cli ? 'fdv-b-cli' : 'fdv-b-att') + '">' +
+    (cli ? 'attend le client' : 'à traiter') + '</span>';
+  else if (e.etat === 'resolu') tag = '<span class="fdv-bd fdv-b-ok">résolu</span>';
+  if (cli && !attend) tag += ' <span class="fdv-bd fdv-b-cli">client</span>';
 
   var h = '<div class="fdv-e ' + cls + '">' +
     '<p style="margin:0 0 3px">' + esc(e.texte_brut || '') + ' ' + tag + '</p>' +
@@ -293,7 +308,7 @@ function journal(){
       '<i class="ti ti-chevron-' + (ouvert ? 'down' : 'right') + '"></i>' +
       '<span>' + esc(m.libelle || '') + '</span>' +
       '<span class="fdv-mn">' + m.entrees.length + '</span></div>' +
-      '<div class="' + (ouvert ? '' : 'hidden') + '">' + m.entrees.map(ligne).join('') + '</div></div>';
+      '<div class="' + (ouvert ? '' : 'fdv-hide') + '">' + m.entrees.map(ligne).join('') + '</div></div>';
   });
   return h + '</div>';
 }
@@ -305,9 +320,9 @@ function formulaire(){
   var props = (D && D.propositions) || {};
   amorces = props[etape] || [];
 
-  var choix = [['note','Note simple'],
-               ['question_interne','À résoudre chez nous'],
-               ['question_client','Question au client']];
+  var choix = [['note','Information'],
+               ['question_interne','À traiter'],
+               ['question_client','Question client']];
 
   var h = '<div class="card fdv-zone fdv-saisie">' +
     '<p class="fdv-h2"><i class="ti ti-plus"></i> Ajouter une note</p>';
@@ -358,7 +373,7 @@ function formulaire(){
     ' ondragover="event.preventDefault();this.classList.add(\'over\')"' +
     ' ondragleave="this.classList.remove(\'over\')" ondrop="PPFicheDeVie.depot(event)">' +
     '<i class="ti ti-photo"></i> Glisser une photo ici, ou cliquer' +
-    '<input type="file" id="fdv-file" accept="image/*" class="hidden"' +
+    '<input type="file" id="fdv-file" accept="image/*" class="fdv-hide"' +
     ' onchange="PPFicheDeVie.depot(event)"></div><div id="fdv-photo"></div>';
 
   h += '<div class="fdv-props" style="margin-top:9px">' + choix.map(function(c){
@@ -559,12 +574,12 @@ global.PPFicheDeVie = {
 
   ouvrirReponse: function(id, estClient){
     var z = el('fdv-rep-' + id); if (!z) return;
-    var ouvert = !z.classList.contains('hidden');
+    var ouvert = !z.classList.contains('fdv-hide');
     var tous = document.querySelectorAll('.fdv-rep');
-    for (var i = 0; i < tous.length; i++) tous[i].classList.add('hidden');
+    for (var i = 0; i < tous.length; i++) tous[i].classList.add('fdv-hide');
     if (ouvert) return;
     O._repondA = id; O._repondClient = (estClient === true);
-    z.classList.remove('hidden');
+    z.classList.remove('fdv-hide');
     var t = z.querySelector('textarea'); if (t) t.focus();
   },
 
