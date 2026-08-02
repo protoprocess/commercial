@@ -63,6 +63,12 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .fdv-p{border:1px solid var(--border);background:var(--surface);color:var(--text2);
   border-radius:20px;padding:4px 11px;font-size:11.5px;cursor:pointer}
 .fdv-p:hover{border-color:var(--blue);color:var(--text)}
+.fdv-c{border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  border-radius:20px;padding:5px 13px;font-size:11.5px;cursor:pointer;user-select:none}
+.fdv-c:hover{border-color:var(--border2);color:var(--text)}
+.fdv-c.on{background:var(--blue);color:#fff;border-color:transparent}
+.fdv-rep{margin-top:9px;padding-top:9px;border-top:1px solid var(--border)}
+.fdv-rep textarea{width:100%}
 .fdv-l{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
 #p-fiche textarea,#p-fiche input,#p-fiche select{background:var(--surface);
   border:1px solid var(--border);color:var(--text);border-radius:var(--radius);
@@ -515,7 +521,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.2";
+const APP_VERSION = "7.3";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -935,7 +941,7 @@ function tab(p){
    L appli n envoie JAMAIS etat ni visible_client : le workflow les deduit du type.
    Deux fonctions paralleles qui classent la meme chose finissent toujours par
    diverger — la regle vit donc a un seul endroit, cote serveur. */
-const FDV = { data:null, chargee:false, repond_a:null, repond_client:false, amorces:[] };
+const FDV = { data:null, chargee:false, repond_a:null, repond_client:false, amorces:[], type:'note' };
 
 function fdvProduitId(){
   const v = FICHE_LIEN && FICHE_LIEN.produit_id;
@@ -1004,7 +1010,14 @@ function fdvLigneAttente(e){
     <button class="btn-s" style="margin-top:7px" onclick="fdvRepondre(${e.id}, ${cli})">
       <i class="ti ti-corner-down-right"></i> Répondre</button>
     ${e.lien ? ` <a class="btn-s" style="margin-top:7px;text-decoration:none" target="_blank"
-      href="${esc(e.lien)}"><i class="ti ti-external-link"></i> Luminovo</a>` : ''}</div>`;
+      href="${esc(e.lien)}"><i class="ti ti-external-link"></i> Luminovo</a>` : ''}
+    <div class="fdv-rep hidden" id="fdv-rep-${e.id}">
+      <textarea rows="2" placeholder="Ce qui règle le point\u2026"></textarea>
+      <div class="fdv-l">
+        <button class="btn-p" onclick="fdvEnvoyerReponse(${e.id})"><i class="ti ti-check"></i> Répondre</button>
+        <span class="hint fdv-rep-msg"></span>
+      </div>
+    </div></div>`;
 }
 
 function fdvLigneEntree(e){
@@ -1021,25 +1034,34 @@ function fdvFormulaire(){
   const d = FDV.data || {};
   FDV.amorces = ((d.propositions || {})['DEVIS']) || [];
   let auteur = ''; try{ auteur = localStorage.getItem('pp_fdv_auteur') || ''; }catch(x){}
-  const rep = FDV.repond_a;
+
+  // Les trois destinations sont VISIBLES en meme temps plutot que cachees dans un
+  // menu deroulant (demande d Olivier, 02/08) : on doit voir d un coup d oeil ce
+  // qu on est en train de faire, sans deplier quoi que ce soit.
+  const choix = [
+    ['note',             'Note simple'],
+    ['question_interne', 'À résoudre chez nous'],
+    ['question_client',  'Question au client']
+  ];
 
   return `<div class="card">
-    <h2><i class="ti ti-plus"></i> ${rep ? 'Répondre au point n\u00b0 ' + rep : 'Ajouter une note'}</h2>
-    ${rep ? `<p class="hint" style="margin:0 0 9px">Cette réponse fermera le point n\u00b0 ${rep}.
-      <button class="btn-s" onclick="fdvRepondre(null,false)">Annuler</button></p>` : ''}
-    ${(!rep && FDV.amorces.length) ? `<div class="fdv-props">${FDV.amorces.map((t,i)=>
+    <h2><i class="ti ti-plus"></i> Ajouter une note</h2>
+    ${FDV.amorces.length ? `<div class="fdv-props">${FDV.amorces.map((t,i)=>
       `<span class="fdv-p" onclick="fdvAmorce(${i})">${esc(t)}</span>`).join('')}</div>` : ''}
     <textarea id="fdv-txt" rows="3" placeholder="Ce qu'il faut retenir sur cette carte\u2026"></textarea>
+    <div class="fdv-props" style="margin-top:9px">${choix.map(([v,l])=>
+      `<span class="fdv-c ${FDV.type===v?'on':''}" data-v="${v}" onclick="fdvType('${v}')">${esc(l)}</span>`).join('')}</div>
     <div class="fdv-l">
       <input id="fdv-auteur" placeholder="Initiales" value="${esc(auteur)}" style="max-width:100px">
-      ${rep ? '' : `<select id="fdv-type">
-        <option value="note">Note simple</option>
-        <option value="question_interne">À résoudre chez nous</option>
-        <option value="question_client">Question au client</option>
-      </select>`}
       <button class="btn-p" id="fdv-ok" onclick="fdvEnvoyer()"><i class="ti ti-check"></i> Enregistrer</button>
       <span id="fdv-msg" class="hint"></span>
     </div></div>`;
+}
+
+function fdvType(v){
+  FDV.type = v;
+  document.querySelectorAll('#p-fiche .fdv-c').forEach(e =>
+    e.classList.toggle('on', e.dataset.v === v));
 }
 
 function fdvAmorce(i){
@@ -1049,11 +1071,19 @@ function fdvAmorce(i){
   z.focus();
 }
 
+// La reponse s ouvre SOUS la question et non dans le formulaire du haut : faire
+// l aller-retour entre le point et un formulaire distant fait perdre le fil
+// (retour d Olivier, 02/08). Juste un texte et un bouton, rien d autre.
 function fdvRepondre(id, estClient){
-  FDV.repond_a = id || null;
+  const z = document.getElementById('fdv-rep-' + id);
+  if(!z) return;
+  const ouvert = !z.classList.contains('hidden');
+  document.querySelectorAll('#p-fiche .fdv-rep').forEach(e => e.classList.add('hidden'));
+  if(ouvert) return;
+  FDV.repond_a = id;
   FDV.repond_client = (estClient === true);
-  fdvRendre();
-  const z = document.getElementById('fdv-txt'); if(z) z.focus();
+  z.classList.remove('hidden');
+  const t = z.querySelector('textarea'); if(t) t.focus();
 }
 
 function fdvRendre(){
@@ -1101,40 +1131,72 @@ function fdvCompteur(){
   b.classList.toggle('hidden', n === 0);
 }
 
+// Une seule porte vers le webhook, deux appelants : la note et la reponse. Deux
+// fonctions paralleles qui postent la meme chose finiraient par diverger.
+async function fdvPoster(corps){
+  const c = cfg();
+  const r = await fetch(`${c.base}/${c.mode}/fiche-de-vie-ajout`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corps)
+  });
+  const j = await r.json().catch(()=>null);
+  // Un HTTP 200 ne prouve rien : le workflow rend ok:false avec un motif quand
+  // rien n a ete ecrit. C est cette cle qui fait foi, pas le code de retour.
+  if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+  return j;
+}
+
+function fdvAuteur(){
+  const e = document.getElementById('fdv-auteur');
+  const v = e ? (e.value || '').trim() : '';
+  try{ localStorage.setItem('pp_fdv_auteur', v); }catch(x){}
+  return v || null;
+}
+
 async function fdvEnvoyer(){
   const msg = document.getElementById('fdv-msg');
   const btn = document.getElementById('fdv-ok');
   const txt = (document.getElementById('fdv-txt').value || '').trim();
-  const aut = (document.getElementById('fdv-auteur').value || '').trim();
   if(!txt){ msg.textContent = 'Il faut un texte.'; return; }
-  try{ localStorage.setItem('pp_fdv_auteur', aut); }catch(x){}
-
-  const sel = document.getElementById('fdv-type');
-  const corps = {
-    produit_id: fdvProduitId(),
-    etape_code: 'DEVIS',
-    auteur: aut || null,
-    texte_brut: txt,
-    source: 'devis-client'
-  };
-  if(FDV.repond_a){
-    corps.repond_a = FDV.repond_a;
-    corps.type = FDV.repond_client ? 'reponse_client' : 'reponse_interne';
-  }else{
-    corps.type = sel ? sel.value : 'note';
-  }
 
   btn.disabled = true;
   msg.textContent = 'Enregistrement\u2026';
-  const c = cfg();
   try{
-    const r = await fetch(`${c.base}/${c.mode}/fiche-de-vie-ajout`, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corps)
+    await fdvPoster({
+      produit_id: fdvProduitId(),
+      etape_code: 'DEVIS',
+      auteur: fdvAuteur(),
+      texte_brut: txt,
+      type: FDV.type || 'note',
+      source: 'devis-client'
     });
-    const j = await r.json().catch(()=>null);
-    // Un HTTP 200 ne prouve rien : le workflow rend ok:false avec un motif quand
-    // rien n a ete ecrit. C est cette cle qui fait foi, pas le code de retour.
-    if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+    FDV.type = 'note';
+    await fdvCharger();
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
+async function fdvEnvoyerReponse(id){
+  const z = document.getElementById('fdv-rep-' + id); if(!z) return;
+  const ta = z.querySelector('textarea');
+  const msg = z.querySelector('.fdv-rep-msg');
+  const btn = z.querySelector('button');
+  const txt = (ta.value || '').trim();
+  if(!txt){ msg.textContent = 'Il faut un texte.'; return; }
+
+  btn.disabled = true;
+  msg.textContent = 'Enregistrement\u2026';
+  try{
+    await fdvPoster({
+      produit_id: fdvProduitId(),
+      etape_code: 'DEVIS',
+      auteur: fdvAuteur(),
+      texte_brut: txt,
+      repond_a: id,
+      type: FDV.repond_client ? 'reponse_client' : 'reponse_interne',
+      source: 'devis-client'
+    });
     FDV.repond_a = null; FDV.repond_client = false;
     await fdvCharger();
   }catch(e){
