@@ -73,9 +73,18 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .fdv-c.on{background:var(--blue);color:#fff;border-color:transparent}
 .fdv-rep{margin-top:9px;padding-top:9px;border-top:1px solid var(--border)}
 .fdv-rep textarea{width:100%}
-.fdv-barre{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:11px;
-  padding:9px 12px;border-radius:0;background:var(--surface2);
-  border-left:3px solid var(--blue);font-size:12px}
+/* Barre COLLEE EN HAUT et non plus sous le tableau : sous un tableau de 125
+   lignes elle etait hors de vue au moment ou on cochait. */
+.fdv-barre{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:11px;
+  padding:9px 12px;border-radius:var(--radius);background:var(--surface2);
+  border-left:3px solid var(--blue);font-size:12px;
+  position:sticky;top:0;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.45)}
+/* Colonne des cases COLLEE A DROITE. Le conteneur du tableau defile
+   horizontalement (overflow:auto) : sans sticky, la case sortirait de l ecran
+   sur un tableau large, ce que la charte §5 proscrit pour une info importante. */
+.fdv-ckc{position:sticky;right:0;z-index:2;width:34px;text-align:center;
+  background:var(--surface);box-shadow:inset 1px 0 0 var(--border)}
+thead .fdv-ckc{background:var(--surface2)}
 .fdv-barre:empty{display:none;margin:0;padding:0;border:0}
 input.fdv-ck{accent-color:var(--blue);cursor:pointer;width:17px;height:17px;margin:0}
 .fdv-m{border-bottom:1px solid var(--border)}
@@ -542,7 +551,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "8.1";
+const APP_VERSION = "8.2";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1759,16 +1768,18 @@ function tableBomBrute(d){
 
   if(!rows.length) return h + `<p style="color:var(--text3)">Aucune ligne à afficher.</p></div>`;
 
+  h += barreFicheDeVie();
   h += `<div class="tblwrap"><table><thead><tr>` +
-       `<th style="width:26px" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>` +
-       utiles.map(c=>`<th>${esc(c)}</th>`).join('') + `</tr></thead><tbody>`;
+       utiles.map(c=>`<th>${esc(c)}</th>`).join('') +
+       `<th class="fdv-ckc" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>` +
+       `</tr></thead><tbody>`;
   rows.forEach((r, i) => {
     const ix = 'b:' + i;
-    h += `<tr><td><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
-      onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td>` +
-      utiles.map(c=>`<td>${esc(r[c])}</td>`).join('') + `</tr>`;
+    h += `<tr>` + utiles.map(c=>`<td>${esc(r[c])}</td>`).join('') +
+      `<td class="fdv-ckc"><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
+        onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td></tr>`;
   });
-  return h + `</tbody></table></div>${barreFicheDeVie()}</div>`;
+  return h + `</tbody></table></div></div>`;
 }
 
 /* Repere et MPN d une ligne BRUTE : les en-tetes varient d un client a l autre,
@@ -1820,10 +1831,12 @@ function tableBom(d){
     `</div>`;
 
   const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER) && correspondRecherche(l,BOM_Q));
+  h += barreFicheDeVie();
   h += `<div class="tblwrap"><table><thead><tr>
-    <th style="width:26px" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>
     <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
-    <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th></tr></thead><tbody>`;
+    <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th>
+    <th class="fdv-ckc" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>
+    </tr></thead><tbody>`;
   if(!lignes.length) h += `<tr><td colspan="10" style="color:var(--text3);text-align:center;padding:20px">Aucune ligne pour ce filtre.</td></tr>`;
   for(const l of lignes){
     const st = statutLigne(l);
@@ -1833,8 +1846,6 @@ function tableBom(d){
       : `<span style="color:var(--text3);font-style:italic">pas de description</span>`;
     const ix = 't:' + (l.ligne_index ?? -1);
     h += `<tr>
-      <td><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
-          onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td>
       <td class="${cellCls} mono">${esc((l.designateurs||[]).join(', ')|| ('ligne '+((l.ligne_index??0)+1)))}</td>
       <td style="max-width:280px;font-size:11.5px;color:var(--text2)">${desc}</td>
       <td>${esc(l.famille||'')}</td>
@@ -1843,9 +1854,11 @@ function tableBom(d){
       <td class="mono">${cellMpn(l)}</td>
       <td class="mono" style="color:${l.ipn_propose?'var(--accent)':'var(--text3)'}">${esc(l.ipn_propose||'')}</td>
       <td>${st.html}</td>
-      <td>${badgeConf(l.confiance)}</td></tr>`;
+      <td>${badgeConf(l.confiance)}</td>
+      <td class="fdv-ckc"><input type="checkbox" class="fdv-ck" ${BOM_SEL.has(ix)?'checked':''}
+        onchange="bomSel('${ix}', this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td></tr>`;
   }
-  return h + `</tbody></table></div>${barreFicheDeVie()}</div>`;
+  return h + `</tbody></table></div></div>`;
 }
 
 /* Selection de lignes a verser dans la fiche de vie. La selection vit HORS du
