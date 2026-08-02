@@ -73,7 +73,7 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
   padding:9px 12px;border-radius:0;background:var(--surface2);
   border-left:3px solid var(--blue);font-size:12px}
 .fdv-barre:empty{display:none;margin:0;padding:0;border:0}
-input.fdv-ck{accent-color:var(--blue);cursor:pointer}
+input.fdv-ck{accent-color:var(--blue);cursor:pointer;width:17px;height:17px;margin:0}
 .fdv-m{border-bottom:1px solid var(--border)}
 .fdv-mh{display:flex;align-items:center;gap:8px;padding:9px 2px;cursor:pointer;
   font-size:12px;font-weight:500;color:var(--text2);user-select:none}
@@ -538,7 +538,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.7";
+const APP_VERSION = "7.8";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -577,7 +577,7 @@ let ANALYSE_ID = 0;   // incremente a chaque nouvelle analyse : invalide les bou
 // vient alors de la base, aucune analyse n'a tourne dans ce navigateur.
 let FICHE_LIEN = null;
 let BOM_SEL = new Set();   // lignes cochees en attente de versement dans la fiche
-let BOM_TYPE = 'note';
+let BOM_MOTIF = null;   // motif choisi pour le lot en cours
 
 /* ---------- config ---------- */
 function cfg(){
@@ -922,7 +922,7 @@ function nouvelleAnalyse(){
   ANALYSE_ID++;              // invalide toute boucle d'interrogation encore active
   FILES = []; DATA = null; BOM_FILTER = 'tous'; DETECTION_INCONNUE = null;
   FICHE_LIEN = null;
-  BOM_SEL.clear(); BOM_TYPE = 'note';
+  BOM_SEL.clear(); BOM_MOTIF = null;
   fdvInvalider();
   document.getElementById('bandeau-fiche').classList.add('hidden');
   const rt = document.getElementById('rattachement');
@@ -1419,14 +1419,7 @@ function afficher(){
   const estDossier = d.decision_pcb !== undefined;
   document.getElementById('p-synthese').innerHTML = estDossier ? synthDossier(d) : synthBom(d);
   if(estDossier) rendreSources(d);
-  const bomTraitee = (d.bom_lignes||d.lignes||[]).length > 0;
-  const bomBrute = (d.bom_rows||[]).length > 0;
-  document.getElementById('p-bom').innerHTML =
-      bomTraitee ? tableBom(d)
-    : d.bom_illisible ? bomIllisible(d)
-    : (FICHE_LIEN && bomBrute) ? tableBomBrute(d)   // fiche rouverte : rien ne tourne
-    : bomBrute ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
-    : tableBom(d);
+  rendreBom();
   document.getElementById('p-brut').innerHTML = brut(d);
   tab('synthese');
 }
@@ -2031,7 +2024,20 @@ function setBomQ(v){
   const c = document.getElementById('bom-q');
   if(c){ c.focus(); c.setSelectionRange(c.value.length, c.value.length); }
 }
-function rendreBom(){ document.getElementById('p-bom').innerHTML = tableBom(DATA); }
+/* Le choix du tableau vit a UN SEUL endroit. Il etait duplique : rendreBom
+   imposait le tableau traite, si bien qu un re-rendu sur une fiche rouverte
+   remplacait la nomenclature du client par un tableau traite vide. */
+function rendreBom(){
+  const d = DATA || {};
+  const bomTraitee = (d.bom_lignes||d.lignes||[]).length > 0;
+  const bomBrute = (d.bom_rows||[]).length > 0;
+  document.getElementById('p-bom').innerHTML =
+      bomTraitee ? tableBom(d)
+    : d.bom_illisible ? bomIllisible(d)
+    : (FICHE_LIEN && bomBrute) ? tableBomBrute(d)   // fiche rouverte : rien ne tourne
+    : bomBrute ? `<div class="card"><h2><i class="ti ti-table"></i> Nomenclature</h2><p style="color:var(--text2)"><span class="spin"></span> Traitement en cours…</p></div>`
+    : tableBom(d);
+}
 function correspondFiltre(l, f){
   if(f==='tous') return true;
   if(f==='incertain') return l.confiance==='low';
@@ -2168,6 +2174,14 @@ function bomSel(ix, on){
   if(on) BOM_SEL.add(ix); else BOM_SEL.delete(ix);
   const b = document.getElementById('fdv-barre');
   if(b) b.outerHTML = barreFicheDeVie();
+  // Les motifs vivent dans la fiche : on la charge des la premiere case cochee
+  // pour que la barre propose la vraie liste et non le repli en dur.
+  if(on && !FDV.chargee && fdvProduitId()){
+    fdvCharger().then(() => {
+      const b2 = document.getElementById('fdv-barre');
+      if(b2 && BOM_SEL.size) b2.outerHTML = barreFicheDeVie();
+    }).catch(()=>{});
+  }
 }
 
 function bomLigneParIndex(ix){
@@ -2216,17 +2230,28 @@ function barreFicheDeVie(){
       <span style="color:var(--amber)">${n} ligne${n>1?'s':''} sélectionnée${n>1?'s':''} — rattachez d'abord ce dossier à une carte.</span>
       <button class="btn-s" onclick="fdvAllerRattachement()">Aller au rattachement</button></div>`;
   }
-  const choix = [['note','Note simple'],['question_interne','À résoudre chez nous'],['question_client','Question au client']];
+  // Ici on ne choisit pas une destination mais un MOTIF : une ligne cochee au
+  // chiffrage est un point a retrouver et a regler A LA COMMANDE (demande
+  // d Olivier, 02/08). Le type est donc toujours question_interne — l entree
+  // reste en attente jusqu a ce que quelqu un la resolve.
+  const motifs = bomMotifs();
   return `<div id="fdv-barre" class="fdv-barre">
-    <span>${n} ligne${n>1?'s':''} à verser dans la fiche de vie</span>
-    <div class="fdv-props" style="margin:0">${choix.map(([v,l])=>
-      `<span class="fdv-c ${BOM_TYPE===v?'on':''}" onclick="bomType('${v}')">${esc(l)}</span>`).join('')}</div>
-    <button class="btn-p" id="fdv-verser" onclick="bomVerser()"><i class="ti ti-notebook"></i> Ajouter</button>
+    <div style="width:100%">Pourquoi ces ${n} ligne${n>1?'s':''} ? — elles resteront en suspens jusqu'à ce qu'on les règle</div>
+    <div class="fdv-props" style="margin:0">${motifs.map(m =>
+      `<span class="fdv-c ${BOM_MOTIF===m?'on':''}" onclick="bomMotif(${JSON.stringify(m).replace(/"/g,'&#34;')})">${esc(m)}</span>`).join('')}</div>
+    <button class="btn-p" id="fdv-verser" onclick="bomVerser()"${BOM_MOTIF?'':' disabled title="Choisissez un motif"'}><i class="ti ti-notebook"></i> Ajouter</button>
     <button class="btn-s" onclick="bomVider()">Tout décocher</button>
     <span id="fdv-barre-msg" class="hint"></span></div>`;
 }
 
-function bomType(v){ BOM_TYPE = v; const b = document.getElementById('fdv-barre'); if(b) b.outerHTML = barreFicheDeVie(); }
+/* Les motifs viennent de ref_propositions et non du code : les faire vivre en
+   base permet d en ajouter par une ligne de SQL, sans republier l appli. Le repli
+   en dur ne sert que si la fiche n a pas encore ete lue. */
+function bomMotifs(){
+  const p = (FDV.data && FDV.data.propositions && FDV.data.propositions['BOM']) || [];
+  return p.length ? p : ['Pas disponible','Non défini (UNDEF)','Introuvable chez les distributeurs','Incohérent'];
+}
+function bomMotif(m){ BOM_MOTIF = m; const b = document.getElementById('fdv-barre'); if(b) b.outerHTML = barreFicheDeVie(); }
 function bomVider(){ BOM_SEL.clear(); rendreBom(); }
 
 /* Une entree par ligne cochee. Le compte rendu distingue ce qui est passe de ce
@@ -2248,10 +2273,10 @@ async function bomVerser(){
         produit_id: fdvProduitId(),
         etape_code: 'DEVIS',
         auteur: fdvAuteur(),
-        texte_brut: txt,
+        texte_brut: BOM_MOTIF ? `${BOM_MOTIF} — ${txt}` : txt,
         repere: (l.designateurs||[]).join(', ') || null,
         mpn: l.mpn || l.mpn_ecarte || null,
-        type: BOM_TYPE || 'note',
+        type: 'question_interne',
         source: 'devis-client/bom'
       });
       ok++; BOM_SEL.delete(i);
