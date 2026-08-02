@@ -39,7 +39,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.0';
+var VERSION = '1.2';
 var DATE = '02/08/2026';
 
 /* --- etat interne. Un seul montage a la fois par page : les deux hotes n en
@@ -118,7 +118,14 @@ function css(){
     '  border:1px solid var(--border);color:var(--text);border-radius:6px;',
     '  padding:7px 10px;font-size:12.5px;font-family:inherit;width:100%}',
     '.fdv-zone textarea{resize:vertical}',
-    '.fdv-zone input,.fdv-zone select{width:auto}'
+    '.fdv-zone input,.fdv-zone select{width:auto}',
+    '.fdv-r{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:9px}',
+    '.fdv-r>div{flex:1;min-width:110px}',
+    '.fdv-f{display:block;font-size:11px;color:var(--text3);margin-bottom:3px}',
+    '.fdv-zone .fdv-r input{width:100%}',
+    '.fdv-ck2{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;',
+    '  color:var(--text2);margin-top:9px}',
+    '.fdv-ck2 input{width:auto;accent-color:var(--blue)}'
   ].join('\n');
   document.head.appendChild(s);
 }
@@ -215,6 +222,9 @@ function ligne(e){
     '<p style="margin:0 0 3px">' + esc(e.texte_brut || '') + ' ' + tag + '</p>' +
     '<p class="hint" style="margin:0">' + meta(e) + '</p>';
 
+  if (e.poles && e.poles.length)
+    h += '<p class="hint" style="margin:2px 0 0">aussi pour : ' + e.poles.map(esc).join(', ') + '</p>';
+
   if (e.lien) h += '<a class="btn-s" style="margin-top:7px;text-decoration:none;display:inline-block"' +
     ' target="_blank" href="' + esc(e.lien) + '"><i class="ti ti-external-link"></i> Luminovo</a>';
 
@@ -229,6 +239,18 @@ function ligne(e){
       '<i class="ti ti-check"></i> Répondre</button>' +
       '<span class="hint fdv-rep-msg"></span></div></div>';
   }
+  // Les reponses s affichent SOUS leur question, jamais comme des entrees isolees :
+  // une reponse detachee de ce qu elle regle ne veut rien dire. On les cherche dans
+  // TOUTES les entrees, car une reponse peut etre rangee dans un autre metier.
+  var reps = ((D && D.entrees) || []).filter(function(r){
+    return Number(r.repond_a) === Number(e.id);
+  });
+  reps.forEach(function(r){
+    h += '<div class="fdv-e" style="margin:6px 0 0 14px;border-left-color:var(--green-badge)">' +
+      '<p style="margin:0 0 3px">' + esc(r.texte_brut || '') + '</p>' +
+      '<p class="hint" style="margin:0">' + meta(r) + '</p></div>';
+  });
+
   return h + '</div>';
 }
 
@@ -238,7 +260,9 @@ function journal(){
 
   var parM = ((D && D.par_metier) || []).map(function(m){
     var c = {}; for (var k in m) c[k] = m[k];
-    c.entrees = (m.entrees || []).filter(function(e){ return garde(e); });
+    // Une entree qui repond a une autre n apparait pas seule : elle est rendue
+    // sous sa question par ligne(). Sans ce retrait elle s afficherait deux fois.
+    c.entrees = (m.entrees || []).filter(function(e){ return !e.repond_a && garde(e); });
     return c;
   }).filter(function(m){ return m.entrees.length; });
 
@@ -289,6 +313,29 @@ function formulaire(){
 
   h += '<textarea id="fdv-txt" rows="3" placeholder="Ce qu\'il faut retenir sur cette carte\u2026"></textarea>';
 
+  // Champs avances : l appli atelier les a, devis-client non. Le lien est la
+  // reponse au fait que la verite de la nomenclature appartient a Luminovo — on
+  // pointe vers elle plutot que de la recopier ici.
+  if (O.champsAvances){
+    h += '<div class="fdv-r" style="margin-top:9px">' +
+      '<div style="max-width:130px"><label class="fdv-f">Repère</label>' +
+      '<input id="fdv-repere" placeholder="C12" autocomplete="off"></div>' +
+      '<div><label class="fdv-f">MPN</label>' +
+      '<input id="fdv-mpn" placeholder="Référence fabricant" autocomplete="off"></div>' +
+      '<div><label class="fdv-f">Lien (Luminovo, document\u2026)</label>' +
+      '<input id="fdv-lien" placeholder="https://\u2026" autocomplete="off"></div></div>';
+
+    if (etapes.length){
+      // Une info peut concerner PLUSIEURS metiers : trouvee au chiffrage, elle vise
+      // le TRAD mais les METHODES doivent la voir pour la porter au dossier de fab.
+      h += '<label class="fdv-f">Doit aussi être vu par</label><div class="fdv-props">' +
+        etapes.filter(function(e){ return e.code !== etape; }).map(function(e){
+          return '<span class="fdv-c' + (poles.indexOf(e.code) >= 0 ? ' on' : '') +
+            '" onclick="PPFicheDeVie.basculerPole(\'' + esc(e.code) + '\')">' + esc(e.libelle) + '</span>';
+        }).join('') + '</div>';
+    }
+  }
+
   // Zone photo. Elle COMPRESSE reellement mais n envoie rien : aucun bucket de
   // stockage n existe. Le dire franchement plutot que d accepter en silence —
   // une photo qui semble enregistree et se perd est un faux temoin.
@@ -303,6 +350,16 @@ function formulaire(){
     return '<span class="fdv-c' + (O._type === c[0] ? ' on' : '') +
       '" onclick="PPFicheDeVie.choisirType(\'' + c[0] + '\')">' + esc(c[1]) + '</span>';
   }).join('') + '</div>';
+
+  // La case n apparait QUE pour une note. Sur une question, la visibilite decoule
+  // du type depuis le 02/08 — une question au client lui est visible par
+  // construction, une question interne ne sort jamais. Laisser la case cochable
+  // ferait croire a un choix qui n existe plus, et elle mentirait une fois sur deux.
+  if (O.champsAvances && O._type === 'note'){
+    h += '<label class="fdv-ck2"><input type="checkbox" id="fdv-cli"' +
+      (O._visibleClient ? ' checked' : '') + ' onchange="PPFicheDeVie.basculerVisible(this.checked)">' +
+      '<span><i class="ti ti-eye"></i> Visible par le client</span></label>';
+  }
 
   h += '<div class="fdv-l">' +
     '<input id="fdv-auteur" placeholder="Initiales" value="' + esc(qui()) + '" style="max-width:100px">' +
@@ -434,6 +491,12 @@ global.PPFicheDeVie = {
   filtrer: function(f){ filtre = f; rendre(); },
   replier: function(code){ ouverts[code] = !ouverts[code]; rendre(); },
   choisirType: function(v){ O._type = v; rendre(); },
+  basculerVisible: function(b){ O._visibleClient = !!b; },
+  basculerPole: function(code){
+    var i = poles.indexOf(code);
+    if (i >= 0) poles.splice(i, 1); else poles.push(code);
+    rendre();
+  },
   choisirEtape: function(c){ O.etapeDefaut = c; rendre(); },
 
   amorce: function(i){
@@ -496,16 +559,26 @@ global.PPFicheDeVie = {
     var txt = (el('fdv-txt').value || '').trim();
     if (!txt){ msg.textContent = 'Il faut un texte.'; return; }
     btn.disabled = true; msg.textContent = 'Enregistrement\u2026';
+    var val = function(id){
+      var e = el(id); var v = e ? (e.value || '').trim() : '';
+      return v || null;
+    };
     poster({
       produit_id: produitId(),
       etape_code: O.etapeDefaut || 'DEVIS',
       auteur: auteur(),
       texte_brut: txt,
+      repere: val('fdv-repere'),
+      mpn: val('fdv-mpn'),
+      lien: val('fdv-lien'),
       poles: poles.length ? poles : null,
+      // Envoye pour les notes seulement : sur une question, le workflow ignore
+      // cette cle et deduit la visibilite du type.
+      visible_client: (O._type === 'note') ? !!O._visibleClient : undefined,
       type: O._type || 'note',
       source: O.source || 'atelier'
     }).then(function(){
-      O._type = 'note'; photo = null;
+      O._type = 'note'; O._visibleClient = false; poles = []; photo = null;
       invalider(); return charger();
     }).catch(function(e){
       btn.disabled = false;
