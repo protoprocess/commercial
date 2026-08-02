@@ -418,6 +418,15 @@ global.PPFicheDeVie = {
   recharger: function(){ invalider(); return charger(); },
   invalider: invalider,
   chargee: function(){ return chargee; },
+
+  // Lecture seule des donnees deja chargees. Un hote peut avoir besoin des
+  // amorces d un metier (la barre BOM de devis-client s en sert pour ses motifs)
+  // sans avoir a refaire l appel ni a fouiller dans l etat interne du module.
+  propositions: function(code){
+    var p = (D && D.propositions) || {};
+    return (code ? p[code] : p) || (code ? [] : {});
+  },
+  donnees: function(){ return D; },
   produitId: produitId,
   poster: poster,           // utilise par la barre BOM de devis-client
   compresser: compresser,
