@@ -9,6 +9,9 @@
      une correction du module resterait invisible et on conclurait a tort qu elle
      n a pas ete faite. La version reelle est affichee en pied de fiche. -->
 <script src="../shared/fiche-de-vie.js?v=1.7"></script>
+<!-- Mode operatoire. Gabarit commun a toutes les applis ; le contenu est
+     ecrit dans ce fichier, pres du code qu il decrit. -->
+<script src="../shared/aide.js?v=1.0"></script>
 <style>
 :root{
   --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
@@ -374,6 +377,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   </div>
   <span class="hdr-note" id="hdr-version">v1.6 — 25/07/2026</span>
   <span class="hdr-note" id="hdr-mode" style="margin-left:10px">mode test</span>
+  <span id="hdr-aide"></span>
   <button class="btn-s" onclick="toggleConfig()"><i class="ti ti-settings"></i> Réglages</button>
 </header>
 
@@ -574,8 +578,74 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.1";
+const APP_VERSION = "9.2";
 const APP_DATE = "02/08/2026";
+/* ---------- MODE OPERATOIRE ----------
+   Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
+   ailleurs n est pas lue. Le gabarit est commun a toutes les applis
+   (shared/aide.js), seul le contenu ci-dessous est propre a celle-ci. */
+/* Contenu du mode operatoire de devis-client. Ecrit ici, pres du code qu il
+   decrit : une notice rangee ailleurs cesse d etre mise a jour. */
+PPAide.poser({
+  titre: 'Analyse dossier client — mode opératoire',
+  version: APP_VERSION,
+  sections: [
+    { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
+      intro:'De la réception des fichiers client au devis Odoo.',
+      items:[
+        { titre:'Déposer les fichiers du client',
+          texte:'Glissez tout ce que le client a envoyé : nomenclature, plans, spécifications, et le mail lui-même au format <span class="ppa-code">.eml</span> si vous l\u2019avez. Le mail apporte le contexte que les pièces jointes ne disent pas.' },
+        { titre:'Lancer l\u2019analyse',
+          texte:'Comptez environ une minute. Le résultat est conservé : rouvrir la fiche plus tard n\u2019oblige pas à recommencer.' },
+        { titre:'Lire la synthèse',
+          texte:'Le verdict, ce que le client demande, la complétude du dossier, les caractéristiques du circuit imprimé. C\u2019est ici qu\u2019on voit ce qui manque avant de chiffrer.' },
+        { titre:'Rattacher le dossier à une carte',
+          texte:'<b>Obligatoire, et c\u2019est un geste humain.</b> Vous choisissez le client Odoo et vous validez la référence de la carte. Rien n\u2019est écrit dans Odoo à cette étape : tout reste annulable.' },
+        { titre:'Cocher ce qui doit être retenu',
+          texte:'Dans la nomenclature, cochez à droite les lignes qui posent question, choisissez un motif, puis « Ajouter ». Dans la synthèse, cochez les questions à clarifier et les points à traiter. Tout part dans la fiche de vie de la carte.' },
+        { titre:'Créer le devis Odoo',
+          texte:'Le bouton apparaît sous « Dossier rattaché ». Un écran vous montre ce qui sera créé avant d\u2019écrire quoi que ce soit. Vous pouvez saisir jusqu\u2019à trois quantités : chacune donne sa propre ligne de devis.' },
+        { titre:'Compléter le devis dans Odoo',
+          texte:'Les prix ne sont pas calculés : vous les saisissez. Les notes du devis portent des <span class="ppa-code">x€</span> et des délais à remplacer.' }
+      ] },
+
+    { type:'pieges', titre:'Ce qui coince habituellement',
+      intro:'Situations rencontrées, et ce qu\u2019il faut faire.',
+      items:[
+        { quoi:'La nomenclature affichée n\u2019est pas codifiée',
+          faire:'Sur une fiche rouverte, c\u2019est la nomenclature <b>du client</b> qui s\u2019affiche : la codification n\u2019est pas conservée en base. Cliquez « Lancer le traitement de la nomenclature ». Les filtres MPN, Codifiées ou Non définis n\u2019existent que sur le tableau codifié.' },
+        { quoi:'Le bouton « Ajouter » reste gris',
+          faire:'Il manque le motif. Choisissez-en un : pas disponible, non défini, introuvable, incohérence MPN… Sur les points de synthèse, en revanche, aucun motif n\u2019est demandé.' },
+        { quoi:'L\u2019onglet Fiche de vie ne propose rien',
+          faire:'Le dossier n\u2019est pas rattaché à une carte. La fiche de vie s\u2019accroche à une carte : tant que le rattachement n\u2019est pas fait, rien ne peut y être écrit. Le bouton vous y emmène.' },
+        { quoi:'« L\u2019article existe déjà dans Odoo »',
+          faire:'Ce n\u2019est pas une erreur, c\u2019est une question. Une re-commande ne repasse pas par l\u2019analyse : soit cette analyse fait double emploi, soit le client a renvoyé des fichiers différents sous le même nom. Vérifiez avant de forcer.' },
+        { quoi:'Une correction ne se voit pas à l\u2019écran',
+          faire:'C\u2019est le cache du navigateur. Rechargez en forçant (Ctrl+Maj+R, ou Cmd+Maj+R sur Mac) et vérifiez le numéro de version en haut à droite.' },
+        { quoi:'Le devis Odoo n\u2019a pas la bonne adresse de facturation',
+          faire:'L\u2019adresse posée est celle du client lui-même. Si ce client facture à une autre adresse, corrigez-la sur le devis avant de l\u2019envoyer.' }
+      ] },
+
+    { type:'regles', titre:'Les règles, et pourquoi',
+      intro:'Pour comprendre les choix de l\u2019outil.',
+      items:[
+        { titre:'Le rattachement est manuel, et il le restera',
+          texte:'Un fichier client nomme mal une carte une fois sur trois. Deviner automatiquement produirait des rattachements faux qu\u2019on ne verrait pas. C\u2019est le seul moment où quelqu\u2019un a le dossier sous les yeux.' },
+        { titre:'Un produit est une carte, pas une version',
+          texte:'Les indices (V1, V2, révisions) sont des <b>alias</b> de la même carte. La carte garde une seule fiche de vie, quelle que soit la version : le SafetyB hérite de tout ce qu\u2019on a appris sur le SafetyA.' },
+        { titre:'Un article Odoo par indice, un seul identifiant de carte',
+          texte:'Le client doit voir le bon indice sur son devis, donc chaque version a son article. Mais tous portent le même « PP Produit ID » : il désigne la famille, jamais l\u2019article. C\u2019est le <b>nom</b> qui dit si une version existe déjà.' },
+        { titre:'Le devis se supprime, l\u2019article non',
+          texte:'Un devis brouillon disparaît sans trace. Un article Odoo, une fois créé, ne se supprime pas — il s\u2019archive. C\u2019est la seule opération de toute la chaîne qui ne se défait pas, d\u2019où l\u2019écran de confirmation.' },
+        { titre:'Le prix reste saisi à la main',
+          texte:'Assumé. L\u2019outil prépare le devis, il ne chiffre pas.' },
+        { titre:'La vérité de la nomenclature appartient à Luminovo',
+          texte:'Ce qui remonte dans la fiche de vie n\u2019est jamais une ligne de nomenclature, mais un <b>point</b> sur cette ligne : un motif, un repère, une référence. La fiche ne devient pas une copie de la BOM.' }
+      ] }
+  ]
+});
+document.getElementById('hdr-aide').innerHTML = PPAide.bouton();
+
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
