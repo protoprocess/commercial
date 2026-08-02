@@ -39,7 +39,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.4';
+var VERSION = '1.5';
 var DATE = '02/08/2026';
 
 /* --- etat interne. Un seul montage a la fois par page : les deux hotes n en
@@ -50,7 +50,8 @@ var chargee = false;
 var filtre = 'tous';
 var ouverts = {};       // metiers deplies
 var poles = [];         // poles coches dans le formulaire
-var photo = null;       // blob compresse, non encore envoyable
+var pieces = [];        // pieces jointes deja deposees : { chemin, nom, type }
+var enCours = false;    // un envoi est en route
 var amorces = [];
 var CLE_QUI = 'pp_fdv_initiales';   // meme cle que l appli atelier : les
                                     // initiales suivent l operateur, pas l ecran
@@ -118,6 +119,9 @@ function css(){
     '.fdv-pv{display:flex;gap:11px;align-items:flex-start;margin-top:9px;padding:9px;',
     '  border-radius:6px;background:var(--surface2)}',
     '.fdv-pv img{width:64px;height:64px;object-fit:cover;border-radius:6px;flex:none}',
+    '.fdv-ic{width:38px;height:38px;flex:none;display:flex;align-items:center;',
+    '  justify-content:center;border-radius:6px;background:var(--surface);',
+    '  color:var(--blue);font-size:18px}',
     '.fdv-b-att{background:var(--amber-bg);color:var(--amber-badge)}',
     '.fdv-b-ok{background:var(--green-bg);color:var(--green-badge)}',
     '.fdv-b-cli{background:var(--green-bg);color:var(--green-badge)}',
@@ -252,6 +256,19 @@ function ligne(e){
   if (e.poles && e.poles.length)
     h += '<p class="hint" style="margin:2px 0 0">aussi pour : ' + e.poles.map(esc).join(', ') + '</p>';
 
+  // L URL de lecture n est PAS demandee au rendu : une fiche de vingt entrees
+  // declencherait vingt appels n8n a chaque ouverture, pour des pieces que
+  // personne n ouvrira. Elle est signee au clic, et vaut une heure.
+  if (e.photos && e.photos.length){
+    h += '<p style="margin:6px 0 0">' + e.photos.map(function(c){
+      var nom = String(c).split('/').pop().replace(/^[a-z0-9]{8}-/, '');
+      var img = /\.(jpe?g|png|webp|heic|heif)$/i.test(nom);
+      return '<button class="btn-s" style="margin:0 6px 4px 0" onclick="PPFicheDeVie.ouvrirPiece(\'' +
+        esc(c) + '\')"><i class="ti ' + (img ? 'ti-photo' : 'ti-file-text') + '"></i> ' +
+        esc(nom) + '</button>';
+    }).join('') + '</p>';
+  }
+
   if (e.lien) h += '<a class="btn-s" style="margin-top:7px;text-decoration:none;display:inline-block"' +
     ' target="_blank" href="' + esc(e.lien) + '"><i class="ti ti-external-link"></i> Luminovo</a>';
 
@@ -260,8 +277,16 @@ function ligne(e){
   if (attend && O.repondre){
     h += ' <button class="btn-s" style="margin-top:7px" onclick="PPFicheDeVie.ouvrirReponse(' +
       e.id + ',' + cli + ')"><i class="ti ti-corner-down-right"></i> Répondre</button>' +
-      '<div class="fdv-rep fdv-zone hidden" id="fdv-rep-' + e.id + '">' +
+      '<div class="fdv-rep fdv-zone fdv-hide" id="fdv-rep-' + e.id + '">' +
       '<textarea rows="2" placeholder="Ce qui règle le point\u2026"></textarea>' +
+      // Une reponse porte souvent elle-meme une piece : c est frequemment le
+      // fabricant qui repond par un tableur (demande d Olivier, 02/08).
+      '<div id="fdv-dz" class="fdv-dz" onclick="document.getElementById(\'fdv-file\').click()"' +
+      ' ondragover="event.preventDefault();this.classList.add(\'over\')"' +
+      ' ondragleave="this.classList.remove(\'over\')" ondrop="PPFicheDeVie.depot(event)">' +
+      '<i class="ti ti-paperclip"></i> Joindre un fichier' +
+      '<input type="file" id="fdv-file" class="fdv-hide" onchange="PPFicheDeVie.depot(event)"></div>' +
+      '<div id="fdv-photo"></div>' +
       '<div class="fdv-l"><button class="btn-p" onclick="PPFicheDeVie.repondre(' + e.id + ')">' +
       '<i class="ti ti-check"></i> Répondre</button>' +
       '<span class="hint fdv-rep-msg"></span></div></div>';
@@ -366,14 +391,15 @@ function formulaire(){
     }
   }
 
-  // Zone photo. Elle COMPRESSE reellement mais n envoie rien : aucun bucket de
-  // stockage n existe. Le dire franchement plutot que d accepter en silence —
-  // une photo qui semble enregistree et se perd est un faux temoin.
+  // Depot d une piece jointe. Pas seulement des photos : un tableur de questions
+  // techniques envoye par le fabricant de PCB arrive regulierement et il serait
+  // absurde de le retranscrire ligne a ligne (remarque d Olivier, 02/08).
   h += '<div id="fdv-dz" class="fdv-dz" onclick="document.getElementById(\'fdv-file\').click()"' +
     ' ondragover="event.preventDefault();this.classList.add(\'over\')"' +
     ' ondragleave="this.classList.remove(\'over\')" ondrop="PPFicheDeVie.depot(event)">' +
-    '<i class="ti ti-photo"></i> Glisser une photo ici, ou cliquer' +
-    '<input type="file" id="fdv-file" accept="image/*" class="fdv-hide"' +
+    '<i class="ti ti-paperclip"></i> Glisser un fichier ici, ou cliquer' +
+    '<span class="fdv-f" style="margin-top:3px">photo, PDF, tableur, document \u2014 25 Mo maximum</span>' +
+    '<input type="file" id="fdv-file" class="fdv-hide"' +
     ' onchange="PPFicheDeVie.depot(event)"></div><div id="fdv-photo"></div>';
 
   h += '<div class="fdv-props" style="margin-top:9px">' + choix.map(function(c){
@@ -491,20 +517,50 @@ function compresser(file, maxCote, qualite){
   });
 }
 
-function photoRendu(blob, erreur, nom, taille){
+function estImage(f){ return /^image\//.test(f.type || ''); }
+
+/* Envoi en deux temps : n8n fabrique une URL signee, puis le navigateur pousse le
+   fichier DIRECTEMENT vers le stockage. Le fichier ne transite pas par n8n, dont
+   le quota d executions est deja bien entame et qui plafonne a 120 s par appel. */
+function envoyerPiece(fichier){
+  var nom = fichier.name || 'piece';
+  return fetch(O.base + '/fiche-de-vie-piece', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ produit_id: produitId(), nom: nom })
+  }).then(function(r){
+    return r.json().catch(function(){ return null; }).then(function(j){
+      if (!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+      // Le type est celui deduit de l EXTENSION par n8n, pas celui declare par le
+      // navigateur : un .xls est souvent annonce en application/octet-stream, que
+      // le bucket refuserait avec un message incomprehensible.
+      return fetch(j.url, {
+        method: 'PUT',
+        headers: {'Content-Type': j.type},
+        body: fichier
+      }).then(function(up){
+        if (!up.ok) throw new Error('Envoi refusé par le stockage (' + up.status + ').');
+        return { chemin: j.chemin, nom: nom, type: j.type };
+      });
+    });
+  });
+}
+
+function estImageType(t){ return /^image\//.test(t || ''); }
+
+function piecesRendu(erreur){
   var z = el('fdv-photo'); if (!z) return;
-  if (erreur){ z.innerHTML = '<p class="hint" style="color:var(--red);margin:6px 0 0">' +
-    esc(erreur) + '</p>'; return; }
-  if (!blob){ z.innerHTML = ''; return; }
-  var ko = function(n){ return Math.round(n / 1024) + ' Ko'; };
-  z.innerHTML = '<div class="fdv-pv"><img src="' + URL.createObjectURL(blob) +
-    '" alt="Aperçu de la photo déposée"><div>' +
-    '<p style="margin:0;font-size:12px">' + esc(nom || 'photo') + '</p>' +
-    '<p class="hint" style="margin:2px 0 0">' + ko(taille || 0) + ' \u2192 ' + ko(blob.size) +
-    ' après compression</p>' +
-    '<p style="margin:5px 0 0;font-size:11.5px;color:var(--red)">Cette photo ne sera PAS ' +
-    'enregistrée : le stockage n\'est pas encore branché. Le texte, lui, part normalement.</p>' +
-    '</div><button class="btn-s" onclick="PPFicheDeVie.retirerPhoto()">Retirer</button></div>';
+  var h = '';
+  if (enCours) h += '<p class="hint" style="margin:6px 0 0"><span class="fdv-spin"></span> Envoi en cours\u2026</p>';
+  if (erreur) h += '<p class="hint" style="color:var(--red);margin:6px 0 0">' + esc(erreur) + '</p>';
+  pieces.forEach(function(p, i){
+    h += '<div class="fdv-pv">' +
+      '<div class="fdv-ic"><i class="ti ' + (estImageType(p.type) ? 'ti-photo' : 'ti-file-text') + '"></i></div>' +
+      '<div><p style="margin:0;font-size:12px">' + esc(p.nom) + '</p>' +
+      '<p class="hint" style="margin:2px 0 0">déposé, sera joint à la note</p></div>' +
+      '<button class="btn-s" onclick="PPFicheDeVie.retirerPiece(' + i + ')">Retirer</button></div>';
+  });
+  z.innerHTML = h;
 }
 
 /* ------------------------------------------------------------------- API --- */
@@ -516,7 +572,7 @@ global.PPFicheDeVie = {
     O = opts || {};
     if (O._type === undefined) O._type = 'note';
     css();
-    filtre = 'tous'; ouverts = {}; poles = []; photo = null;
+    filtre = 'tous'; ouverts = {}; poles = []; pieces = []; enCours = false;
     return charger();
   },
 
@@ -566,11 +622,41 @@ global.PPFicheDeVie = {
     var f = (ev.dataTransfer && ev.dataTransfer.files[0]) ||
             (ev.target && ev.target.files && ev.target.files[0]);
     if (!f) return;
-    if (!/^image\//.test(f.type)){ photoRendu(null, 'Seules les images sont acceptées.'); return; }
-    compresser(f).then(function(b){ photo = b; photoRendu(b, null, f.name, f.size); })
-                 .catch(function(e){ photoRendu(null, e.message); });
+    if (!produitId()){ piecesRendu('Aucune carte sélectionnée.'); return; }
+
+    enCours = true; piecesRendu();
+    // La compression ne vaut QUE pour les images : un tableur ou un PDF passe
+    // intact, le recompresser le detruirait.
+    var prep = estImage(f)
+      ? compresser(f).then(function(b){ return new File([b], (f.name||'photo').replace(/\.[^.]+$/, '') + '.jpg', {type:'image/jpeg'}); })
+      : Promise.resolve(f);
+
+    prep.then(envoyerPiece).then(function(p){
+      pieces.push(p); enCours = false; piecesRendu();
+    }).catch(function(e){
+      enCours = false; piecesRendu(e.message);
+    });
   },
-  retirerPhoto: function(){ photo = null; photoRendu(null); },
+  ouvrirPiece: function(chemin){
+    // L onglet est ouvert AVANT l appel : l ouvrir apres une reponse asynchrone
+    // le ferait passer pour une pop-up et le navigateur le bloquerait.
+    var w = window.open('', '_blank');
+    fetch(O.base + '/fiche-de-vie-piece-lire?chemin=' + encodeURIComponent(chemin))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || j.ok !== true || !j.url) throw new Error((j && j.motif) || 'Lien indisponible.');
+        if (w) w.location.href = j.url; else window.location.href = j.url;
+      })
+      .catch(function(e){
+        if (w) w.close();
+        alert('Pièce jointe indisponible : ' + e.message);
+      });
+  },
+  retirerPiece: function(i){
+    // Retire seulement de la note en cours. Le fichier reste dans le stockage :
+    // aucune regle d acces n autorise la suppression, c est voulu.
+    pieces.splice(i, 1); piecesRendu();
+  },
 
   ouvrirReponse: function(id, estClient){
     var z = el('fdv-rep-' + id); if (!z) return;
@@ -579,6 +665,9 @@ global.PPFicheDeVie = {
     for (var i = 0; i < tous.length; i++) tous[i].classList.add('fdv-hide');
     if (ouvert) return;
     O._repondA = id; O._repondClient = (estClient === true);
+    // Les pieces en cours sont abandonnees : un fichier depose pour la note
+    // principale ne doit pas partir avec une reponse, ni l inverse.
+    pieces = []; enCours = false;
     z.classList.remove('fdv-hide');
     var t = z.querySelector('textarea'); if (t) t.focus();
   },
@@ -598,10 +687,11 @@ global.PPFicheDeVie = {
       auteur: qq,
       texte_brut: txt,
       repond_a: id,
+      photos: pieces.length ? pieces.map(function(p){ return p.chemin; }) : null,
       type: O._repondClient ? 'reponse_client' : 'reponse_interne',
       source: O.source || 'atelier'
     }).then(function(){
-      O._repondA = null; O._repondClient = false;
+      O._repondA = null; O._repondClient = false; pieces = [];
       invalider(); return charger();
     }).catch(function(e){
       btn.disabled = false;
@@ -628,13 +718,15 @@ global.PPFicheDeVie = {
       mpn: val('fdv-mpn'),
       lien: val('fdv-lien'),
       poles: poles.length ? poles : null,
+      // On envoie les CHEMINS : une URL signee expire au bout d une heure.
+      photos: pieces.length ? pieces.map(function(p){ return p.chemin; }) : null,
       // Envoye pour les notes seulement : sur une question, le workflow ignore
       // cette cle et deduit la visibilite du type.
       visible_client: (O._type === 'note') ? !!O._visibleClient : undefined,
       type: O._type || 'note',
       source: O.source || 'atelier'
     }).then(function(){
-      O._type = 'note'; O._visibleClient = false; poles = []; photo = null;
+      O._type = 'note'; O._visibleClient = false; poles = []; pieces = [];
       invalider(); return charger();
     }).catch(function(e){
       btn.disabled = false;
