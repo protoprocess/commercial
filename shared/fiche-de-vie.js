@@ -39,7 +39,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.5';
+var VERSION = '1.6';
 var DATE = '02/08/2026';
 
 /* --- etat interne. Un seul montage a la fois par page : les deux hotes n en
@@ -52,6 +52,13 @@ var ouverts = {};       // metiers deplies
 var poles = [];         // poles coches dans le formulaire
 var pieces = [];        // pieces jointes deja deposees : { chemin, nom, type }
 var enCours = false;    // un envoi est en route
+// Contexte de depot : '0' pour la note principale, sinon l id de la question a
+// laquelle on repond. Les identifiants du DOM en decoulent — sans cela la zone de
+// reponse et le formulaire principal portaient les MEMES id, getElementById
+// renvoyait le premier trouve, et l apercu comme les messages d erreur
+// s ecrivaient dans une zone repliee donc invisible (bug du 02/08).
+var ctxDepot = '0';
+var rangement = null;   // { id, etape, poles } de l entree en cours de rangement
 var amorces = [];
 var CLE_QUI = 'pp_fdv_initiales';   // meme cle que l appli atelier : les
                                     // initiales suivent l operateur, pas l ecran
@@ -272,6 +279,16 @@ function ligne(e){
   if (e.lien) h += '<a class="btn-s" style="margin-top:7px;text-decoration:none;display:inline-block"' +
     ' target="_blank" href="' + esc(e.lien) + '"><i class="ti ti-external-link"></i> Luminovo</a>';
 
+  // RANGER. Au devis tout part en DEVIS pour ne pas ralentir le chiffrage, et le
+  // tri se fait ensuite : sans ce bouton le second temps n existait pas et tout
+  // serait reste en DEVIS indefiniment (constat d Olivier, 02/08).
+  // Reserve aux hotes qui rangent : devis-client remonte, il ne trie pas.
+  if (O.repondre && !e.repond_a){
+    h += ' <button class="btn-s" style="margin-top:7px" onclick="PPFicheDeVie.ouvrirRangement(' +
+      e.id + ')"><i class="ti ti-arrows-sort"></i> Ranger</button>';
+    if (rangement && rangement.id === e.id) h += panneauRangement(e);
+  }
+
   // Repondre n apparait que si l hote l autorise : devis-client POSE des
   // questions et remonte des infos, il n y repond pas (decision d Olivier, 02/08).
   if (attend && O.repondre){
@@ -281,12 +298,15 @@ function ligne(e){
       '<textarea rows="2" placeholder="Ce qui règle le point\u2026"></textarea>' +
       // Une reponse porte souvent elle-meme une piece : c est frequemment le
       // fabricant qui repond par un tableur (demande d Olivier, 02/08).
-      '<div id="fdv-dz" class="fdv-dz" onclick="document.getElementById(\'fdv-file\').click()"' +
+      '<div id="fdv-dz-' + e.id + '" class="fdv-dz"' +
+      ' onclick="document.getElementById(\'fdv-file-' + e.id + '\').click()"' +
       ' ondragover="event.preventDefault();this.classList.add(\'over\')"' +
-      ' ondragleave="this.classList.remove(\'over\')" ondrop="PPFicheDeVie.depot(event)">' +
+      ' ondragleave="this.classList.remove(\'over\')"' +
+      ' ondrop="PPFicheDeVie.depot(event, \'' + e.id + '\')">' +
       '<i class="ti ti-paperclip"></i> Joindre un fichier' +
-      '<input type="file" id="fdv-file" class="fdv-hide" onchange="PPFicheDeVie.depot(event)"></div>' +
-      '<div id="fdv-photo"></div>' +
+      '<input type="file" id="fdv-file-' + e.id + '" class="fdv-hide"' +
+      ' onchange="PPFicheDeVie.depot(event, \'' + e.id + '\')"></div>' +
+      '<div id="fdv-photo-' + e.id + '"></div>' +
       '<div class="fdv-l"><button class="btn-p" onclick="PPFicheDeVie.repondre(' + e.id + ')">' +
       '<i class="ti ti-check"></i> Répondre</button>' +
       '<span class="hint fdv-rep-msg"></span></div></div>';
@@ -304,6 +324,32 @@ function ligne(e){
   });
 
   return h + '</div>';
+}
+
+/* Panneau de rangement. Le metier est le DESTINATAIRE de l entree ; les poles
+   sont ceux qui doivent la voir en plus. Le metier choisi n apparait pas dans les
+   poles : ce serait un doublon a l affichage. */
+function panneauRangement(e){
+  var etapes = (D && D.etapes) || [];
+  var cur = rangement.etape || e.etape_code || '';
+  var ps = rangement.poles || [];
+
+  var h = '<div class="fdv-rep fdv-zone" style="border-top-color:var(--blue)">' +
+    '<label class="fdv-f2" style="margin-top:0">Destinataire principal</label>' +
+    '<div class="fdv-props">' + etapes.map(function(x){
+      return '<span class="fdv-c' + (x.code === cur ? ' on' : '') +
+        '" onclick="PPFicheDeVie.rangerEtape(\'' + esc(x.code) + '\')">' + esc(x.libelle) + '</span>';
+    }).join('') + '</div>' +
+    '<label class="fdv-f2">Doit aussi être vu par</label>' +
+    '<div class="fdv-props">' + etapes.filter(function(x){ return x.code !== cur; }).map(function(x){
+      return '<span class="fdv-c' + (ps.indexOf(x.code) >= 0 ? ' on' : '') +
+        '" onclick="PPFicheDeVie.rangerPole(\'' + esc(x.code) + '\')">' + esc(x.libelle) + '</span>';
+    }).join('') + '</div>' +
+    '<div class="fdv-l">' +
+    '<button class="btn-p" onclick="PPFicheDeVie.rangerValider()"><i class="ti ti-check"></i> Ranger</button>' +
+    '<button class="btn-s" onclick="PPFicheDeVie.ouvrirRangement(null)">Annuler</button>' +
+    '<span id="fdv-rng-msg" class="hint"></span></div></div>';
+  return h;
 }
 
 function journal(){
@@ -394,13 +440,13 @@ function formulaire(){
   // Depot d une piece jointe. Pas seulement des photos : un tableur de questions
   // techniques envoye par le fabricant de PCB arrive regulierement et il serait
   // absurde de le retranscrire ligne a ligne (remarque d Olivier, 02/08).
-  h += '<div id="fdv-dz" class="fdv-dz" onclick="document.getElementById(\'fdv-file\').click()"' +
+  h += '<div id="fdv-dz-0" class="fdv-dz" onclick="document.getElementById(\'fdv-file-0\').click()"' +
     ' ondragover="event.preventDefault();this.classList.add(\'over\')"' +
-    ' ondragleave="this.classList.remove(\'over\')" ondrop="PPFicheDeVie.depot(event)">' +
+    ' ondragleave="this.classList.remove(\'over\')" ondrop="PPFicheDeVie.depot(event, \'0\')">' +
     '<i class="ti ti-paperclip"></i> Glisser un fichier ici, ou cliquer' +
     '<span class="fdv-f" style="margin-top:3px">photo, PDF, tableur, document \u2014 25 Mo maximum</span>' +
-    '<input type="file" id="fdv-file" class="fdv-hide"' +
-    ' onchange="PPFicheDeVie.depot(event)"></div><div id="fdv-photo"></div>';
+    '<input type="file" id="fdv-file-0" class="fdv-hide"' +
+    ' onchange="PPFicheDeVie.depot(event, \'0\')"></div><div id="fdv-photo-0"></div>';
 
   h += '<div class="fdv-props" style="margin-top:9px">' + choix.map(function(c){
     return '<span class="fdv-c' + (O._type === c[0] ? ' on' : '') +
@@ -549,7 +595,7 @@ function envoyerPiece(fichier){
 function estImageType(t){ return /^image\//.test(t || ''); }
 
 function piecesRendu(erreur){
-  var z = el('fdv-photo'); if (!z) return;
+  var z = el('fdv-photo-' + ctxDepot); if (!z) return;
   var h = '';
   if (enCours) h += '<p class="hint" style="margin:6px 0 0"><span class="fdv-spin"></span> Envoi en cours\u2026</p>';
   if (erreur) h += '<p class="hint" style="color:var(--red);margin:6px 0 0">' + esc(erreur) + '</p>';
@@ -572,7 +618,8 @@ global.PPFicheDeVie = {
     O = opts || {};
     if (O._type === undefined) O._type = 'note';
     css();
-    filtre = 'tous'; ouverts = {}; poles = []; pieces = []; enCours = false;
+    filtre = 'tous'; ouverts = {}; poles = []; pieces = []; enCours = false; ctxDepot = '0';
+    rangement = null;
     return charger();
   },
 
@@ -616,9 +663,10 @@ global.PPFicheDeVie = {
     z.focus();
   },
 
-  depot: function(ev){
+  depot: function(ev, ctx){
     ev.preventDefault();
-    var dz = el('fdv-dz'); if (dz) dz.classList.remove('over');
+    ctxDepot = String(ctx || '0');
+    var dz = el('fdv-dz-' + ctxDepot); if (dz) dz.classList.remove('over');
     var f = (ev.dataTransfer && ev.dataTransfer.files[0]) ||
             (ev.target && ev.target.files && ev.target.files[0]);
     if (!f) return;
@@ -637,6 +685,46 @@ global.PPFicheDeVie = {
       enCours = false; piecesRendu(e.message);
     });
   },
+  ouvrirRangement: function(id){
+    if (!id){ rangement = null; rendre(); return; }
+    var e = ((D && D.entrees) || []).filter(function(x){ return Number(x.id) === Number(id); })[0];
+    if (!e) return;
+    rangement = { id: Number(id), etape: e.etape_code || '', poles: (e.poles || []).slice() };
+    rendre();
+  },
+  rangerEtape: function(code){
+    if (!rangement) return;
+    rangement.etape = code;
+    // Le nouveau destinataire ne peut pas rester dans les poles : il y ferait
+    // doublon, et le serveur l en retirerait de toute facon.
+    rangement.poles = rangement.poles.filter(function(p){ return p !== code; });
+    rendre();
+  },
+  rangerPole: function(code){
+    if (!rangement) return;
+    var i = rangement.poles.indexOf(code);
+    if (i >= 0) rangement.poles.splice(i, 1); else rangement.poles.push(code);
+    rendre();
+  },
+  rangerValider: function(){
+    if (!rangement) return;
+    var msg = el('fdv-rng-msg');
+    if (msg) msg.textContent = 'Rangement\u2026';
+    fetch(O.base + '/fiche-de-vie-ranger', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ id: rangement.id, etape_code: rangement.etape, poles: rangement.poles })
+    }).then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(j){
+        if (!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+        rangement = null;
+        invalider(); return charger();
+      });
+    }).catch(function(e){
+      if (msg) msg.innerHTML = '<span style="color:var(--red)">' + esc(e.message) + '</span>';
+    });
+  },
+
   ouvrirPiece: function(chemin){
     // L onglet est ouvert AVANT l appel : l ouvrir apres une reponse asynchrone
     // le ferait passer pour une pop-up et le navigateur le bloquerait.
@@ -667,7 +755,7 @@ global.PPFicheDeVie = {
     O._repondA = id; O._repondClient = (estClient === true);
     // Les pieces en cours sont abandonnees : un fichier depose pour la note
     // principale ne doit pas partir avec une reponse, ni l inverse.
-    pieces = []; enCours = false;
+    pieces = []; enCours = false; ctxDepot = String(id);
     z.classList.remove('fdv-hide');
     var t = z.querySelector('textarea'); if (t) t.focus();
   },
@@ -726,7 +814,7 @@ global.PPFicheDeVie = {
       type: O._type || 'note',
       source: O.source || 'atelier'
     }).then(function(){
-      O._type = 'note'; O._visibleClient = false; poles = []; pieces = [];
+      O._type = 'note'; O._visibleClient = false; poles = []; pieces = []; ctxDepot = '0';
       invalider(); return charger();
     }).catch(function(e){
       btn.disabled = false;
