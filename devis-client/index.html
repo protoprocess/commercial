@@ -69,6 +69,23 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .fdv-c.on{background:var(--blue);color:#fff;border-color:transparent}
 .fdv-rep{margin-top:9px;padding-top:9px;border-top:1px solid var(--border)}
 .fdv-rep textarea{width:100%}
+.fdv-barre{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:11px;
+  padding:9px 12px;border-radius:0;background:var(--surface2);
+  border-left:3px solid var(--blue);font-size:12px}
+.fdv-barre:empty{display:none;margin:0;padding:0;border:0}
+input.fdv-ck{accent-color:var(--blue);cursor:pointer}
+.fdv-m{border-bottom:1px solid var(--border)}
+.fdv-mh{display:flex;align-items:center;gap:8px;padding:9px 2px;cursor:pointer;
+  font-size:12px;font-weight:500;color:var(--text2);user-select:none}
+.fdv-mh:hover{color:var(--text)}
+.fdv-mn{margin-left:auto;padding:1px 8px;border-radius:20px;background:var(--surface2);
+  color:var(--text3);font-size:10.5px}
+.fdv-dz{margin-top:9px;padding:14px;border:1px dashed var(--border2);border-radius:var(--radius);
+  text-align:center;font-size:12px;color:var(--text3);cursor:pointer}
+.fdv-dz:hover,.fdv-dz.over{border-color:var(--blue);color:var(--text2)}
+.fdv-pv{display:flex;gap:11px;align-items:flex-start;margin-top:9px;padding:9px;
+  border-radius:var(--radius);background:var(--surface2)}
+.fdv-pv img{width:64px;height:64px;object-fit:cover;border-radius:var(--radius);flex:none}
 .fdv-l{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
 #p-fiche textarea,#p-fiche input,#p-fiche select{background:var(--surface);
   border:1px solid var(--border);color:var(--text);border-radius:var(--radius);
@@ -521,7 +538,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.3";
+const APP_VERSION = "7.5";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -559,6 +576,8 @@ let ANALYSE_ID = 0;   // incremente a chaque nouvelle analyse : invalide les bou
 // Renseignee uniquement quand la page est ouverte via ?fiche=<job_id> : la fiche
 // vient alors de la base, aucune analyse n'a tourne dans ce navigateur.
 let FICHE_LIEN = null;
+let BOM_SEL = new Set();   // lignes cochees en attente de versement dans la fiche
+let BOM_TYPE = 'note';
 
 /* ---------- config ---------- */
 function cfg(){
@@ -903,6 +922,7 @@ function nouvelleAnalyse(){
   ANALYSE_ID++;              // invalide toute boucle d'interrogation encore active
   FILES = []; DATA = null; BOM_FILTER = 'tous'; DETECTION_INCONNUE = null;
   FICHE_LIEN = null;
+  BOM_SEL.clear(); BOM_TYPE = 'note';
   fdvInvalider();
   document.getElementById('bandeau-fiche').classList.add('hidden');
   const rt = document.getElementById('rattachement');
@@ -941,7 +961,8 @@ function tab(p){
    L appli n envoie JAMAIS etat ni visible_client : le workflow les deduit du type.
    Deux fonctions paralleles qui classent la meme chose finissent toujours par
    diverger — la regle vit donc a un seul endroit, cote serveur. */
-const FDV = { data:null, chargee:false, repond_a:null, repond_client:false, amorces:[], type:'note' };
+const FDV = { data:null, chargee:false, repond_a:null, repond_client:false, amorces:[],
+               type:'note', filtre:'tous', ouverts:new Set(), photo:null };
 
 function fdvProduitId(){
   const v = FICHE_LIEN && FICHE_LIEN.produit_id;
@@ -1049,6 +1070,14 @@ function fdvFormulaire(){
     ${FDV.amorces.length ? `<div class="fdv-props">${FDV.amorces.map((t,i)=>
       `<span class="fdv-p" onclick="fdvAmorce(${i})">${esc(t)}</span>`).join('')}</div>` : ''}
     <textarea id="fdv-txt" rows="3" placeholder="Ce qu'il faut retenir sur cette carte\u2026"></textarea>
+    <div id="fdv-dz" class="fdv-dz" onclick="document.getElementById('fdv-file').click()"
+         ondragover="event.preventDefault();this.classList.add('over')"
+         ondragleave="this.classList.remove('over')"
+         ondrop="fdvDepot(event)">
+      <i class="ti ti-photo"></i> Glisser une photo ici, ou cliquer
+      <input type="file" id="fdv-file" accept="image/*" class="hidden" onchange="fdvDepot(event)">
+    </div>
+    <div id="fdv-photo"></div>
     <div class="fdv-props" style="margin-top:9px">${choix.map(([v,l])=>
       `<span class="fdv-c ${FDV.type===v?'on':''}" data-v="${v}" onclick="fdvType('${v}')">${esc(l)}</span>`).join('')}</div>
     <div class="fdv-l">
@@ -1056,6 +1085,53 @@ function fdvFormulaire(){
       <button class="btn-p" id="fdv-ok" onclick="fdvEnvoyer()"><i class="ti ti-check"></i> Enregistrer</button>
       <span id="fdv-msg" class="hint"></span>
     </div></div>`;
+}
+
+/* PIECE JOINTE — la zone accepte et COMPRESSE, mais rien n est envoye : aucun
+   bucket Supabase n existe encore. Le dire franchement plutot que d accepter en
+   silence, sinon la photo semblerait enregistree alors qu elle serait perdue.
+   La compression, elle, est le vrai morceau : sur le plan free, 1 Go de fichiers
+   = environ 300 photos brutes de telephone contre plusieurs milliers a 1600 px. */
+function fdvDepot(ev){
+  ev.preventDefault();
+  const dz = document.getElementById('fdv-dz'); if(dz) dz.classList.remove('over');
+  const f = (ev.dataTransfer && ev.dataTransfer.files[0]) || (ev.target && ev.target.files && ev.target.files[0]);
+  if(!f) return;
+  if(!/^image\//.test(f.type)){ fdvPhotoRendu(null, 'Seules les images sont acceptées.'); return; }
+  fdvCompresser(f).then(b => { FDV.photo = b; fdvPhotoRendu(b, null, f.name, f.size); })
+                  .catch(e => fdvPhotoRendu(null, e.message));
+}
+
+function fdvCompresser(file, maxCote, qualite){
+  maxCote = maxCote || 1600; qualite = qualite || 0.8;
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const r = Math.min(1, maxCote / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error('Compression impossible.')), 'image/jpeg', qualite);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Image illisible.')); };
+    img.src = url;
+  });
+}
+
+function fdvPhotoRendu(blob, erreur, nom, taille){
+  const z = document.getElementById('fdv-photo'); if(!z) return;
+  if(erreur){ z.innerHTML = `<p class="hint" style="color:var(--red);margin:6px 0 0">${esc(erreur)}</p>`; return; }
+  if(!blob){ z.innerHTML = ''; return; }
+  const ko = n => Math.round(n / 1024) + ' Ko';
+  z.innerHTML = `<div class="fdv-pv">
+    <img src="${URL.createObjectURL(blob)}" alt="Aperçu de la photo déposée">
+    <div><p style="margin:0;font-size:12px">${esc(nom||'photo')}</p>
+      <p class="hint" style="margin:2px 0 0">${ko(taille||0)} \u2192 ${ko(blob.size)} après compression</p>
+      <p style="margin:5px 0 0;font-size:11.5px;color:var(--red)">Cette photo ne sera PAS enregistrée :
+        le stockage n'est pas encore branché. Le texte, lui, part normalement.</p></div>
+    <button class="btn-s" onclick="FDV.photo=null;fdvPhotoRendu(null)">Retirer</button></div>`;
 }
 
 function fdvType(v){
@@ -1090,18 +1166,18 @@ function fdvRendre(){
   const d = FDV.data || {}, el = document.getElementById('p-fiche');
   const p = d.produit || {};
   const att = d.en_attente || [];
-  // deux boucles portent desormais l etat en_attente : melanger les deux ferait
-  // croire qu on attend le client alors que la balle est dans notre camp.
+  // Les deux boucles portent l etat en_attente : les melanger ferait croire qu on
+  // attend le client alors que la balle est dans notre camp.
   const attPP  = att.filter(x => x.visible_client !== true);
   const attCli = att.filter(x => x.visible_client === true);
 
   let h = `<div class="card">
     <h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
-    <p class="hint" style="margin:0">${esc(p.cle_produit||'')}${p.libelle_carte ? ' \u2014 ' + esc(p.libelle_carte) : ''}${p.nom_client ? ' \u00b7 ' + esc(p.nom_client) : ''}</p>
+    <p class="hint" style="margin:0">${esc(p.cle_produit||'')}${p.libelle_carte?' \u2014 '+esc(p.libelle_carte):''}${p.nom_client?' \u00b7 '+esc(p.nom_client):''}</p>
   </div>`;
 
   // La saisie passe avant la consultation : 80 % des productions sont des cartes
-  // neuves, l AJOUT est donc le geste principal (perimetre pose le 01/08).
+  // neuves, l AJOUT est donc le geste principal.
   h += fdvFormulaire();
 
   if(att.length){
@@ -1111,17 +1187,64 @@ function fdvRendre(){
     h += `</div>`;
   }
 
-  const parM = d.par_metier || [];
-  if(parM.length){
-    h += `<div class="card"><h2><i class="ti ti-list-details"></i> Journal (${d.nb || 0})</h2>`;
-    parM.forEach(m => { h += `<p class="fdv-t">${esc(m.libelle || '')}</p>` + (m.entrees||[]).map(fdvLigneEntree).join(''); });
-    h += `</div>`;
-  }else{
-    h += `<div class="card"><p class="hint" style="margin:0">Aucune entrée pour cette carte pour l'instant.</p></div>`;
-  }
-
+  h += fdvJournal();
   el.innerHTML = h;
   fdvCompteur();
+}
+
+/* Journal filtrable et replie par metier. En liste continue le journal devient
+   vite illisible des qu il grossit — le repli en fait une table des matieres,
+   et les filtres evitent d avoir a tout parcourir des yeux. */
+function fdvJournal(){
+  const d = FDV.data || {};
+  const parM = (d.par_metier || []).map(m => Object.assign({}, m, {
+    entrees: (m.entrees || []).filter(fdvGarde)
+  })).filter(m => m.entrees.length);
+
+  const tous = d.entrees || [];
+  const cpt = f => tous.filter(e => fdvGarde(e, f)).length;
+  const filtres = [['tous','Tout'],['attente','En attente'],['resolu','Résolu'],['client','Visible client']]
+    .filter(([f]) => f === 'tous' || cpt(f) > 0);
+
+  let h = `<div class="card"><h2><i class="ti ti-list-details"></i> Ce qu'on sait sur cette carte
+    <span style="flex:1"></span></h2>`;
+
+  if(!tous.length) return h + `<p class="hint" style="margin:0">Aucune entrée pour l'instant.</p></div>`;
+
+  h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px">` +
+    filtres.map(([f,l]) => `<button class="filter-btn${FDV.filtre===f?' active':''}" onclick="fdvFiltre('${f}')">${esc(l)} <span style="opacity:.7">${cpt(f)}</span></button>`).join('') +
+    `</div>`;
+
+  if(!parM.length) return h + `<p class="hint" style="margin:0">Aucune entrée pour ce filtre.</p></div>`;
+
+  // Un seul metier : deplie d office, replier une liste unique n a pas de sens.
+  const deplierTout = parM.length === 1;
+  parM.forEach(m => {
+    const ouvert = deplierTout || FDV.ouverts.has(m.code || '');
+    h += `<div class="fdv-m">
+      <div class="fdv-mh" onclick="fdvReplier('${esc(m.code||'')}')">
+        <i class="ti ti-chevron-${ouvert?'down':'right'}"></i>
+        <span>${esc(m.libelle||'')}</span>
+        <span class="fdv-mn">${m.entrees.length}</span></div>
+      <div class="${ouvert?'':'hidden'}">${m.entrees.map(fdvLigneEntree).join('')}</div></div>`;
+  });
+  return h + `</div>`;
+}
+
+function fdvGarde(e, f){
+  const flt = (f === undefined) ? FDV.filtre : f;
+  if(!flt || flt === 'tous') return true;
+  if(flt === 'attente') return e.etat === 'en_attente';
+  if(flt === 'resolu')  return e.etat === 'resolu';
+  if(flt === 'client')  return e.visible_client === true;
+  return true;
+}
+
+function fdvFiltre(f){ FDV.filtre = f; fdvRendre(); }
+
+function fdvReplier(code){
+  if(FDV.ouverts.has(code)) FDV.ouverts.delete(code); else FDV.ouverts.add(code);
+  fdvRendre();
 }
 
 function fdvCompteur(){
@@ -1983,16 +2106,20 @@ function tableBom(d){
 
   const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER) && correspondRecherche(l,BOM_Q));
   h += `<div class="tblwrap"><table><thead><tr>
+    <th style="width:26px" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>
     <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
     <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th></tr></thead><tbody>`;
-  if(!lignes.length) h += `<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:20px">Aucune ligne pour ce filtre.</td></tr>`;
+  if(!lignes.length) h += `<tr><td colspan="10" style="color:var(--text3);text-align:center;padding:20px">Aucune ligne pour ce filtre.</td></tr>`;
   for(const l of lignes){
     const st = statutLigne(l);
     const cellCls = st.niveau==='err'?'errcell':st.niveau==='warn'?'warncell':'';
     const desc = l.description_client
       ? `<span title="${esc(l.description_client)}">${esc(l.description_client)}</span>`
       : `<span style="color:var(--text3);font-style:italic">pas de description</span>`;
+    const ix = (l.ligne_index ?? -1);
     h += `<tr>
+      <td><input type="checkbox" class="fdv-ck" data-ix="${ix}" ${BOM_SEL.has(ix)?'checked':''}
+          onchange="bomSel(${ix}, this.checked)" aria-label="Ajouter cette ligne à la fiche de vie"></td>
       <td class="${cellCls} mono">${esc((l.designateurs||[]).join(', ')|| ('ligne '+((l.ligne_index??0)+1)))}</td>
       <td style="max-width:280px;font-size:11.5px;color:var(--text2)">${desc}</td>
       <td>${esc(l.famille||'')}</td>
@@ -2003,7 +2130,95 @@ function tableBom(d){
       <td>${st.html}</td>
       <td>${badgeConf(l.confiance)}</td></tr>`;
   }
-  return h + `</tbody></table></div></div>`;
+  return h + `</tbody></table></div>${barreFicheDeVie()}</div>`;
+}
+
+/* Selection de lignes a verser dans la fiche de vie. La selection vit HORS du
+   rendu : rendreBom() reconstruit tout le tableau a chaque filtre, et une
+   selection qui disparaitrait au moindre filtre serait pire que pas de selection. */
+function bomSel(ix, on){
+  if(on) BOM_SEL.add(ix); else BOM_SEL.delete(ix);
+  const b = document.getElementById('fdv-barre');
+  if(b) b.outerHTML = barreFicheDeVie();
+}
+
+function bomLigneParIndex(ix){
+  const t = (DATA && (DATA.bom_lignes || DATA.lignes)) || [];
+  return t.find(l => (l.ligne_index ?? -1) === ix) || null;
+}
+
+/* Texte de depart d une ligne cochee : le motif que l appli connait DEJA, et a
+   defaut le repere et la description. Jamais vide — le workflow refuse une entree
+   sans texte, et l utilisateur ne verrait qu un message d erreur sans comprendre. */
+function fdvTexteLigne(l){
+  if(!l) return '';
+  const rep = (l.designateurs||[]).join(', ');
+  if(l.mpn_ecarte){
+    const m = l.mpn_ecarte_motif || 'référence jugée non fiable';
+    return `${rep} — MPN client ${l.mpn_ecarte} écarté : ${m}`;
+  }
+  if(l.a_ne_pas_cabler) return `${rep} — ligne non câblée`;
+  if(l.confiance != null && Number(l.confiance) < 0.5) return `${rep} — codification peu sûre, à vérifier`;
+  const d = l.description_client || l.valeur || '';
+  return d ? `${rep} — ${d}` : rep;
+}
+
+function barreFicheDeVie(){
+  const n = BOM_SEL.size;
+  if(!n) return `<div id="fdv-barre"></div>`;
+  if(!(FICHE_LIEN && FICHE_LIEN.produit_id)){
+    return `<div id="fdv-barre" class="fdv-barre">
+      <span style="color:var(--amber)">${n} ligne${n>1?'s':''} sélectionnée${n>1?'s':''} — rattachez d'abord ce dossier à une carte.</span>
+      <button class="btn-s" onclick="fdvAllerRattachement()">Aller au rattachement</button></div>`;
+  }
+  const choix = [['note','Note simple'],['question_interne','À résoudre chez nous'],['question_client','Question au client']];
+  return `<div id="fdv-barre" class="fdv-barre">
+    <span>${n} ligne${n>1?'s':''} à verser dans la fiche de vie</span>
+    <div class="fdv-props" style="margin:0">${choix.map(([v,l])=>
+      `<span class="fdv-c ${BOM_TYPE===v?'on':''}" onclick="bomType('${v}')">${esc(l)}</span>`).join('')}</div>
+    <button class="btn-p" id="fdv-verser" onclick="bomVerser()"><i class="ti ti-notebook"></i> Ajouter</button>
+    <button class="btn-s" onclick="bomVider()">Tout décocher</button>
+    <span id="fdv-barre-msg" class="hint"></span></div>`;
+}
+
+function bomType(v){ BOM_TYPE = v; const b = document.getElementById('fdv-barre'); if(b) b.outerHTML = barreFicheDeVie(); }
+function bomVider(){ BOM_SEL.clear(); rendreBom(); }
+
+/* Une entree par ligne cochee. Le compte rendu distingue ce qui est passe de ce
+   qui a echoue : un total muet laisserait croire a un succes complet alors qu une
+   ligne a pu etre refusee. Les lignes en echec restent cochees. */
+async function bomVerser(){
+  const msg = document.getElementById('fdv-barre-msg');
+  const btn = document.getElementById('fdv-verser');
+  const liste = Array.from(BOM_SEL);
+  btn.disabled = true;
+  let ok = 0; const rates = [];
+  for(const i of liste){
+    const l = bomLigneParIndex(i);
+    const txt = fdvTexteLigne(l);
+    if(!txt){ rates.push(i); continue; }
+    msg.textContent = `Enregistrement ${ok + rates.length + 1} sur ${liste.length}\u2026`;
+    try{
+      await fdvPoster({
+        produit_id: fdvProduitId(),
+        etape_code: 'DEVIS',
+        auteur: fdvAuteur(),
+        texte_brut: txt,
+        repere: (l.designateurs||[]).join(', ') || null,
+        mpn: l.mpn || l.mpn_ecarte || null,
+        type: BOM_TYPE || 'note',
+        source: 'devis-client/bom'
+      });
+      ok++; BOM_SEL.delete(i);
+    }catch(e){ rates.push(i); }
+  }
+  fdvInvalider();
+  if(rates.length){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${ok} enregistrée${ok>1?'s':''}, ${rates.length} en échec — les lignes en échec restent cochées.</span>`;
+  }else{
+    rendreBom();
+  }
 }
 
 /* Colonne MPN. Quand une reference client a ete ecartee, on montre laquelle
