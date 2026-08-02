@@ -49,6 +49,29 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .card.err{border-left:3px solid var(--red-badge)}
 .card.warn{border-left:3px solid var(--amber-badge)}
 .card.ok{border-left:3px solid var(--green-badge)}
+/* Fiche de vie. Liseres de couleur plutot que fonds teintes en alpha : sur fond
+   sombre les pastels en transparence deviennent invisibles (charte v1.1, §4). */
+.fdv-n{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:20px;
+  background:var(--amber-bg);color:var(--amber-badge);font-size:10.5px;font-weight:600}
+.fdv-t{margin:12px 0 6px;font-size:11px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--text3)}
+.fdv-e{padding:8px 11px;margin-bottom:6px;border-radius:0;background:var(--surface2);
+  border-left:3px solid var(--border2);font-size:12.5px}
+.fdv-e.fdv-att{border-left-color:var(--amber-badge)}
+.fdv-e.fdv-cli{border-left-color:var(--green-badge)}
+.fdv-props{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.fdv-p{border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  border-radius:20px;padding:4px 11px;font-size:11.5px;cursor:pointer}
+.fdv-p:hover{border-color:var(--blue);color:var(--text)}
+.fdv-l{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
+#p-fiche textarea,#p-fiche input,#p-fiche select{background:var(--surface);
+  border:1px solid var(--border);color:var(--text);border-radius:var(--radius);
+  padding:7px 10px;font-size:12.5px;font-family:inherit;width:100%}
+#p-fiche textarea{resize:vertical}
+#p-fiche input,#p-fiche select{width:auto}
+.fdv-b-att{background:var(--amber-bg);color:var(--amber-badge)}
+.fdv-b-ok{background:var(--green-bg);color:var(--green-badge)}
+.fdv-b-cli{background:var(--green-bg);color:var(--green-badge)}
 
 .btn-p{padding:7px 15px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);
   font-size:12px;font-weight:500;cursor:pointer;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px}
@@ -439,6 +462,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
       <button class="tab" data-p="bom" onclick="tab('bom')">Nomenclature</button>
       <button class="tab" data-p="sources" onclick="tab('sources')">Sources</button>
       <button class="tab" data-p="brut" onclick="tab('brut')">Fiches texte</button>
+      <button class="tab" data-p="fiche" onclick="tab('fiche')">Fiche de vie<span id="fdv-n" class="fdv-n hidden"></span></button>
     </div>
     <div id="print-entete"></div>
   <div id="p-synthese"></div>
@@ -446,6 +470,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
     <div id="p-bom" class="hidden"></div>
     <div id="p-sources" class="hidden"></div>
     <div id="p-brut" class="hidden"></div>
+    <div id="p-fiche" class="hidden"></div>
   </div>
 
 </div>
@@ -490,8 +515,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "7.1";
-const APP_DATE = "01/08/2026";
+const APP_VERSION = "7.2";
+const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -872,6 +897,7 @@ function nouvelleAnalyse(){
   ANALYSE_ID++;              // invalide toute boucle d'interrogation encore active
   FILES = []; DATA = null; BOM_FILTER = 'tous'; DETECTION_INCONNUE = null;
   FICHE_LIEN = null;
+  fdvInvalider();
   document.getElementById('bandeau-fiche').classList.add('hidden');
   const rt = document.getElementById('rattachement');
   if(rt){ rt.classList.add('hidden'); rt.classList.remove('ok'); rt.innerHTML = ''; }
@@ -897,8 +923,224 @@ function nouvelleAnalyse(){
 }
 function tab(p){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.p===p));
-  ['synthese','bom','sources','brut'].forEach(x=>
+  ['synthese','bom','sources','brut','fiche'].forEach(x=>
     document.getElementById('p-'+x).classList.toggle('hidden', x!==p));
+  if(p==='fiche') fdvOuvrir();
+}
+
+/* ---------- FICHE DE VIE ----------
+   Cet onglet ecrit dans le pole DEVIS et nulle part ailleurs : au chiffrage on ne
+   cherche pas la petite bete, le tri metier se fera a la commande, par le
+   gestionnaire de projet ou les methodes (decision d Olivier, 02/08/2026).
+   L appli n envoie JAMAIS etat ni visible_client : le workflow les deduit du type.
+   Deux fonctions paralleles qui classent la meme chose finissent toujours par
+   diverger — la regle vit donc a un seul endroit, cote serveur. */
+const FDV = { data:null, chargee:false, repond_a:null, repond_client:false, amorces:[] };
+
+function fdvProduitId(){
+  const v = FICHE_LIEN && FICHE_LIEN.produit_id;
+  return v ? parseInt(v, 10) : null;
+}
+
+function fdvOuvrir(){ if(!FDV.chargee) fdvCharger(); }
+
+function fdvInvalider(){ FDV.chargee = false; FDV.data = null; FDV.repond_a = null; }
+
+async function fdvCharger(){
+  const el = document.getElementById('p-fiche');
+  const id = fdvProduitId();
+
+  // Sans carte rien n est ecrivable : produit_id est NOT NULL et le workflow
+  // refuse l entree. On renvoie au rattachement plutot que de garder un brouillon
+  // cote navigateur, qui se perdrait sans le moindre signal.
+  if(!id){
+    el.innerHTML = `<div class="card">
+      <h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
+      <p style="margin:0 0 6px;color:var(--amber)">Ce dossier n'est pas encore rattaché à une carte.</p>
+      <p class="hint" style="margin:0 0 11px">La fiche de vie s'accroche à une carte : tant que le rattachement
+        n'est pas fait, rien ne peut y être écrit.</p>
+      <button class="btn-p" onclick="fdvAllerRattachement()">
+        <i class="ti ti-link"></i> Aller au rattachement</button></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="card"><h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
+    <p style="margin:0;color:var(--text2)"><span class="spin"></span> Lecture du journal\u2026</p></div>`;
+
+  const c = cfg();
+  try{
+    const r = await fetch(`${c.base}/${c.mode}/fiche-de-vie?produit=${encodeURIComponent(id)}`);
+    const j = await r.json().catch(()=>null);
+    if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+    FDV.data = j; FDV.chargee = true;
+    fdvRendre();
+  }catch(e){
+    el.innerHTML = `<div class="card"><h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
+      <p style="margin:0 0 9px;color:var(--red)">Journal indisponible : ${esc(e.message)}</p>
+      <button class="btn-s" onclick="fdvCharger()"><i class="ti ti-refresh"></i> Réessayer</button></div>`;
+  }
+}
+
+function fdvAllerRattachement(){
+  const r = document.getElementById('rattachement');
+  if(r) r.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function fdvMeta(e){
+  const b = [];
+  if(e.auteur) b.push(esc(e.auteur));
+  if(e.indice) b.push(esc(e.indice));
+  if(e.repere) b.push(esc(e.repere));
+  if(e.mpn) b.push(esc(e.mpn));
+  if(e.cree_le){ try{ b.push(new Date(e.cree_le).toLocaleDateString('fr-FR')); }catch(x){} }
+  return b.join(' \u00b7 ');
+}
+
+function fdvLigneAttente(e){
+  const cli = e.visible_client === true;
+  return `<div class="fdv-e ${cli ? 'fdv-cli' : 'fdv-att'}">
+    <p style="margin:0 0 3px">${esc(e.texte_brut||'')}</p>
+    <p class="hint" style="margin:0">${fdvMeta(e)}</p>
+    <button class="btn-s" style="margin-top:7px" onclick="fdvRepondre(${e.id}, ${cli})">
+      <i class="ti ti-corner-down-right"></i> Répondre</button>
+    ${e.lien ? ` <a class="btn-s" style="margin-top:7px;text-decoration:none" target="_blank"
+      href="${esc(e.lien)}"><i class="ti ti-external-link"></i> Luminovo</a>` : ''}</div>`;
+}
+
+function fdvLigneEntree(e){
+  let cls = '', tag = '';
+  if(e.etat === 'en_attente'){ cls = 'fdv-att'; tag = `<span class="badge fdv-b-att">en attente</span>`; }
+  else if(e.etat === 'resolu'){ tag = `<span class="badge fdv-b-ok">résolu</span>`; }
+  if(e.visible_client === true){ cls = cls || 'fdv-cli'; tag += ` <span class="badge fdv-b-cli">client</span>`; }
+  return `<div class="fdv-e ${cls}">
+    <p style="margin:0 0 3px">${esc(e.texte_brut||'')} ${tag}</p>
+    <p class="hint" style="margin:0">${fdvMeta(e)}</p></div>`;
+}
+
+function fdvFormulaire(){
+  const d = FDV.data || {};
+  FDV.amorces = ((d.propositions || {})['DEVIS']) || [];
+  let auteur = ''; try{ auteur = localStorage.getItem('pp_fdv_auteur') || ''; }catch(x){}
+  const rep = FDV.repond_a;
+
+  return `<div class="card">
+    <h2><i class="ti ti-plus"></i> ${rep ? 'Répondre au point n\u00b0 ' + rep : 'Ajouter une note'}</h2>
+    ${rep ? `<p class="hint" style="margin:0 0 9px">Cette réponse fermera le point n\u00b0 ${rep}.
+      <button class="btn-s" onclick="fdvRepondre(null,false)">Annuler</button></p>` : ''}
+    ${(!rep && FDV.amorces.length) ? `<div class="fdv-props">${FDV.amorces.map((t,i)=>
+      `<span class="fdv-p" onclick="fdvAmorce(${i})">${esc(t)}</span>`).join('')}</div>` : ''}
+    <textarea id="fdv-txt" rows="3" placeholder="Ce qu'il faut retenir sur cette carte\u2026"></textarea>
+    <div class="fdv-l">
+      <input id="fdv-auteur" placeholder="Initiales" value="${esc(auteur)}" style="max-width:100px">
+      ${rep ? '' : `<select id="fdv-type">
+        <option value="note">Note simple</option>
+        <option value="question_interne">À résoudre chez nous</option>
+        <option value="question_client">Question au client</option>
+      </select>`}
+      <button class="btn-p" id="fdv-ok" onclick="fdvEnvoyer()"><i class="ti ti-check"></i> Enregistrer</button>
+      <span id="fdv-msg" class="hint"></span>
+    </div></div>`;
+}
+
+function fdvAmorce(i){
+  const t = FDV.amorces[i]; if(t == null) return;
+  const z = document.getElementById('fdv-txt');
+  z.value = z.value ? (z.value.replace(/\s*$/,'') + ' \u2014 ' + t) : (t + ' : ');
+  z.focus();
+}
+
+function fdvRepondre(id, estClient){
+  FDV.repond_a = id || null;
+  FDV.repond_client = (estClient === true);
+  fdvRendre();
+  const z = document.getElementById('fdv-txt'); if(z) z.focus();
+}
+
+function fdvRendre(){
+  const d = FDV.data || {}, el = document.getElementById('p-fiche');
+  const p = d.produit || {};
+  const att = d.en_attente || [];
+  // deux boucles portent desormais l etat en_attente : melanger les deux ferait
+  // croire qu on attend le client alors que la balle est dans notre camp.
+  const attPP  = att.filter(x => x.visible_client !== true);
+  const attCli = att.filter(x => x.visible_client === true);
+
+  let h = `<div class="card">
+    <h2><i class="ti ti-notebook"></i> Fiche de vie</h2>
+    <p class="hint" style="margin:0">${esc(p.cle_produit||'')}${p.libelle_carte ? ' \u2014 ' + esc(p.libelle_carte) : ''}${p.nom_client ? ' \u00b7 ' + esc(p.nom_client) : ''}</p>
+  </div>`;
+
+  // La saisie passe avant la consultation : 80 % des productions sont des cartes
+  // neuves, l AJOUT est donc le geste principal (perimetre pose le 01/08).
+  h += fdvFormulaire();
+
+  if(att.length){
+    h += `<div class="card"><h2><i class="ti ti-clock"></i> En suspens (${att.length})</h2>`;
+    if(attPP.length)  h += `<p class="fdv-t">À résoudre chez nous</p>` + attPP.map(fdvLigneAttente).join('');
+    if(attCli.length) h += `<p class="fdv-t">En attente du client</p>` + attCli.map(fdvLigneAttente).join('');
+    h += `</div>`;
+  }
+
+  const parM = d.par_metier || [];
+  if(parM.length){
+    h += `<div class="card"><h2><i class="ti ti-list-details"></i> Journal (${d.nb || 0})</h2>`;
+    parM.forEach(m => { h += `<p class="fdv-t">${esc(m.libelle || '')}</p>` + (m.entrees||[]).map(fdvLigneEntree).join(''); });
+    h += `</div>`;
+  }else{
+    h += `<div class="card"><p class="hint" style="margin:0">Aucune entrée pour cette carte pour l'instant.</p></div>`;
+  }
+
+  el.innerHTML = h;
+  fdvCompteur();
+}
+
+function fdvCompteur(){
+  const b = document.getElementById('fdv-n'); if(!b) return;
+  const n = (FDV.data && FDV.data.nb_en_attente) || 0;
+  b.textContent = n;
+  b.classList.toggle('hidden', n === 0);
+}
+
+async function fdvEnvoyer(){
+  const msg = document.getElementById('fdv-msg');
+  const btn = document.getElementById('fdv-ok');
+  const txt = (document.getElementById('fdv-txt').value || '').trim();
+  const aut = (document.getElementById('fdv-auteur').value || '').trim();
+  if(!txt){ msg.textContent = 'Il faut un texte.'; return; }
+  try{ localStorage.setItem('pp_fdv_auteur', aut); }catch(x){}
+
+  const sel = document.getElementById('fdv-type');
+  const corps = {
+    produit_id: fdvProduitId(),
+    etape_code: 'DEVIS',
+    auteur: aut || null,
+    texte_brut: txt,
+    source: 'devis-client'
+  };
+  if(FDV.repond_a){
+    corps.repond_a = FDV.repond_a;
+    corps.type = FDV.repond_client ? 'reponse_client' : 'reponse_interne';
+  }else{
+    corps.type = sel ? sel.value : 'note';
+  }
+
+  btn.disabled = true;
+  msg.textContent = 'Enregistrement\u2026';
+  const c = cfg();
+  try{
+    const r = await fetch(`${c.base}/${c.mode}/fiche-de-vie-ajout`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corps)
+    });
+    const j = await r.json().catch(()=>null);
+    // Un HTTP 200 ne prouve rien : le workflow rend ok:false avec un motif quand
+    // rien n a ete ecrit. C est cette cle qui fait foi, pas le code de retour.
+    if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+    FDV.repond_a = null; FDV.repond_client = false;
+    await fdvCharger();
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
 }
 
 async function traiterBom(rows, client){
@@ -2113,6 +2355,9 @@ async function rtValider(){
     // un demi-resultat, et c est exactement ce qu on ne veut pas laisser passer.
     if(Number(j.analyses_rattachees) !== 1) throw new Error("La carte est enregistrée mais l'analyse n'a pas été rattachée.");
     FICHE_LIEN.produit_id = j.produit_id;
+    // la carte vient d apparaitre : l onglet doit relire, sinon il continuerait a
+    // afficher le message "non rattache" jusqu au rechargement de la page.
+    fdvInvalider();
     const el = document.getElementById('rattachement');
     el.classList.add('ok');
     el.innerHTML = `<h3><i class="ti ti-check"></i> Dossier rattaché</h3>
@@ -2140,6 +2385,7 @@ async function chargerFicheDepuisLien(){
     if(!j.fiche_valide || !j.fiche) throw new Error('La fiche enregistrée est illisible.');
 
     FICHE_LIEN = j;
+    fdvInvalider();
     DATA = j.fiche;
     // codification deja calculee pour ce dossier : on la recharge telle quelle,
     // au lieu d afficher la BOM brute et de proposer un retraitement
