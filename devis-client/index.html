@@ -8,7 +8,7 @@
 <!-- Module commun de la fiche de vie. Le ?v= est la parade au cache : sans lui,
      une correction du module resterait invisible et on conclurait a tort qu elle
      n a pas ete faite. La version reelle est affichee en pied de fiche. -->
-<script src="../shared/fiche-de-vie.js?v=1.4"></script>
+<script src="../shared/fiche-de-vie.js?v=1.5"></script>
 <style>
 :root{
   --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
@@ -559,7 +559,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "8.5";
+const APP_VERSION = "8.6";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
