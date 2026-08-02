@@ -153,6 +153,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
   <div class="spacer"></div>
   <span class="hdr-note" id="hdr-qui"></span>
   <span class="hdr-note" id="hdr-version"></span>
+  <span id="hdr-aide" style="margin-left:10px"></span>
 </header>
 
 <div class="wrap">
@@ -170,8 +171,11 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      conclurait a tort qu elle n a pas ete faite. La version reelle est
      affichee en pied de fiche. -->
 <script src="../shared/fiche-de-vie.js?v=1.7"></script>
+<!-- Mode operatoire. Gabarit commun a toutes les applis ; le contenu est
+     ecrit dans ce fichier, pres du code qu il decrit. -->
+<script src="../shared/aide.js?v=1.0"></script>
 <script>
-const APP_VERSION = "2.5";
+const APP_VERSION = "2.6";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -186,6 +190,71 @@ const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
 // rien ; une proposition qu'on clique produit une premiere phrase a completer.
 
 let PRODUITS = [], FICHE_ID = null;
+
+/* ---------- MODE OPERATOIRE ----------
+   Le bouton vit dans le bandeau : une notice rangee ailleurs n est pas lue.
+   Gabarit commun a toutes les applis (shared/aide.js), contenu propre ici. */
+/* Contenu du mode operatoire de l appli fiche de vie. Ecrit ici, pres du code
+   qu il decrit : une notice rangee ailleurs cesse d etre mise a jour. */
+PPAide.poser({
+  titre: 'Fiche de vie — mode opératoire',
+  version: APP_VERSION,
+  sections: [
+    { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
+      intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
+      items:[
+        { titre:'Choisir la carte',
+          texte:'Tapez une référence, un libellé ou un nom de client. Une carte reste la même quelle que soit sa version : le SafetyB partage la fiche du SafetyA.' },
+        { titre:'Donner vos initiales',
+          texte:'Obligatoire, et choisies dans la liste. Les postes sont partagés à l\u2019atelier : un champ libre pré-rempli ferait signer par la personne précédente sans que personne s\u2019en aperçoive.' },
+        { titre:'Lire ce qu\u2019on sait déjà',
+          texte:'Les filtres du haut trient toute la fiche : ce qui reste à traiter chez nous, ce qui attend le client, ce qui est résolu, ce qui est visible du client. Les métiers se déplient d\u2019un clic.' },
+        { titre:'Ajouter une note',
+          texte:'Choisissez d\u2019abord <b>pour quel métier</b> — c\u2019est la question qui compte, elle décide qui verra l\u2019information. Les suggestions grises ne sont que des amorces de phrase, vous écrivez ce que vous voulez.' },
+        { titre:'Préciser la destination',
+          texte:'<b>Information</b> : un constat, rien à faire. <b>À traiter</b> : un point qui reste ouvert chez nous, il ressortira tant qu\u2019il n\u2019est pas réglé. <b>Question client</b> : elle part au client et attend sa réponse.' },
+        { titre:'Joindre un fichier si besoin',
+          texte:'Photo prise au téléphone, tableau du fabricant de circuit imprimé, PDF, document. Les photos sont réduites automatiquement avant l\u2019envoi ; les autres fichiers passent intacts.' },
+        { titre:'Répondre à un point en suspens',
+          texte:'Le bouton « Répondre » ouvre une zone sous la question. Répondre ferme le point : il passe en résolu et sort de la liste des choses à traiter.' },
+        { titre:'Ranger l\u2019entrée au bon métier',
+          texte:'Ce qui est saisi pendant le chiffrage arrive dans « Devis ». Le bouton « Ranger » permet de l\u2019adresser au bon métier et d\u2019ajouter ceux qui doivent aussi la voir. C\u2019est le geste à faire quand une commande arrive.' }
+      ] },
+
+    { type:'pieges', titre:'Ce qui coince habituellement',
+      intro:'Situations rencontrées, et ce qu\u2019il faut faire.',
+      items:[
+        { quoi:'Le bouton « Enregistrer » reste gris',
+          faire:'Vos initiales ne sont pas choisies. C\u2019est volontaire : une note non signée ne vaut rien, et sur un poste partagé elle serait attribuée à quelqu\u2019un d\u2019autre.' },
+        { quoi:'Une note écrite au chiffrage reste dans « Devis »',
+          faire:'C\u2019est normal : au chiffrage on ne cherche pas la petite bête, tout arrive dans Devis. Le tri se fait ensuite, avec le bouton « Ranger ». Sans ce geste, l\u2019information n\u2019atteindra jamais le métier concerné.' },
+        { quoi:'Un fichier déposé n\u2019apparaît pas',
+          faire:'Vérifiez que l\u2019envoi est terminé — la mention « déposé » s\u2019affiche sous la zone. Un fichier déposé puis abandonné en ouvrant une réponse ne part pas : les pièces en cours sont remises à zéro quand on ouvre une zone de réponse.' },
+        { quoi:'On ne peut pas supprimer une pièce jointe',
+          faire:'« Retirer » ne l\u2019enlève que de la note en cours d\u2019écriture. Une fois enregistrée, la pièce reste : rien n\u2019autorise la suppression dans le stockage, c\u2019est volontaire.' },
+        { quoi:'Une correction ne se voit pas',
+          faire:'C\u2019est le cache du navigateur. Rechargez en forçant (Ctrl+Maj+R, ou Cmd+Maj+R sur Mac) et vérifiez la mention « module v… » en bas de la fiche.' }
+      ] },
+
+    { type:'regles', titre:'Les règles, et pourquoi',
+      intro:'Pour comprendre les choix de l\u2019outil.',
+      items:[
+        { titre:'Le métier, c\u2019est à qui c\u2019est destiné',
+          texte:'Pas qui écrit. Une remarque trouvée au chiffrage mais qui concerne le câblage s\u2019adresse au CMS. Les « doit aussi être vu par » servent quand plusieurs métiers sont concernés.' },
+        { titre:'L\u2019état découle du geste, jamais d\u2019un choix',
+          texte:'Une question attend, une réponse résout, une note ferme. Personne ne décide de l\u2019état à la main : c\u2019est ce qui garantit qu\u2019un point ouvert ne disparaît pas par erreur.' },
+        { titre:'La visibilité client découle du type',
+          texte:'Une question au client lui est visible par construction, sinon elle ne pourrait pas lui parvenir. Un point interne ne sort jamais. Seule une information simple laisse le choix.' },
+        { titre:'On n\u2019efface pas, on ajoute',
+          texte:'Le texte, l\u2019auteur et la date d\u2019une entrée ne sont pas modifiables. Ranger une entrée change son métier, jamais ce qui a été dit ni quand.' },
+        { titre:'Une carte, une fiche, tous les indices',
+          texte:'Les versions successives partagent la même fiche : ce qu\u2019on a appris sur la V1 sert à la V2. Le journal cloisonne par indice à l\u2019affichage, mais rien ne se perd.' },
+        { titre:'Pourquoi ça compte',
+          texte:'Ce qui est écrit ici et marqué visible client part dans le rapport que le client reçoit. Celui qui a noté quelque chose voit sa remarque arriver chez le client — c\u2019est ce qui rend le client concret depuis l\u2019atelier.' }
+      ] }
+  ]
+});
+document.getElementById('hdr-aide').innerHTML = PPAide.bouton();
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => (
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
