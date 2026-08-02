@@ -98,6 +98,10 @@ input.fdv-ck{accent-color:var(--blue);cursor:pointer;width:17px;height:17px;marg
 .odoo-ck{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer}
 .odoo-ck input{width:auto;accent-color:var(--blue)}
 .odoo-rec{margin-top:11px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius)}
+/* Le blocage n est pas une note de bas de page : c est une question qui doit
+   arreter le regard, sinon on clique Creer quand meme sans l avoir lue. */
+.odoo-stop{display:block;margin-top:9px;padding:10px 12px;font-size:13.5px;line-height:1.45;
+  background:var(--amber-bg);color:var(--amber-badge);border-radius:var(--radius);font-weight:500}
 #rattachement .odoo-p input{background:var(--surface);border:1px solid var(--border);
   color:var(--text);border-radius:var(--radius);padding:6px 9px;font-size:12.5px}
 .synth-l{display:flex;gap:9px;align-items:flex-start}
@@ -570,7 +574,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "8.9";
+const APP_VERSION = "9.0";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Analyse dossier client — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1014,7 +1018,7 @@ function blocOdoo(){
   const versions = (d.versions_connues || []).filter(v => v && v.nom);
   return `<div class="odoo-p">
     <p style="margin:0 0 3px;font-size:13px;font-weight:500">Créer le devis dans Odoo</p>
-    <p class="hint" style="margin:0 0 11px">${esc(d.client || '')} · carte ${esc(String(d.produit_id || ''))}</p>
+    <p class="hint" style="margin:0 0 11px">${esc(d.client || '')}${d.code_client ? ' · ' + esc(d.code_client) : ''}</p>
 
     <label class="odoo-f">Référence de cette version</label>
     <input id="odoo-ref" value="${esc(d.reference || '')}" oninput="odooRefChange()"
@@ -1023,19 +1027,22 @@ function blocOdoo(){
       ? `<p class="hint" style="margin:5px 0 0">Déjà dans Odoo : ${versions.map(v=>esc(v.nom)).join(' · ')}</p>`
       : `<p class="hint" style="margin:5px 0 0">Aucune version de cette carte n'existe encore dans Odoo.</p>`}
 
+    <label class="odoo-f" style="margin-top:11px">Quantités — une ligne de devis par quantité remplie</label>
     <div class="odoo-r">
-      <div><label class="odoo-f">Quantité</label>
-        <input id="odoo-qte" value="1" style="width:90px"></div>
-      <label class="odoo-ck"><input type="checkbox" id="odoo-essai" ${ODOO.essai?'checked':''}
-        onchange="ODOO.essai=this.checked"> Essai <span class="hint">— préfixe ZZ ESSAI, pour archiver après</span></label>
+      <input id="odoo-q1" value="1" placeholder="qté 1" style="width:90px">
+      <input id="odoo-q2" placeholder="qté 2" style="width:90px">
+      <input id="odoo-q3" placeholder="qté 3" style="width:90px">
+      <label class="odoo-ck"><input type="checkbox" ${ODOO.essai?'checked':''}
+        onchange="ODOO.essai=this.checked;odooRefChange()"> Essai <span class="hint">— préfixe ZZ ESSAI</span></label>
     </div>
 
     <div class="odoo-rec">
       <p class="hint" style="margin:0 0 6px">Ce qui sera créé</p>
-      <p style="margin:0 0 3px;font-size:12.5px">Article <span class="mono">${esc((ODOO.essai?'ZZ ESSAI - ':'') + (d.nom_article || ''))}</span>
-        <span class="badge ${d.existe_deja?'fdv-b-att':'fdv-b-ok'}">${d.existe_deja?'existe déjà':'nouveau'}</span></p>
+      <p style="margin:0 0 3px;font-size:12.5px">Article <span class="mono" id="odoo-nom">${esc(odooNomPrevu())}</span>
+        <span class="badge ${d.existe_deja?'fdv-b-att':'fdv-b-ok'}" id="odoo-pastille">${d.existe_deja?'existe déjà':'nouveau'}</span></p>
       <p class="hint" style="margin:0 0 3px">Référence interne : ${esc(d.reference_interne || '—')} · Catégorie : Protos</p>
-      <p class="hint" style="margin:0">Devis brouillon pour ${esc(d.client || '')}, une ligne</p>
+      <p class="hint" style="margin:0">Devis brouillon pour ${esc(d.client || '')}, avec la ligne
+        <span class="mono">PP-0001 Frais initiaux</span> en tête puis une ligne par quantité</p>
     </div>
 
     <p class="hint" style="margin:9px 0 0">Le devis brouillon se supprime sans trace.
@@ -1059,7 +1066,35 @@ function odooRendu(){
 }
 
 function odooFermer(){ ODOO = { etat:'ferme', data:null, msg:null, essai: ODOO.essai }; odooRendu(); }
-function odooRefChange(){ /* la reference est relue au moment du clic */ }
+
+/* Le nom est recalcule ICI exactement comme le fait le serveur, y compris le
+   retrait du code client quand l utilisateur colle la cle complete. Sans cela le
+   recapitulatif affichait un nom fige, donc faux des qu on modifiait la
+   reference — et on ne savait plus ce qui allait vraiment etre cree. */
+function odooNomPrevu(){
+  const d = ODOO.data || {};
+  const code = String(d.code_client || '').trim();
+  const el = document.getElementById('odoo-ref');
+  let ref = String(el ? el.value : (d.reference || '')).trim();
+  if(code && ref.indexOf(code + '-') === 0) ref = ref.slice(code.length + 1);
+  return (ODOO.essai ? 'ZZ ESSAI - ' : '') + code + '-' + ref;
+}
+
+// Mise a jour ciblee, sans re-rendre le panneau : re-rendre ferait perdre le
+// curseur des la premiere lettre tapee.
+function odooRefChange(){
+  const n = document.getElementById('odoo-nom');
+  if(n) n.textContent = odooNomPrevu();
+  const p = document.getElementById('odoo-pastille');
+  const d = ODOO.data || {};
+  if(p){
+    const nu = odooNomPrevu().replace(/^ZZ ESSAI - /, '');
+    const existe = (d.versions_connues || []).some(v =>
+      String(v.nom || '').replace(/^ZZ ESSAI - /, '') === nu);
+    p.textContent = existe ? 'existe déjà' : 'nouveau';
+    p.className = 'badge ' + (existe ? 'fdv-b-att' : 'fdv-b-ok');
+  }
+}
 
 async function odooVerifier(){
   ODOO.etat = 'charge'; odooRendu();
@@ -1083,7 +1118,9 @@ async function odooCreer(forcer){
   const btn = document.getElementById('odoo-go');
   const ref = (document.getElementById('odoo-ref').value || '').trim();
   if(!ref){ msg.textContent = 'Il faut une référence.'; return; }
-  const qte = parseFloat((document.getElementById('odoo-qte').value || '1').replace(',', '.'));
+  const qtes = ['odoo-q1','odoo-q2','odoo-q3']
+    .map(id => parseFloat(((document.getElementById(id) || {}).value || '').replace(',', '.')))
+    .filter(q => q > 0);
 
   btn.disabled = true;
   msg.textContent = 'Création dans Odoo…';
@@ -1092,7 +1129,7 @@ async function odooCreer(forcer){
     const r = await fetch(`${c.base}/${c.mode}/odoo-devis-creer`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ produit_id: fdvProduitId(), reference: ref,
-                             quantite: (qte > 0 ? qte : 1), essai: !!ODOO.essai,
+                             quantites: qtes.length ? qtes : [1], essai: !!ODOO.essai,
                              confirme_existant: !!forcer })
     });
     const j = await r.json().catch(()=>null);
@@ -1100,11 +1137,11 @@ async function odooCreer(forcer){
     if(j.ok !== true){
       // Blocage : on pose la question plutot que d annoncer une erreur seche.
       btn.disabled = false;
-      msg.innerHTML = `<span style="color:var(--amber);display:block;margin-top:6px">${esc(j.motif || 'Création refusée.')}</span>
-        <button class="btn-s" style="margin-top:7px" onclick="odooCreer(true)">Créer quand même</button>`;
+      msg.innerHTML = `<span class="odoo-stop">${esc(j.motif || 'Création refusée.')}</span>
+        <button class="btn-s" style="margin-top:9px" onclick="odooCreer(true)">Créer quand même</button>`;
       return;
     }
-    msg.innerHTML = `<span style="color:var(--green)">Devis n° ${esc(String(j.devis_id))} créé${j.article_cree ? ', article créé' : ', article réutilisé'}.</span>`;
+    msg.innerHTML = `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`;
     btn.disabled = true;
   }catch(e){
     btn.disabled = false;
