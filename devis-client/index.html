@@ -586,7 +586,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.4";
+const APP_VERSION = "9.5";
 const APP_DATE = "02/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -2104,9 +2104,29 @@ function bomChampBrut(r, motifs){
 
 // Relance uniquement la codification, sur la nomenclature deja en memoire.
 function relancerBom(){
+  // Les deux boutons de relance — celui de la fiche non codifiee et celui du
+  // tableau deja codifie — ne coexistent jamais, mais on desactive par CLASSE
+  // plutot que par identifiant : un identifiant pose deux fois est le piege qui
+  // nous a coute deux corrections dans la journee du 02/08.
   const b = document.getElementById('btn-relance-bom');
   if(b) b.disabled = true;
+  document.querySelectorAll('.btn-relance').forEach(x => { x.disabled = true; });
   traiterBom(DATA.bom_rows || [], DATA.client || '');
+}
+
+/* Relance depuis un tableau DEJA codifie : on demande confirmation, parce que le
+   resultat en place sera remplace et que la codification prend une minute.
+   Les points deja verses dans la fiche de vie ne bougent pas — ils portent la
+   reference du document d ou ils viennent. */
+function relancerCodification(){
+  const n = (DATA && DATA.bom_rows || []).length;
+  if(!n){
+    alert("La nomenclature d'origine n'est plus en mémoire : relancez une analyse complète.");
+    return;
+  }
+  if(!confirm('Relancer la codification sur les ' + n + ' lignes de la nomenclature ?\n\n'
+    + 'Le résultat actuel sera remplacé. Ce qui a déjà été versé dans la fiche de vie est conservé.')) return;
+  relancerBom();
 }
 
 function tableBom(d){
@@ -2138,6 +2158,13 @@ function tableBom(d){
     `</div>`;
 
   const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER) && correspondRecherche(l,BOM_Q));
+  // La codification peut etre relancee A TOUT MOMENT, pas seulement quand elle
+  // manque : le client renvoie parfois une nomenclature corrigee, ou l on veut
+  // simplement repasser la codification apres une evolution des regles.
+  h += `<div style="margin-bottom:11px">
+    <button class="btn-s btn-relance" onclick="relancerCodification()">
+      <i class="ti ti-refresh"></i> Relancer la codification</button>
+    <span class="hint" style="margin-left:9px">écrase le résultat actuel, environ une minute</span></div>`;
   h += `<div class="tblwrap"><table><thead><tr>
     <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
     <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th>
@@ -2306,6 +2333,12 @@ async function bomVerser(){
         texte_brut: (!estSynth && BOM_MOTIF) ? `${BOM_MOTIF} — ${txt}` : txt,
         repere: (l.designateurs||[]).join(', ') || null,
         mpn: l.mpn || l.mpn_ecarte || null,
+        // Reference du document d ou vient ce point. Le champ s appelle indice,
+        // mais on y range la reference COMPLETE du dossier analyse : elle dit
+        // exactement de quelle version du document le point provient, la ou un
+        // simple V1 laisserait un doute. Aucun decoupage de chaine, on reprend
+        // la reference telle quelle.
+        indice: (DATA && DATA.ref_projet) || null,
         type: typeLigne,
         source: estSynth ? 'devis-client/synthese' : 'devis-client/bom'
       });
