@@ -78,10 +78,14 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;gap:14px;
 .fdv-rep textarea{width:100%}
 /* Barre COLLEE EN HAUT et non plus sous le tableau : sous un tableau de 125
    lignes elle etait hors de vue au moment ou on cochait. */
-.fdv-barre{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:11px;
-  padding:9px 12px;border-radius:var(--radius);background:var(--surface2);
+.fdv-barre{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:0 0 12px;
+  padding:10px 13px;border-radius:var(--radius);background:var(--surface2);
   border-left:3px solid var(--blue);font-size:12px;
-  position:sticky;top:0;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.45)}
+  box-shadow:0 4px 12px rgba(0,0,0,.45)}
+/* La barre vaut pour TOUTE la page : elle se colle sous les onglets des qu une
+   case est cochee, que l on soit dans la synthese ou dans la nomenclature. */
+#fdv-barre{position:sticky;top:52px;z-index:30}
+#fdv-barre:empty{display:none}
 /* Colonne des cases COLLEE A DROITE. Le conteneur du tableau defile
    horizontalement (overflow:auto) : sans sticky, la case sortirait de l ecran
    sur un tableau large, ce que la charte §5 proscrit pour une info importante. */
@@ -528,6 +532,10 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
       <button class="tab" data-p="fiche" onclick="tab('fiche')">Fiche de vie<span id="fdv-n" class="fdv-n hidden"></span></button>
     </div>
     <div id="print-entete"></div>
+  <!-- Barre de versement vers la fiche de vie. UNE SEULE pour toute la page :
+       elle vaut pour la synthese comme pour la nomenclature, et se colle sous
+       les onglets des qu une case est cochee. -->
+  <div id="fdv-barre"></div>
   <div id="p-synthese"></div>
   <div id="print-bom"></div>
     <div id="p-bom" class="hidden"></div>
@@ -578,7 +586,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.3";
+const APP_VERSION = "9.4";
 const APP_DATE = "02/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1894,11 +1902,11 @@ function synthDossier(d){
         </div>
         ${boutonsJuger('exigence_montage', x.texte||'')}</div>`;
     });
-    h += `</div>${barreFicheDeVie()}</div>`;
+    h += `</div></div>`;
   }
   if((d.autres_exigences||[]).length) h += `<div class="card"><h2><i class="ti ti-note"></i> Autres exigences</h2>
     <ul class="li">${d.autres_exigences.map((x,i)=>`<li><span class="synth-l">${synthCase('e'+i, x, 'note')}<span>${esc(x)}</span></span></li>`).join('')}</ul>
-    ${barreFicheDeVie()}</div>`;
+    </div>`;
 
   // liste maison : ce qu'elle a reellement change sur ce dossier.
   // Sans ce retour, impossible de savoir si le mecanisme sert a quelque chose.
@@ -1952,7 +1960,7 @@ function synthDossier(d){
 
   // questions
   if((d.questions_client||[]).length) h += `<div class="card warn"><h2><i class="ti ti-message-question"></i> À clarifier avec le client</h2>
-    ${barreFicheDeVie()}
+    
     <ul class="li">${d.questions_client.map((q,i)=>`<li class="warn"><span class="synth-l">${synthCase('q'+i, q, 'question_client')}<span>${esc(q)}</span></span></li>`).join('')}</ul>
     <div style="margin-top:11px"><button class="btn-s" onclick="copierQuestions()"><i class="ti ti-copy"></i> Copier la liste</button></div></div>`;
 
@@ -2052,7 +2060,6 @@ function tableBomBrute(d){
      placeholder="Rechercher un repère, une référence, une description…"
      oninput="setBomQ(this.value)" style="width:100%;max-width:520px">
      ${filtre ? `<span class="hint" style="display:inline;margin-left:9px">${visibles.length} sur ${rows.length}</span>` : ''}</div>`;
-  h += barreFicheDeVie();
   h += `<div class="tblwrap"><table><thead><tr>` +
        utiles.map(c=>`<th${/^COL_\d+$/i.test(String(c))?' style="color:var(--text3);font-style:italic"':''}>${esc(titreCol(c))}</th>`).join('') +
        `<th class="fdv-ckc" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>` +
@@ -2131,7 +2138,6 @@ function tableBom(d){
     `</div>`;
 
   const lignes = toutes.filter(l=>correspondFiltre(l,BOM_FILTER) && correspondRecherche(l,BOM_Q));
-  h += barreFicheDeVie();
   h += `<div class="tblwrap"><table><thead><tr>
     <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
     <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th>
@@ -2164,16 +2170,20 @@ function tableBom(d){
 /* Selection de lignes a verser dans la fiche de vie. La selection vit HORS du
    rendu : rendreBom() reconstruit tout le tableau a chaque filtre, et une
    selection qui disparaitrait au moindre filtre serait pire que pas de selection. */
+// La barre est reconstruite au meme endroit, quel que soit l onglet ouvert.
+function bomRendreBarre(){
+  const b = document.getElementById('fdv-barre');
+  if(b) b.innerHTML = barreFicheDeVie();
+}
+
 function bomSel(ix, on){
   if(on) BOM_SEL.add(ix); else BOM_SEL.delete(ix);
-  const b = document.getElementById('fdv-barre');
-  if(b) b.outerHTML = barreFicheDeVie();
+  bomRendreBarre();
   // Les motifs vivent dans la fiche : on la charge des la premiere case cochee
   // pour que la barre propose la vraie liste et non le repli en dur.
   if(on && window.PPFicheDeVie && !PPFicheDeVie.chargee() && fdvProduitId()){
     fdvCharger().then(() => {
-      const b2 = document.getElementById('fdv-barre');
-      if(b2 && BOM_SEL.size) b2.outerHTML = barreFicheDeVie();
+      if(BOM_SEL.size) bomRendreBarre();
     }).catch(()=>{});
   }
 }
@@ -2222,12 +2232,14 @@ function fdvTexteLigne(l){
   return d ? `${rep} — ${d}` : rep;
 }
 
+// Rend le CONTENU de la barre. L enveloppe est un element unique et fixe du
+// document : voir #fdv-barre sous les onglets.
 function barreFicheDeVie(){
   const n = BOM_SEL.size;
-  if(!n) return `<div id="fdv-barre"></div>`;
+  if(!n) return '';
   if(!(FICHE_LIEN && FICHE_LIEN.produit_id)){
-    return `<div id="fdv-barre" class="fdv-barre">
-      <span style="color:var(--amber)">${n} ligne${n>1?'s':''} sélectionnée${n>1?'s':''} — rattachez d'abord ce dossier à une carte.</span>
+    return `<div class="fdv-barre">
+      <span style="color:var(--amber)">${n} élément${n>1?'s':''} sélectionné${n>1?'s':''} — rattachez d'abord ce dossier à une carte.</span>
       <button class="btn-s" onclick="fdvAllerRattachement()">Aller au rattachement</button></div>`;
   }
   // Ici on ne choisit pas une destination mais un MOTIF : une ligne cochee au
@@ -2237,14 +2249,14 @@ function barreFicheDeVie(){
   // Un point de synthese porte deja son sens dans son texte : lui demander un
   // motif de nomenclature n aurait aucun sens.
   if(!bomBesoinMotif()){
-    return `<div id="fdv-barre" class="fdv-barre">
+    return `<div class="fdv-barre">
       <span>${n} point${n>1?'s':''} à verser dans la fiche de vie</span>
       <button class="btn-p" id="fdv-verser" onclick="bomVerser()"><i class="ti ti-notebook"></i> Ajouter</button>
       <button class="btn-s" onclick="bomVider()">Tout décocher</button>
       <span id="fdv-barre-msg" class="hint"></span></div>`;
   }
   const motifs = bomMotifs();
-  return `<div id="fdv-barre" class="fdv-barre">
+  return `<div class="fdv-barre">
     <div style="width:100%">Pourquoi ces ${n} ligne${n>1?'s':''} ? — elles resteront en suspens jusqu'à ce qu'on les règle</div>
     <div class="fdv-props" style="margin:0">${motifs.map(m =>
       `<span class="fdv-c ${BOM_MOTIF===m?'on':''}" onclick="bomMotif(${JSON.stringify(m).replace(/"/g,'&#34;')})">${esc(m)}</span>`).join('')}</div>
@@ -2265,7 +2277,7 @@ function bomMotifs(){
 function bomBesoinMotif(){
   return Array.from(BOM_SEL).some(k => String(k).charAt(0) !== 's');
 }
-function bomMotif(m){ BOM_MOTIF = m; const b = document.getElementById('fdv-barre'); if(b) b.outerHTML = barreFicheDeVie(); }
+function bomMotif(m){ BOM_MOTIF = m; bomRendreBarre(); }
 function bomVider(){ BOM_SEL.clear(); rendreBom(); }
 
 /* Une entree par ligne cochee. Le compte rendu distingue ce qui est passe de ce
