@@ -578,7 +578,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.2";
+const APP_VERSION = "9.3";
 const APP_DATE = "02/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1749,7 +1749,11 @@ function synthDossier(d){
       : (fichiers.length
           ? `<span style="font-size:11px;color:var(--text2)">présent — ${fichiers.length} fichier${fichiers.length>1?'s':''}</span>`
           : `<span style="color:var(--red)">absent du dossier</span>`);
+    // Case UNIQUEMENT sur une piece absente : cocher un vert produirait une note
+    // sans contenu, et le rouge dit deja tout par lui-meme.
+    const aReclamer = !sansObjet && !present;
     h += `<div style="display:flex;align-items:flex-start;gap:9px">
+      ${aReclamer ? synthCase('c-'+p.cle, 'Pièce manquante au dossier : ' + p.libelle, 'question_interne') : ''}
       ${badge}
       <div style="flex:1;min-width:0">
         <div style="font-size:12.5px">${esc(p.libelle)}</div>
@@ -1880,8 +1884,9 @@ function synthDossier(d){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px">`;
     // les points d'attention d'abord : ce sont eux qui coutent
     exi.sort((a,b)=>(b.attention?1:0)-(a.attention?1:0));
-    exi.forEach(x=>{
+    exi.forEach((x,i)=>{
       h += `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border)">
+        ${synthCase('m'+i, x.texte, 'note')}
         ${x.attention?alerteP:neutreP}
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;${x.attention?'font-weight:500':'color:var(--text2)'}">${esc(x.texte)}</div>
@@ -1889,7 +1894,7 @@ function synthDossier(d){
         </div>
         ${boutonsJuger('exigence_montage', x.texte||'')}</div>`;
     });
-    h += `</div></div>`;
+    h += `</div>${barreFicheDeVie()}</div>`;
   }
   if((d.autres_exigences||[]).length) h += `<div class="card"><h2><i class="ti ti-note"></i> Autres exigences</h2>
     <ul class="li">${d.autres_exigences.map((x,i)=>`<li><span class="synth-l">${synthCase('e'+i, x, 'note')}<span>${esc(x)}</span></span></li>`).join('')}</ul>
