@@ -586,7 +586,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.6";
+const APP_VERSION = "9.7";
 const APP_DATE = "02/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1408,6 +1408,13 @@ async function rechargerNomenclature(input){
   const fd = new FormData();
   fd.append('client', (DATA && DATA.client) || '');
   fd.append('fichier0', f, f.name);
+  // IDENTIFIANT DE LA FICHE : sans lui le resultat n est rattache a rien et se
+  // perd. En rouvrant le lendemain on retrouvait l ANCIENNE nomenclature sans
+  // que rien ne signale qu une version plus recente avait ete deposee — on
+  // croyait travailler sur la bonne. Le workflow lit body.dossier_job_id, que
+  // n8n alimente aussi bien en JSON qu en envoi de fichier.
+  const idFiche = (FICHE_LIEN && FICHE_LIEN.job_id) || (DATA && DATA.job_id) || '';
+  if(idFiche) fd.append('dossier_job_id', idFiche);
   try{
     const r = await fetch(`${c.base}/${c.mode}/bom-client-ingestion`, { method:'POST', body: fd });
     const t = await r.text();
@@ -1415,6 +1422,14 @@ async function rechargerNomenclature(input){
     let lance; try{ lance = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0,180)); }
     if(!lance.job_id) throw new Error("Aucun identifiant de traitement renvoyé — le fichier n'a pas été accepté.");
     if(!DATA) DATA = {};
+    // Le nom du fichier suit la nomenclature affichee : sans cela l ecran
+    // continuerait d annoncer le fichier precedent.
+    DATA.bom_fichier_source = f.name;
+    if(!idFiche){
+      // Rien ne rattachera le resultat : on le DIT, plutot que de laisser croire
+      // que la nouvelle nomenclature sera retrouvee a la prochaine ouverture.
+      console.warn('Rechargement sans identifiant de fiche : le résultat ne sera pas conservé.');
+    }
     tab('bom');
     suivreJob(lance.job_id, lance.nb_lignes || 0, true);
   }catch(e){
