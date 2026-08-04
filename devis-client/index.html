@@ -11,7 +11,7 @@
 <script src="../shared/fiche-de-vie.js?v=1.7"></script>
 <!-- Mode operatoire. Gabarit commun a toutes les applis ; le contenu est
      ecrit dans ce fichier, pres du code qu il decrit. -->
-<script src="../shared/aide.js?v=1.0"></script>
+<script src="../shared/aide.js?v=1.1"></script>
 <style>
 :root{
   --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
@@ -586,7 +586,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.8";
+const APP_VERSION = "9.9";
 const APP_DATE = "02/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -597,6 +597,10 @@ const APP_DATE = "02/08/2026";
 PPAide.poser({
   titre: 'Analyse dossier client — mode opératoire',
   version: APP_VERSION,
+  // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
+  // version change le PARCOURS et non seulement l apparence : sinon la notice
+  // affichera d elle-meme qu elle est peut-etre depassee.
+  verifiee: '9.9',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'De la réception des fichiers client au devis Odoo.',
