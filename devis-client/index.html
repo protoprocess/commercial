@@ -586,7 +586,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.7";
+const APP_VERSION = "9.8";
 const APP_DATE = "02/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -610,7 +610,9 @@ PPAide.poser({
         { titre:'Rattacher le dossier à une carte',
           texte:'<b>Obligatoire, et c\u2019est un geste humain.</b> Vous choisissez le client Odoo et vous validez la référence de la carte. Rien n\u2019est écrit dans Odoo à cette étape : tout reste annulable.' },
         { titre:'Cocher ce qui doit être retenu',
-          texte:'Dans la nomenclature, cochez à droite les lignes qui posent question, choisissez un motif, puis « Ajouter ». Dans la synthèse, cochez les questions à clarifier et les points à traiter. Tout part dans la fiche de vie de la carte.' },
+          texte:'Dans la nomenclature, cochez à droite les lignes qui posent question, choisissez un motif, puis « Ajouter ». Dans la synthèse, vous pouvez cocher les questions à clarifier, les exigences de montage, les pièces manquantes du dossier et les points hors capacité. Une seule barre apparaît sous les onglets : vous pouvez cocher dans les deux endroits et tout verser d\u2019un coup.' },
+        { titre:'Le client renvoie une nomenclature corrigée ?',
+          texte:'Ne refaites pas l\u2019analyse. Déposez le nouveau fichier depuis le bouton au-dessus du tableau : seule la nomenclature est refaite, le reste de l\u2019analyse et la fiche de vie ne bougent pas.' },
         { titre:'Créer le devis Odoo',
           texte:'Le bouton apparaît sous « Dossier rattaché ». Un écran vous montre ce qui sera créé avant d\u2019écrire quoi que ce soit. Vous pouvez saisir jusqu\u2019à trois quantités : chacune donne sa propre ligne de devis.' },
         { titre:'Compléter le devis dans Odoo',
@@ -623,7 +625,9 @@ PPAide.poser({
         { quoi:'La nomenclature affichée n\u2019est pas codifiée',
           faire:'Sur une fiche rouverte, c\u2019est la nomenclature <b>du client</b> qui s\u2019affiche : la codification n\u2019est pas conservée en base. Cliquez « Lancer le traitement de la nomenclature ». Les filtres MPN, Codifiées ou Non définis n\u2019existent que sur le tableau codifié.' },
         { quoi:'Le bouton « Ajouter » reste gris',
-          faire:'Il manque le motif. Choisissez-en un : pas disponible, non défini, introuvable, incohérence MPN… Sur les points de synthèse, en revanche, aucun motif n\u2019est demandé.' },
+          faire:'Il manque le motif. Choisissez-en un : indisponible, non défini, introuvable, incohérence MPN… Sur les points de synthèse, en revanche, aucun motif n\u2019est demandé.' },
+        { quoi:'Je coche, mais rien n\u2019apparaît',
+          faire:'Regardez juste sous les onglets : la barre s\u2019y affiche, et non près de la ligne cochée. Si elle annonce « rattachez d\u2019abord ce dossier à une carte », c\u2019est que le rattachement n\u2019est pas fait — rien ne peut être versé avant.' },
         { quoi:'L\u2019onglet Fiche de vie ne propose rien',
           faire:'Le dossier n\u2019est pas rattaché à une carte. La fiche de vie s\u2019accroche à une carte : tant que le rattachement n\u2019est pas fait, rien ne peut y être écrit. Le bouton vous y emmène.' },
         { quoi:'« L\u2019article existe déjà dans Odoo »',
@@ -647,6 +651,8 @@ PPAide.poser({
           texte:'Un devis brouillon disparaît sans trace. Un article Odoo, une fois créé, ne se supprime pas — il s\u2019archive. C\u2019est la seule opération de toute la chaîne qui ne se défait pas, d\u2019où l\u2019écran de confirmation.' },
         { titre:'Le prix reste saisi à la main',
           texte:'Assumé. L\u2019outil prépare le devis, il ne chiffre pas.' },
+        { titre:'Chaque point sait d\u2019où il vient',
+          texte:'Un point versé porte la référence du document analysé. Quand le client renvoie une nomenclature corrigée, vous pouvez donc savoir lesquels de vos points en suspens se rapportent à une version dépassée. Relisez-les : l\u2019outil ne les ferme pas tout seul.' },
         { titre:'La vérité de la nomenclature appartient à Luminovo',
           texte:'Ce qui remonte dans la fiche de vie n\u2019est jamais une ligne de nomenclature, mais un <b>point</b> sur cette ligne : un motif, un repère, une référence. La fiche ne devient pas une copie de la BOM.' }
       ] }
