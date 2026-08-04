@@ -586,8 +586,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "9.9";
-const APP_DATE = "02/08/2026";
+const APP_VERSION = "10.0";
+const APP_DATE = "04/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -1115,6 +1115,11 @@ function blocOdoo(){
       ? `<p class="hint" style="margin:5px 0 0">Déjà dans Odoo : ${versions.map(v=>esc(v.nom)).join(' · ')}</p>`
       : `<p class="hint" style="margin:5px 0 0">Aucune version de cette carte n'existe encore dans Odoo.</p>`}
 
+    <label class="odoo-f" style="margin-top:11px">Lien Luminovo <span class="hint">— facultatif</span></label>
+    <input id="odoo-luminovo" value="${esc(d.luminovo || '')}" placeholder="https://…"
+      style="width:100%;font-family:var(--mono);font-size:12px">
+    <p class="hint" style="margin:5px 0 0">Posé sur l'article Odoo. Se colle depuis l'onglet du projet Luminovo.</p>
+
     <label class="odoo-f" style="margin-top:11px">Quantités — une ligne de devis par quantité remplie</label>
     <div class="odoo-r">
       <input id="odoo-q1" value="1" placeholder="qté 1" style="width:90px">
@@ -1128,7 +1133,7 @@ function blocOdoo(){
       <p class="hint" style="margin:0 0 6px">Ce qui sera créé</p>
       <p style="margin:0 0 3px;font-size:12.5px">Article <span class="mono" id="odoo-nom">${esc(odooNomPrevu())}</span>
         <span class="badge ${d.existe_deja?'fdv-b-att':'fdv-b-ok'}" id="odoo-pastille">${d.existe_deja?'existe déjà':'nouveau'}</span></p>
-      <p class="hint" style="margin:0 0 3px">Référence interne : ${esc(d.reference_interne || '—')} · Catégorie : Protos</p>
+      <p class="hint" style="margin:0 0 3px">Référence interne : ${esc(d.reference_interne || '—')} · Catégorie : Protos · Poids 0,1 kg</p>
       <p class="hint" style="margin:0">Devis brouillon pour ${esc(d.client || '')}, avec la ligne
         <span class="mono">PP-0001 Frais initiaux</span> en tête puis une ligne par quantité</p>
     </div>
@@ -1165,7 +1170,11 @@ function odooNomPrevu(){
   const el = document.getElementById('odoo-ref');
   let ref = String(el ? el.value : (d.reference || '')).trim();
   if(code && ref.indexOf(code + '-') === 0) ref = ref.slice(code.length + 1);
-  return (ODOO.essai ? 'ZZ ESSAI - ' : '') + code + '-' + ref;
+  /* L indice de version vient du serveur, qui le lit dans produits_refs. Sans lui
+     le recapitulatif annoncait un nom sans version alors que le serveur en creait
+     un avec : on ne voyait donc pas ce qui allait reellement etre cree. */
+  const ind = String(d.version || '').trim();
+  return (ODOO.essai ? 'ZZ ESSAI - ' : '') + code + '-' + ref + (ind ? ' ' + ind : '');
 }
 
 // Mise a jour ciblee, sans re-rendre le panneau : re-rendre ferait perdre le
@@ -1218,6 +1227,7 @@ async function odooCreer(forcer){
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ produit_id: fdvProduitId(), reference: ref,
                              quantites: qtes.length ? qtes : [1], essai: !!ODOO.essai,
+                             luminovo: (document.getElementById('odoo-luminovo') || {}).value || '',
                              confirme_existant: !!forcer })
     });
     const brut = await r.text();
