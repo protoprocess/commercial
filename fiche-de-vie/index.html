@@ -173,9 +173,9 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
 <script src="../shared/fiche-de-vie.js?v=1.7"></script>
 <!-- Mode operatoire. Gabarit commun a toutes les applis ; le contenu est
      ecrit dans ce fichier, pres du code qu il decrit. -->
-<script src="../shared/aide.js?v=1.0"></script>
+<script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "2.6";
+const APP_VERSION = "2.7";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -199,6 +199,10 @@ let PRODUITS = [], FICHE_ID = null;
 PPAide.poser({
   titre: 'Fiche de vie — mode opératoire',
   version: APP_VERSION,
+  // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
+  // version change le PARCOURS et non seulement l apparence : sinon la notice
+  // affichera d elle-meme qu elle est peut-etre depassee.
+  verifiee: '2.7',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
