@@ -67,6 +67,11 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
 .tag{padding:6px 11px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);
   color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
 .tag:hover{border-color:var(--accent);color:var(--text)}
+/* Formulaire de creation d une carte. Classes prefixees cr-, aucune empruntee. */
+.cr-lab{display:block;font-size:11px;color:var(--text3);margin:12px 0 4px}
+.cr-l{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:16px}
+#res select,#res input{background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:inherit}
 .tag.on{border-color:var(--accent);color:var(--text);background:var(--accent-bg)}
 @media(max-width:620px){
   .wrap{padding:11px;max-width:100vw}
@@ -175,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "2.7";
+const APP_VERSION = "2.8";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -202,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '2.7',
+  verifiee: '2.8',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -304,13 +309,185 @@ function chercher(q){
     [p.ref_carte, p.libelle_carte, p.nom_client, p.cle_produit]
       .some(v => String(v||'').toLowerCase().includes(n)))).slice(0, 30);
   if(!l.length){
-    box.innerHTML = '<p class="hint">Aucune carte. Une carte appara\u00eet ici une fois qu\'un dossier lui a \u00e9t\u00e9 rattach\u00e9 dans l\'analyse de devis.</p>';
+    // Le bouton de creation n apparait QU ICI, apres une recherche infructueuse :
+    // chercher d abord est la meilleure protection contre les cartes en double,
+    // et une carte en double ce sont deux fiches de vie qui divergent.
+    box.innerHTML = '<p class="hint" style="margin-bottom:11px">Aucune carte ne correspond. '
+      + 'Une carte apparait ici une fois qu\'un dossier lui a ete rattache dans l\'analyse de devis '
+      + '\u2014 ou si vous la creez directement.</p>'
+      + '<button class="btn-p" onclick="ouvrirCreation()"><i class="ti ti-plus"></i> Créer une carte</button>';
     return;
   }
   box.innerHTML = l.map(p => `<div class="ent" style="cursor:pointer" onclick="ouvrir(${p.id})">
     <div class="ent-txt"><b>${esc(p.ref_carte)}</b>${p.libelle_carte ? ' \u2014 ' + esc(p.libelle_carte) : ''}</div>
     <div class="ent-h">${esc(p.nom_client||'')} <span style="color:var(--text3)">\u00b7 ${esc(p.cle_produit||'')}</span></div>
   </div>`).join('');
+}
+
+/* ---------- CREATION D UNE CARTE ----------
+   Une carte peut naitre ici, sans passer par l analyse de devis : carte
+   recurrente deja en production, retour client, affaire jamais analysee
+   (demande d Olivier, 04/08). Le webhook de rattachement sait deja creer une
+   carte sans analyse depuis la v1.1 du workflow Produits.
+   Le pont vers Odoo est propose DANS LA FOULEE, au fil de l eau : aucun des 163
+   articles existants ne porte de PP Produit ID, et une reprise en masse ne se
+   ferait jamais alors que chaque carte creee en regle un. */
+let CREA = { etape: 'ferme', societes: [], article: null, resultats: null, msg: null, carte: null };
+
+async function ouvrirCreation(){
+  CREA = { etape: 'saisie', societes: CREA.societes, article: null, resultats: null, msg: null, carte: null };
+  rendreCreation();
+  if(!CREA.societes.length){
+    try{
+      const r = await fetch(`${BASE}/po-societes`);
+      const j = await r.json();
+      CREA.societes = (j && j.societes) || [];
+    }catch(e){ CREA.societes = []; }
+    rendreCreation();
+  }
+}
+
+function fermerCreation(){ CREA.etape = 'ferme'; chercher(document.getElementById('q').value || ''); }
+
+function rendreCreation(){
+  const box = document.getElementById('res');
+  if(CREA.etape === 'ferme') return;
+
+  if(CREA.etape === 'saisie'){
+    const opts = CREA.societes.length
+      ? CREA.societes.map(x => `<option value="${x.id}" data-code="${esc(x.code_client||'')}">${esc(x.nom||'')}${x.code_client ? ' \u00b7 ' + esc(x.code_client) : ''}</option>`).join('')
+      : '';
+    box.innerHTML = `<div class="card" style="border-left:3px solid var(--accent)">
+      <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:var(--accent)">Créer une carte</p>
+
+      <label class="cr-lab">Client</label>
+      ${CREA.societes.length
+        ? `<select id="cr-cli" style="width:100%;max-width:420px">${opts}</select>`
+        : `<p class="hint">Chargement des clients\u2026</p>`}
+
+      <label class="cr-lab">Référence de la carte</label>
+      <input id="cr-ref" placeholder="10078-01-01-00" autocomplete="off" style="width:100%;max-width:320px">
+
+      <label class="cr-lab">Libellé</label>
+      <input id="cr-lib" placeholder="Carte_SBW_SafetyA" autocomplete="off" style="width:100%;max-width:420px">
+
+      <label class="cr-lab">Indice <span class="hint">— facultatif, rangé comme alias</span></label>
+      <input id="cr-ind" placeholder="V1" autocomplete="off" style="width:100px">
+
+      <div class="cr-l">
+        <button class="btn-p" id="cr-ok" onclick="creerCarte()"><i class="ti ti-check"></i> Créer</button>
+        <button class="btn-s" onclick="fermerCreation()">Annuler</button>
+        <span id="cr-msg" class="hint">${CREA.msg ? esc(CREA.msg) : ''}</span>
+      </div></div>`;
+    return;
+  }
+
+  if(CREA.etape === 'odoo'){
+    const c = CREA.carte || {};
+    const r = CREA.resultats || {};
+    const arts = r.articles || [];
+    box.innerHTML = `<div class="card" style="border-left:3px solid var(--green)">
+      <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:var(--green)">Carte créée</p>
+      <p class="hint" style="margin:0 0 14px">${esc(c.cle_produit||'')} \u00b7 carte n\u00b0 ${esc(String(c.produit_id||''))}</p>
+
+      <p style="margin:0 0 4px;font-size:13px;font-weight:500">Relier à un article Odoo existant ?</p>
+      <p class="hint" style="margin:0 0 11px">Facultatif. Si cette carte n\'a jamais été devisée, laissez : le bouton de devis créera l\'article et posera le lien.</p>
+
+      ${r.avertissement ? `<p style="margin:0 0 11px;padding:9px 11px;background:var(--amber-bg);color:var(--amber-badge);border-radius:6px;font-size:12.5px">${esc(r.avertissement)}</p>` : ''}
+
+      ${arts.length ? arts.map(a => `<div class="ent" style="cursor:${a.deja_lie?'default':'pointer'};opacity:${a.deja_lie?'.55':'1'}"
+          ${a.deja_lie ? '' : `onclick="lierArticle(${a.id})"`}>
+        <div class="ent-txt"><b>${esc(a.nom)}</b>${a.conforme_convention ? '' : ' <span class="hint">hors convention</span>'}</div>
+        <div class="ent-h">${esc(a.categorie||'')}${a.reference_interne ? ' \u00b7 ' + esc(a.reference_interne) : ''}${a.deja_lie ? ` \u00b7 déjà relié à la carte n\u00b0 ${a.lie_a_carte}` : ''}</div>
+      </div>`).join('') : '<p class="hint">Aucun article Odoo ne porte cette référence.</p>'}
+
+      <div class="cr-l">
+        <button class="btn-s" onclick="terminerCreation()">Ouvrir la fiche sans relier</button>
+        <span id="cr-msg2" class="hint">${CREA.msg ? esc(CREA.msg) : ''}</span>
+      </div></div>`;
+  }
+}
+
+async function creerCarte(){
+  const msg = document.getElementById('cr-msg');
+  const btn = document.getElementById('cr-ok');
+  const sel = document.getElementById('cr-cli');
+  const ref = (document.getElementById('cr-ref').value || '').trim();
+  const lib = (document.getElementById('cr-lib').value || '').trim();
+  const ind = (document.getElementById('cr-ind').value || '').trim();
+
+  if(!sel || !sel.value){ msg.textContent = 'Choisissez un client.'; return; }
+  if(!ref){ msg.textContent = 'La référence est obligatoire : elle forme la clé de la carte.'; return; }
+
+  const opt = sel.options[sel.selectedIndex];
+  const code = opt.getAttribute('data-code') || '';
+  if(!code){ msg.textContent = "Ce client n'a pas de code CLI dans Odoo : impossible de former la clé."; return; }
+
+  btn.disabled = true; msg.textContent = 'Création\u2026';
+  try{
+    const r = await fetch(`${BASE}/produit-rattacher`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        odoo_partner_id: Number(sel.value),
+        code_client: code,
+        nom_client: opt.textContent.split(' \u00b7 ')[0],
+        ref_carte: ref,
+        libelle_carte: lib || null,
+        alias: ind ? (ref + '_' + ind) : null,
+        indice: ind || null
+      })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+
+    CREA.carte = j;
+    CREA.msg = null;
+    // La carte existe : on propose le pont Odoo dans la foulee, pendant qu on a
+    // la reference sous les yeux.
+    CREA.etape = 'odoo';
+    rendreCreation();
+    try{
+      const q = `reference=${encodeURIComponent(ref)}&code=${encodeURIComponent(code)}`;
+      const ro = await fetch(`${BASE}/produit-odoo-chercher?${q}`);
+      const jo = await ro.json().catch(()=>null);
+      CREA.resultats = (jo && jo.ok) ? jo : { articles: [] };
+    }catch(e){ CREA.resultats = { articles: [] }; }
+    rendreCreation();
+
+    // La liste locale doit connaitre la nouvelle carte, sinon un retour a la
+    // recherche ne la trouverait pas.
+    await charger();
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
+async function lierArticle(articleId){
+  const msg = document.getElementById('cr-msg2');
+  if(msg) msg.textContent = 'Liaison\u2026';
+  try{
+    const r = await fetch(`${BASE}/produit-odoo-lier`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produit_id: CREA.carte.produit_id, article_id: articleId })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!j) throw new Error('Réponse illisible.');
+    if(j.ok !== true){
+      // Un refus n est pas une erreur : il dit pourquoi, et l humain tranche.
+      if(msg) msg.innerHTML = `<span style="color:var(--amber-badge)">${esc(j.motif)}</span>`;
+      return;
+    }
+    terminerCreation();
+  }catch(e){
+    if(msg) msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
+function terminerCreation(){
+  const id = CREA.carte && CREA.carte.produit_id;
+  CREA.etape = 'ferme';
+  if(id) ouvrir(id); else fermerCreation();
 }
 
 async function ouvrir(id){
