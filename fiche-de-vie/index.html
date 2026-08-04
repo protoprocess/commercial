@@ -180,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -207,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '3.1',
+  verifiee: '3.2',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -575,6 +575,118 @@ async function creerCarte(){
   }
 }
 
+/* ---------- CORRECTION D UNE CARTE ----------
+   Une faute de frappe arrive, et jusqu au 04/08 il fallait passer par la base
+   pour la reparer (demande d Olivier). Le client n est PAS modifiable : en
+   changer changerait le code donc la cle entiere, ce ne serait plus une
+   correction mais une autre carte.
+   Les entrees de fiche de vie pointent vers l IDENTIFIANT de la carte, jamais
+   vers sa cle : corriger une reference ne detache donc aucune entree. */
+let EDIT = null;
+
+function ouvrirEdition(id){
+  const p = PRODUITS.find(x => Number(x.id) === Number(id));
+  if(!p){ alert("Carte introuvable dans la liste locale."); return; }
+  const al = (p.alias || []).filter(a => a && a.indice);
+  EDIT = { id: Number(id), code: p.code_client || '', client: p.nom_client || '',
+           ref: p.ref_carte || '', libelle: p.libelle_carte || '',
+           indice: (al[0] && al[0].indice) || '', msg: null };
+  rendreEdition();
+}
+
+function fermerEdition(){ EDIT = null; rendreEdition(); }
+
+function rendreEdition(){
+  const z = document.getElementById('zone-edition');
+  if(!z) return;
+  if(!EDIT){ z.innerHTML = ''; return; }
+  z.innerHTML = `<div class="card" style="border-left:3px solid var(--accent);margin-bottom:10px">
+    <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:var(--accent)">Modifier la carte</p>
+    <p class="hint" style="margin:0 0 4px">${esc(EDIT.client)} · le client ne se change pas : ce serait une autre carte.</p>
+
+    <label class="cr-lab">Référence de la carte</label>
+    <input id="ed-ref" value="${esc(EDIT.ref)}" oninput="majCleEdition()" autocomplete="off" style="width:100%;max-width:320px">
+    <p class="hint" style="margin:5px 0 0">Clé de la carte : <span id="ed-cle" style="color:var(--text2)">${esc(EDIT.code)}-${esc(EDIT.ref)}</span></p>
+
+    <label class="cr-lab">Libellé</label>
+    <input id="ed-lib" value="${esc(EDIT.libelle)}" autocomplete="off" style="width:100%;max-width:420px">
+
+    <label class="cr-lab">Indice</label>
+    <input id="ed-ind" value="${esc(EDIT.indice)}" autocomplete="off" style="width:100px">
+
+    <div class="cr-l">
+      <button class="btn-p" id="ed-ok" onclick="enregistrerEdition()"><i class="ti ti-check"></i> Enregistrer</button>
+      <button class="btn-s" onclick="fermerEdition()">Annuler</button>
+      <button class="btn-s" style="margin-left:auto;color:var(--red)" onclick="supprimerCarte()">
+        <i class="ti ti-trash"></i> Supprimer cette carte</button>
+      <span id="ed-msg" class="hint">${EDIT.msg ? esc(EDIT.msg) : ''}</span>
+    </div>
+    <p class="hint" style="margin-top:9px">Un article Odoo déjà relié garde son nom : corrigez-le dans Odoo si besoin.</p>
+    </div>`;
+}
+
+function majCleEdition(){
+  const r = document.getElementById('ed-ref');
+  if(r) EDIT.ref = (r.value || '').trim();
+  const c = document.getElementById('ed-cle');
+  if(c) c.textContent = EDIT.code + '-' + EDIT.ref;
+}
+
+async function enregistrerEdition(){
+  const msg = document.getElementById('ed-msg');
+  const btn = document.getElementById('ed-ok');
+  majCleEdition();
+  EDIT.libelle = (document.getElementById('ed-lib').value || '').trim();
+  EDIT.indice  = (document.getElementById('ed-ind').value || '').trim();
+  if(!EDIT.ref){ msg.textContent = 'La référence est obligatoire.'; return; }
+
+  btn.disabled = true; msg.textContent = 'Enregistrement\u2026';
+  try{
+    const r = await fetch(`${BASE}/produit-modifier`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produit_id: EDIT.id, ref_carte: EDIT.ref,
+                             libelle_carte: EDIT.libelle || null, indice: EDIT.indice || null })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!r.ok || !j || j.ok !== true) throw new Error((j && j.motif) || ('HTTP ' + r.status));
+    await charger();
+    EDIT = null;
+    monterFiche(j.produit_id);
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
+/* La suppression est GARDEE cote serveur : refusee si le journal porte des
+   entrees, ou si un article Odoo reference encore la carte. Ce second garde est
+   la lecon du 04/08 — une suppression en base laissait un lien orphelin cote
+   Odoo qui bloquait l article a jamais. */
+async function supprimerCarte(){
+  const msg = document.getElementById('ed-msg');
+  if(!confirm('Supprimer définitivement la carte ' + EDIT.code + '-' + EDIT.ref + ' ?\n\n'
+    + "La suppression sera refusée si la fiche de vie porte des entrées, ou si un article Odoo y est relié.")) return;
+  msg.textContent = 'Suppression\u2026';
+  try{
+    const r = await fetch(`${BASE}/produit-supprimer`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produit_id: EDIT.id })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!j) throw new Error('Réponse illisible.');
+    if(j.ok !== true){
+      // Un refus n est pas une erreur : il dit ce qui bloque, et l humain tranche.
+      msg.innerHTML = `<span style="color:var(--amber-badge);display:block;margin-top:6px;padding:9px 11px;background:var(--amber-bg);border-radius:6px">${esc(j.motif)}</span>`;
+      return;
+    }
+    EDIT = null; FICHE_ID = null;
+    await charger();
+    retour();
+  }catch(e){
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
 async function ouvrir(id){
   const f = document.getElementById('fiche');
   document.getElementById('choix').style.display = 'none';
@@ -611,8 +723,10 @@ function apresQui(){
 
 function monterFiche(id){
   const f = document.getElementById('fiche');
-  f.innerHTML = '<div style="margin-bottom:10px"><button class="btn-s" onclick="retour()">' +
-    '<i class="ti ti-arrow-left"></i> Changer de carte</button></div><div id="zone-fiche"></div>';
+  f.innerHTML = '<div style="margin-bottom:10px;display:flex;gap:9px;flex-wrap:wrap">' +
+    '<button class="btn-s" onclick="retour()"><i class="ti ti-arrow-left"></i> Changer de carte</button>' +
+    '<button class="btn-s" onclick="ouvrirEdition(' + id + ')"><i class="ti ti-pencil"></i> Modifier la carte</button>' +
+    '</div><div id="zone-edition"></div><div id="zone-fiche"></div>';
   majQui();
   return PPFicheDeVie.monter({
     cible: 'zone-fiche',
