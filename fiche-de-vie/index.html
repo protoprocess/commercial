@@ -180,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -207,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '3.0',
+  verifiee: '3.1',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -405,6 +405,10 @@ function rendreCreation(){
         <div class="ent-h">${esc(a.categorie||'')}${a.reference_interne ? ' \u00b7 ' + esc(a.reference_interne) : ''}${a.deja_lie ? ` \u00b7 déjà relié à la carte n\u00b0 ${a.lie_a_carte}` : ''}</div>
       </div>`).join('')}
 
+      <label class="cr-lab">Référence de la carte${CREA.article ? ' <span class="hint">— reprise de l\'article retenu</span>' : ''}</label>
+      <input id="cr-ref2" value="${esc(CREA.ref)}" oninput="majCle()" autocomplete="off" style="width:100%;max-width:320px">
+      <p class="hint" style="margin:5px 0 0">Clé de la carte : <span id="cr-cle" style="color:var(--text2)">${esc(CREA.client.code)}-${esc(CREA.ref)}</span></p>
+
       <label class="cr-lab">Libellé${CREA.article ? ' <span class="hint">— repris de l\'article retenu</span>' : ''}</label>
       <input id="cr-lib" value="${esc(CREA.libelle)}" placeholder="Carte_SBW_SafetyA" autocomplete="off" style="width:100%;max-width:420px">
 
@@ -423,6 +427,35 @@ function rendreCreation(){
 }
 
 function retourSaisie(){ CREA.etape = 'saisie'; CREA.msg = null; rendreCreation(); }
+
+// La cle se recompose a chaque frappe : une faute dans la reference se voit
+// AVANT la creation, pas apres. C est ce qui a produit CLI277-cli277 le 04/08.
+function majCle(){
+  memoriserSaisie();
+  const el = document.getElementById('cr-cle');
+  if(el) el.textContent = CREA.client.code + '-' + CREA.ref;
+}
+
+/* Un nom d article porte la REFERENCE et le LIBELLE. On les separe pour proposer
+   les deux, au lieu de laisser dans le champ reference ce qui avait servi a
+   CHERCHER — c est ainsi qu une carte a ete creee sous la cle CLI277-cli277.
+   Trois formes rencontrees :
+     CLI277 - 11300054875 AMP107   -> ref 11300054875, libelle AMP107
+     1300077331 - CARTE MICRO-SD   -> ref 1300077331,  libelle CARTE MICRO-SD
+     CLI526-10078-01-01-00         -> ref 10078-01-01-00, libelle dans la ref interne */
+function decomposerArticle(a){
+  const code = (CREA.client && CREA.client.code) || '';
+  let nom = String(a.nom || '').trim();
+  if(code){
+    const re = new RegExp('^' + code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*-\\s*', 'i');
+    nom = nom.replace(re, '').trim();
+  }
+  const i = nom.indexOf(' - ');
+  if(i > 0) return { ref: nom.slice(0, i).trim(), lib: nom.slice(i + 3).trim() };
+  const j = nom.indexOf(' ');
+  if(j > 0) return { ref: nom.slice(0, j).trim(), lib: nom.slice(j + 1).trim() };
+  return { ref: nom, lib: String(a.reference_interne || '').trim() };
+}
 
 /* La recherche Odoo vient AVANT la creation (ordre corrige le 04/08 sur remarque
    d Olivier). Trois raisons : une reference qui ne ramene rien est peut-etre
@@ -467,19 +500,13 @@ async function chercherDansOdoo(){
   rendreCreation();
 }
 
-function libelleDepuisArticle(a){
-  // Deux conventions : « reference - LIBELLE » et « CLI<code>-<reference> ».
-  // Dans la seconde le libelle est dans la reference interne, pas dans le nom.
-  const nom = String(a.nom || '');
-  const i = nom.indexOf(' - ');
-  if(i > 0) return nom.slice(i + 3).trim();
-  return String(a.reference_interne || '').trim();
-}
-
 function choisirArticleInterne(a){
   CREA.article = a;
-  const l = libelleDepuisArticle(a);
-  if(l && !CREA.libelle) CREA.libelle = l;
+  const d = decomposerArticle(a);
+  // La reference de l article FAIT AUTORITE sur ce qui a servi a chercher : on
+  // la reprend systematiquement, l humain pouvant la corriger ensuite.
+  if(d.ref) CREA.ref = d.ref;
+  if(d.lib && !CREA.libelle) CREA.libelle = d.lib;
 }
 
 function choisirArticle(id){
@@ -493,8 +520,10 @@ function choisirArticle(id){
 }
 
 function memoriserSaisie(){
+  const ref = document.getElementById('cr-ref2');
   const lib = document.getElementById('cr-lib');
   const ind = document.getElementById('cr-ind');
+  if(ref) CREA.ref = (ref.value || '').trim();
   if(lib) CREA.libelle = lib.value || '';
   if(ind) CREA.indice = ind.value || '';
 }
@@ -504,6 +533,7 @@ async function creerCarte(){
   const btn = document.getElementById('cr-ok');
   memoriserSaisie();
 
+  if(!CREA.ref){ msg.textContent = 'La référence est obligatoire : elle forme la clé de la carte.'; return; }
   btn.disabled = true; msg.textContent = 'Création\u2026';
   try{
     const r = await fetch(`${BASE}/produit-rattacher`, {
