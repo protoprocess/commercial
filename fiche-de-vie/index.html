@@ -180,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "3.2";
+const APP_VERSION = "3.3";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -207,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '3.2',
+  verifiee: '3.3',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -402,7 +402,7 @@ function rendreCreation(){
       ${arts.map(a => `<div class="ent" style="cursor:${a.deja_lie?'default':'pointer'};opacity:${a.deja_lie?'.55':'1'};${CREA.article && CREA.article.id===a.id?'border-color:var(--accent)':''}"
           ${a.deja_lie ? '' : `onclick="choisirArticle(${a.id})"`}>
         <div class="ent-txt"><b>${esc(a.nom)}</b>${a.conforme_convention ? '' : ' <span class="hint">hors convention</span>'}${CREA.article && CREA.article.id===a.id ? ' <span style="color:var(--accent)">\u2713 retenu</span>' : ''}</div>
-        <div class="ent-h">${esc(a.categorie||'')}${a.reference_interne ? ' \u00b7 ' + esc(a.reference_interne) : ''}${a.deja_lie ? ` \u00b7 déjà relié à la carte n\u00b0 ${a.lie_a_carte}` : ''}</div>
+        <div class="ent-h">${esc(a.categorie||'')}${a.reference_interne ? ' \u00b7 ' + esc(a.reference_interne) : ''}${a.deja_lie ? ` \u00b7 déjà relié à la carte n\u00b0 ${a.lie_a_carte}` : ''}${a.lien_orphelin ? ` \u00b7 <span style="color:var(--amber)">ancien lien vers une carte supprimée, sera repris</span>` : ''}</div>
       </div>`).join('')}
 
       <label class="cr-lab">Référence de la carte${CREA.article ? ' <span class="hint">— reprise de l\'article retenu</span>' : ''}</label>
