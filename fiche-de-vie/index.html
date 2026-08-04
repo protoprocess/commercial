@@ -180,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "3.3";
+const APP_VERSION = "3.4";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -207,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '3.3',
+  verifiee: '3.4',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -662,6 +662,24 @@ async function enregistrerEdition(){
    entrees, ou si un article Odoo reference encore la carte. Ce second garde est
    la lecon du 04/08 — une suppression en base laissait un lien orphelin cote
    Odoo qui bloquait l article a jamais. */
+/* Delier un article de sa carte. C est l inverse exact de la liaison, et le seul
+   moyen de debloquer la suppression d une carte sans passer par Odoo. */
+async function delierArticle(articleId){
+  const msg = document.getElementById('ed-msg');
+  if(msg) msg.textContent = 'Déliaison\u2026';
+  try{
+    const r = await fetch(`${BASE}/produit-odoo-delier`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ article_id: articleId })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!j || j.ok !== true) throw new Error((j && j.motif) || 'Déliaison refusée.');
+    if(msg) msg.innerHTML = `<span style="color:var(--green)">${esc(j.article_nom)} délié. Vous pouvez relancer la suppression.</span>`;
+  }catch(e){
+    if(msg) msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
+}
+
 async function supprimerCarte(){
   const msg = document.getElementById('ed-msg');
   if(!confirm('Supprimer définitivement la carte ' + EDIT.code + '-' + EDIT.ref + ' ?\n\n'
@@ -676,7 +694,14 @@ async function supprimerCarte(){
     if(!j) throw new Error('Réponse illisible.');
     if(j.ok !== true){
       // Un refus n est pas une erreur : il dit ce qui bloque, et l humain tranche.
-      msg.innerHTML = `<span style="color:var(--amber-badge);display:block;margin-top:6px;padding:9px 11px;background:var(--amber-bg);border-radius:6px">${esc(j.motif)}</span>`;
+      // Quand ce sont des articles Odoo, on propose de les delier SUR PLACE —
+      // sinon la seule issue serait d aller vider le champ a la main dans Odoo.
+      let sup = '';
+      (j.articles || []).forEach(a => {
+        sup += `<button class="btn-s" style="margin:7px 7px 0 0" onclick="delierArticle(${a.id})">` +
+               `<i class="ti ti-unlink"></i> Délier ${esc(a.nom || ('article ' + a.id))}</button>`;
+      });
+      msg.innerHTML = `<span style="color:var(--amber-badge);display:block;margin-top:6px;padding:9px 11px;background:var(--amber-bg);border-radius:6px">${esc(j.motif)}</span>` + sup;
       return;
     }
     EDIT = null; FICHE_ID = null;
