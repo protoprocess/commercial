@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annexe technique — Proto Process</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+:root{
+  --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
+  --text:#e2e8f0; --text2:#94a3b8; --text3:#64748b;
+  --blue:#F07B1F; --blue-bg:#2a1f10;
+  --green:#86c564; --green-bg:#EAF3DE; --green-badge:#3B6D11;
+  --amber:#eab676; --amber-bg:#FAEEDA; --amber-badge:#854F0B;
+  --red:#f09595; --red-bg:#FCEBEB; --red-badge:#A32D2D;
+  --radius:6px; --radius-lg:10px;
+  --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px}
+header{background:#0f1117;height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;align-items:center;gap:0;font-size:13px;font-weight:500}
+.logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--blue)}
+.vbadge{font-size:11px;color:var(--text3);font-family:var(--mono)}
+main{max-width:min(96vw,1800px);margin:0 auto;padding:22px 20px 60px}
+.grid{display:grid;grid-template-columns:minmax(360px,1fr) minmax(0,1.35fr);gap:20px;align-items:start}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px 17px;margin-bottom:16px}
+h2{font-size:13px;font-weight:500;margin:0 0 12px;color:var(--text)}
+.hint{font-size:11.5px;color:var(--text3);line-height:1.55;margin:0 0 10px}
+#drop{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:26px 16px;text-align:center;
+  color:var(--text2);cursor:pointer;transition:.15s;background:var(--surface)}
+#drop:hover,#drop.over{border-color:var(--blue);color:var(--text);background:var(--blue-bg)}
+#drop i{font-size:22px;display:block;margin-bottom:7px;color:var(--blue)}
+.slot{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:var(--radius);
+  background:var(--surface);margin-top:7px;font-size:12px;box-shadow:inset 3px 0 0 var(--border2)}
+.slot.ok{box-shadow:inset 3px 0 0 var(--green-badge)}
+.slot.opt{opacity:.72}
+.slot i{font-size:15px;color:var(--text3)}
+.slot.ok i{color:var(--green)}
+.slot .nm{color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot .st{font-size:11px;color:var(--text3);font-family:var(--mono)}
+label.f{display:block;font-size:11.5px;color:var(--text2);margin:12px 0 5px}
+input[type=text],textarea,select{width:100%;background:var(--surface);border:1px solid var(--border);
+  color:var(--text);border-radius:var(--radius);padding:8px 10px;font-family:var(--sans);font-size:12.5px}
+textarea{min-height:112px;resize:vertical;line-height:1.6}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
+.btn-p{padding:9px 15px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);
+  font-size:12.5px;font-weight:500;cursor:pointer;font-family:var(--sans)}
+.btn-p:disabled{background:var(--border2);color:var(--text3);cursor:not-allowed}
+.btn-s{padding:9px 15px;background:transparent;color:var(--text2);border:1px solid var(--border);
+  border-radius:var(--radius);font-size:12.5px;cursor:pointer;font-family:var(--sans)}
+.btn-s:hover{border-color:var(--border2);color:var(--text)}
+.row{display:flex;gap:9px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.badge{font-size:11px;padding:3px 9px;border-radius:4px;display:inline-block}
+.badge-ok{background:var(--green-bg);color:var(--green-badge)}
+.badge-warn{background:var(--amber-bg);color:var(--amber-badge)}
+.badge-err{background:var(--red-bg);color:var(--red-badge)}
+.badge-n{background:var(--surface);color:var(--text2);border:1px solid var(--border)}
+#prev{width:100%;height:min(78vh,940px);border:1px solid var(--border);border-radius:var(--radius);background:#fff}
+.empty{border:1px dashed var(--border);border-radius:var(--radius);padding:60px 20px;text-align:center;color:var(--text3);font-size:12px}
+.msg{font-size:11.5px;line-height:1.6;padding:9px 11px;border-radius:var(--radius);margin-top:12px;display:none}
+.msg.err{background:var(--red-bg);color:var(--red-badge);display:block}
+.msg.warn{background:var(--amber-bg);color:var(--amber-badge);display:block}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:8px;margin-top:12px}
+.stat{background:var(--surface);border-radius:var(--radius);padding:9px 11px}
+.stat .k{font-size:10.5px;color:var(--text3)}
+.stat .v{font-size:17px;font-weight:500;margin-top:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
+         style="object-fit:contain" onerror="this.style.display='none'">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Annexe technique</span></span>
+  </div>
+  <span class="vbadge" id="vb"></span>
+</header>
+
+<main>
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>1. Déposer les fichiers</h2>
+      <p class="hint">Le devis Odoo et l'export Sourcing Luminovo, plus la spécification PCB si vous l'avez. Les fichiers sont reconnus à leur contenu, pas à leur nom. Rien ne quitte votre navigateur.</p>
+      <div id="drop">
+        <i class="ti ti-file-upload"></i>
+        Déposer les fichiers ou cliquer pour les choisir
+      </div>
+      <input type="file" id="fi" multiple accept=".pdf,.xlsx,.csv" style="display:none">
+      <div id="slots"></div>
+      <div class="msg" id="msg"></div>
+      <div id="stats"></div>
+    </div>
+
+    <div class="card" id="cfg" style="display:none">
+      <h2>2. Vérifier et compléter</h2>
+      <label class="f">Référence du devis</label>
+      <input type="text" id="ref" placeholder="SO2607-419">
+      <label class="f">Désignation du produit</label>
+      <input type="text" id="des" placeholder="7SIGM1001-D0a SIGMA Z01">
+      <div id="scnWrap" style="display:none">
+        <label class="f">Scénario d'approvisionnement à publier</label>
+        <select id="scn"></select>
+      </div>
+      <label class="f">Origine de la spécification du circuit imprimé</label>
+      <select id="orig">
+        <option value="gerber">Déduite des fichiers Gerber — demande votre accord</option>
+        <option value="client">Fournie par le client — contrôle de conformité</option>
+      </select>
+      <label class="f">Observations — relues et modifiables avant génération</label>
+      <textarea id="obs"></textarea>
+      <div class="row">
+        <button class="btn-p" id="gen">Générer l'aperçu</button>
+        <button class="btn-s" id="dl" style="display:none">Télécharger le devis complet</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:13px">
+    <h2>3. Aperçu</h2>
+    <div class="empty" id="ph">L'aperçu est le document final, page pour page.</div>
+    <iframe id="prev" style="display:none" title="Aperçu du devis avec annexe"></iframe>
+  </div>
+</div>
+</main>
+
+<script>
+const APP_VERSION = "1.1";
+const APP_DATE    = "04/08/2026";
+document.title = "Annexe technique v" + APP_VERSION + " — Proto Process";
+document.getElementById('vb').textContent = "v" + APP_VERSION + " — " + APP_DATE;
+
+/* Zone des vues 2D dans le PDF Luminovo, en points, origine en bas a gauche.
+   Mesuree sur le gabarit Luminovo : page A4, images de 235,5 x 175,1 pt.
+   Seules constantes a corriger si Luminovo change sa mise en page. */
+const PCB_VIEW = {
+  top:    { left: 31.5,  bottom: 520.4, right: 267.0, top: 695.5 },
+  bottom: { left: 311.7, bottom: 520.4, right: 547.2, top: 695.5 }
+};
+
+/* Liste blanche stricte des colonnes lues dans l'export Sourcing.
+   Volontairement absents : MOQ et Std. factory lead time (negociation achat),
+   Solution warnings (contient "Supplier not approved", jugement interne),
+   NCNR, Pending parts, HTS code. L'onglet Summary, qui porte les prix
+   d'achat et les scenarios chiffres, n'est jamais ouvert. */
+const SRC_COLS = ['Designator','Qty','MPN','Manufacturer','Lead time (days)','Stock',
+                  'Lifecycle status','REACH compliant','RoHS compliant','Part warnings'];
+
+/* Palette impression : charte PP en variante claire. */
+const C = {
+  accent:[0.941,0.482,0.122], ink:[0.102,0.122,0.180], mute:[0.392,0.455,0.545],
+  line:[0.898,0.886,0.851], soft:[0.965,0.957,0.937],
+  green:[0.231,0.427,0.067], greenBg:[0.918,0.953,0.871],
+  amber:[0.522,0.310,0.043], amberBg:[0.980,0.933,0.855],
+  red:[0.639,0.176,0.176],  redBg:[0.988,0.922,0.922],
+  grey:[0.788,0.780,0.749], soft2:[0.969,0.765,0.569]
+};
+
+const S = { devis:null, srcWb:null, srcSheets:[], pcb:null, pcbPdf:null, devisName:"" };
+let outBytes = null;
+
+const $ = id => document.getElementById(id);
+const nb = n => new Intl.NumberFormat('fr-FR').format(n);
+
+/* Helvetica n'encode que WinAnsi : on neutralise le reste plutot que de laisser
+   la generation echouer sur un caractere exotique venu d'un fichier fournisseur. */
+function san(v){
+  if (v === null || v === undefined) return "";
+  return String(v).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"')
+    .replace(/[\u2013\u2014]/g,"-").replace(/\u00A0/g," ")
+    .replace(/[^\x20-\x7E\u00A0-\u00FF\u20AC]/g,"");
+}
+function show(kind, text){
+  const m = $('msg');
+  m.className = text ? "msg " + kind : "msg";
+  m.textContent = text || "";
+}
+
+/* ---------- reconnaissance des fichiers ---------- */
+async function classify(file){
+  const buf = await file.arrayBuffer();
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'pdf'){
+    const head = new TextDecoder('latin1').decode(new Uint8Array(buf));
+    if (head.includes('luminovo')) return { kind:'pcbPdf', buf };
+    return { kind:'devis', buf, name:file.name };
+  }
+  if (ext === 'csv'){
+    const txt = new TextDecoder().decode(new Uint8Array(buf));
+    if (/boardWidth|layercount/i.test(txt)) return { kind:'pcb', data:parseCsv(txt) };
+    return { kind:null };
+  }
+  if (ext === 'xlsx'){
+    const wb = XLSX.read(buf, { type:'array' });
+    for (const name of wb.SheetNames){
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval:null });
+      if (!rows.length) continue;
+      const cols = Object.keys(rows[0]);
+      if (cols.includes('Lead time (days)')) return { kind:'sourcing', wb };
+      if (cols.includes('Lifecycle Status')) return { kind:'bom' };
+    }
+  }
+  return { kind:null };
+}
+
+function parseCsv(txt){
+  const lines = txt.trim().split(/\r?\n/);
+  const cut = l => l.split(',').map(s => s.trim().replace(/^"|"$/g,''));
+  const h = cut(lines[0]), v = cut(lines[1] || "");
+  const o = {};
+  h.forEach((k,i) => o[k] = v[i] || "");
+  return o;
+}
+
+/* ---------- calculs ---------- */
+function sourcingSheets(wb){
+  const out = [];
+  for (const name of wb.SheetNames){
+    if (name.trim().toLowerCase() === 'summary') continue;
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval:null });
+    if (rows.length && Object.keys(rows[0]).includes('Lead time (days)')) out.push(name);
+  }
+  return out;
+}
+
+/* Le circuit imprime nu occupe une ligne sans MPN : il compte dans les delais
+   mais pas dans les statistiques de conformite, ou il n'a aucun statut. */
+function compute(wb, sheetName){
+  const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval:null });
+  const cols = raw.length ? Object.keys(raw[0]) : [];
+  const rows = raw.filter(r => r['Designator']).map(r => {
+    const o = {};
+    for (const c of SRC_COLS) if (c in r) o[c] = r[c];
+    return o;
+  });
+
+  const parts = rows.filter(r => r['MPN']);
+  const late = rows
+    .filter(r => String(r['Lead time (days)']).trim().toLowerCase() !== 'in stock')
+    .map(r => ({
+      days: parseInt(r['Lead time (days)'], 10) || 0,
+      mpn: san(r['MPN']) || 'Circuit imprimé nu',
+      maker: san(r['Manufacturer']),
+      des: san(r['Designator'])
+    }))
+    .sort((a,b) => b.days - a.days);
+
+  const has = c => cols.includes(c);
+  const cnt = (col, want) => parts.filter(r => want.includes(String(r[col] || 'Unknown'))).length;
+
+  return {
+    rich: has('Lifecycle status') && has('REACH compliant') && has('RoHS compliant'),
+    lines: rows.length,
+    parts: parts.length,
+    inStock: parts.length - late.filter(l => l.mpn !== 'Circuit imprimé nu').length,
+    late,
+    rohsOk:  cnt('RoHS compliant',  ['Compliant','Compliant with exemption']),
+    rohsExe: cnt('RoHS compliant',  ['Compliant with exemption']),
+    rohsNo:  cnt('RoHS compliant',  ['Non-compliant']),
+    rohsUnk: cnt('RoHS compliant',  ['Unknown']),
+    reachOk: cnt('REACH compliant', ['Compliant','Compliant with exemption']),
+    reachNo: cnt('REACH compliant', ['Non-compliant']),
+    reachUnk:cnt('REACH compliant', ['Unknown']),
+    active:  cnt('Lifecycle status',['Active','Pre-release']),
+    nrnd:    cnt('Lifecycle status',['NRND','Not Recommended For New Designs']),
+    eol:     cnt('Lifecycle status',['EOL','Obsolete','End of Life']),
+    acq:     cnt('Lifecycle status',['Acquired']),
+    lcUnk:   cnt('Lifecycle status',['Unknown'])
+  };
+}
+
+/* ---------- specification PCB ---------- */
+const TR = { enig:'ENIG', hasl:'HASL', 'lead free hasl':'HASL sans plomb', osp:'OSP',
+  immersion_tin:'Étain chimique', black:'noir', white:'blanc', green:'vert', blue:'bleu',
+  red:'rouge', yellow:'jaune', both:'2 faces', top:'dessus', bottom:'dessous', none:'aucune',
+  ipc1:'Classe 1', ipc2:'Classe 2', ipc3:'Classe 3' };
+const tr = v => TR[String(v || '').trim().toLowerCase()] || san(v);
+
+function pcbRows(p){
+  const has = k => p[k] && String(p[k]).trim() !== '';
+  const r = [];
+  const fr = v => san(v).replace(/(\d)\.(\d)/g, '$1,$2');
+  const add = (k,v) => { if (v && !/^\s*-?\s*$/.test(v)) r.push([k, fr(v)]); };
+  add('Dimensions',        has('boardWidth') ? p.boardWidth + ' x ' + p.boardHeight : '');
+  add('Nombre de couches', p.layercount);
+  add('Matériau',          p.baseMaterial);
+  add('Épaisseur finie',   p.finalThickness);
+  add('Cuivre ext. / int.',has('outerCopperThickness') ? p.outerCopperThickness + ' / ' + p.innerCopperThickness : '');
+  add('Finition de surface', tr(p.surfaceFinish));
+  add('Vernis épargne',    has('soldermaskColor') ? tr(p.soldermaskColor) + ', ' + tr(p.soldermaskSide) : '');
+  add('Sérigraphie',       has('silkscreenColor') ? tr(p.silkscreenColor) + ', ' + tr(p.silkscreenSide) : '');
+  add('Via minimum',       p.minViaDiameter);
+  add('Structure ext. / int.', has('minOuterLayerStructure') ? p.minOuterLayerStructure + ' / ' + p.minInnerLayerStructure : '');
+  add('Classe IPC-A-600',  tr(p.ipc600Class));
+  add('Panneau',           has('panelWidth') ? p.panelWidth + ' x ' + p.panelHeight : '');
+  add('Cartes par panneau',p.numberOfPcbsPerPanel);
+  return r;
+}
+
+/* ---------- interface ---------- */
+const SLOTS = [
+  ['devis',  'Devis Odoo',                 'ti-file-invoice',   false],
+  ['srcWb',  'Export Sourcing Luminovo',   'ti-truck-delivery', false],
+  ['pcb',    'Spécification PCB (CSV)',    'ti-cpu',            true ],
+  ['pcbPdf', 'Analyse PCB Luminovo (PDF)', 'ti-photo',          true ]
+];
+
+function paint(){
+  $('slots').innerHTML = SLOTS.map(([k,label,icon,opt]) => {
+    const on = !!S[k];
+    return '<div class="slot ' + (on ? 'ok' : (opt ? 'opt' : '')) + '">' +
+      '<i class="ti ' + (on ? 'ti-circle-check' : icon) + '"></i>' +
+      '<span class="nm">' + label + '</span>' +
+      '<span class="st">' + (on ? 'lu' : (opt ? 'facultatif' : 'requis')) + '</span></div>';
+  }).join('');
+
+  const ready = S.devis && S.srcWb;
+  $('cfg').style.display = ready ? 'block' : 'none';
+  if (!ready){ $('stats').innerHTML = ''; return; }
+
+  const d = compute(S.srcWb, $('scn').value);
+
+  $('stats').innerHTML =
+    '<div class="stats">' +
+    '<div class="stat"><div class="k">Composants</div><div class="v">' + nb(d.parts) + '</div></div>' +
+    '<div class="stat"><div class="k">En stock</div><div class="v">' + nb(d.inStock) + '</div></div>' +
+    '<div class="stat"><div class="k">Délai max</div><div class="v">' +
+      (d.late.length ? d.late[0].days + ' j' : '0 j') + '</div></div>' +
+    '</div>' +
+    '<div class="row">' +
+    (d.reachNo ? '<span class="badge badge-err">' + d.reachNo + ' non conformes REACH</span>' : '') +
+    (d.nrnd    ? '<span class="badge badge-warn">' + d.nrnd + ' NRND</span>' : '') +
+    (d.eol     ? '<span class="badge badge-err">' + d.eol + ' fin de vie</span>' : '') +
+    (d.reachUnk? '<span class="badge badge-n">' + d.reachUnk + ' REACH inconnu</span>' : '') +
+    (d.late.length ? '<span class="badge badge-warn">' + d.late.length + ' hors stock</span>' : '') +
+    '</div>' +
+    (d.rich ? '' : '<div class="msg warn" style="display:block">Cet export ne contient pas les colonnes ' +
+      'de conformité et de cycle de vie. L\'annexe se limitera aux délais. Ajoutez ' +
+      'Lifecycle status, REACH compliant et RoHS compliant à l\'export Luminovo.</div>');
+
+  if (!$('obs').dataset.touched) $('obs').value = draftNote(d);
+}
+
+/* Le brouillon dit ce que les donnees disent. Le jugement reste humain :
+   un composant peut etre introuvable sans qu'aucune colonne ne le sache. */
+function draftNote(d){
+  const L = [];
+  L.push("L'analyse porte sur " + d.parts + " composants.");
+  L.push(d.inStock + " d'entre eux sont disponibles immédiatement.");
+  if (d.late.length){
+    const t = d.late[0];
+    L.push("Le délai d'approvisionnement le plus long est de " + t.days +
+           " jours sur la référence " + t.mpn + ".");
+  }
+  if (d.rich){
+    if (d.reachNo) L.push(d.reachNo + " référence(s) sont déclarées non conformes REACH.");
+    if (d.nrnd + d.eol) L.push((d.nrnd + d.eol) + " référence(s) sont en fin de commercialisation " +
+      "ou non recommandées pour de nouvelles conceptions ; un équivalent sera proposé.");
+  }
+  L.push("Ces informations reflètent l'état des données fournisseurs à la date d'édition " +
+         "et seront reconfirmées à réception de votre version définitive.");
+  return L.join(' ');
+}
+
+/* ---------- dessin du PDF ---------- */
+const A4 = [595.28, 841.89], M = 45;
+
+function makeDrawer(fonts){
+  const { reg, bold } = fonts;
+  return page => ({
+    page,
+    txt(t, x, y, size, color, isBold, opts){
+      page.drawText(san(t), Object.assign({
+        x, y, size, font: isBold ? bold : reg, color: PDFLib.rgb(...color)
+      }, opts || {}));
+    },
+    box(x, y, w, h, color){
+      page.drawRectangle({ x, y, width:w, height:h, color:PDFLib.rgb(...color) });
+    },
+    line(x1, y1, x2, y2, color, th){
+      page.drawLine({ start:{x:x1,y:y1}, end:{x:x2,y:y2},
+                      thickness: th || 0.5, color:PDFLib.rgb(...(color || C.line)) });
+    },
+    width(t, size, isBold){ return (isBold?bold:reg).widthOfTextAtSize(san(t), size); }
+  });
+}
+
+function wrap(d, text, size, maxW){
+  const out = [];
+  let cur = '';
+  for (const w of san(text).replace(/\s+/g,' ').trim().split(' ')){
+    const t = cur ? cur + ' ' + w : w;
+    if (d.width(t, size, false) > maxW){ out.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+function header(d, ref, des){
+  d.txt('PROTO PROCESS', M, A4[1]-M-2, 11, C.ink, true, { characterSpacing:0.6 });
+  const w = d.width('PROTO PROCESS', 11, true) + 4;
+  d.txt('/', M+w+6, A4[1]-M-2, 11, C.grey, false);
+  d.txt('Annexe technique', M+w+14, A4[1]-M-2, 11, C.accent, false);
+  const r = 'Devis ' + ref;
+  d.txt(r, A4[0]-M-d.width(r, 9.5, false), A4[1]-M-2, 9.5, C.mute, false);
+  d.txt(des, M, A4[1]-M-17, 9.5, C.mute, false);
+  d.line(M, A4[1]-M-26, A4[0]-M, A4[1]-M-26, C.accent, 1.6);
+  return A4[1]-M-52;
+}
+
+function footer(d, pageNo, pages){
+  const y = M - 8;
+  d.line(M, y+16, A4[0]-M, y+16);
+  d.txt('PROTO PROCESS - annexe générée le ' + APP_DATE + ' - gabarit v' + APP_VERSION,
+        M, y, 7.5, C.grey, false);
+  const cert = 'ISO 9001 - IPC-A-610';
+  d.txt(cert, (A4[0]-d.width(cert,7.5,false))/2, y, 7.5, C.grey, false);
+  const p = 'Page ' + pageNo + '/' + pages;
+  d.txt(p, A4[0]-M-d.width(p,7.5,false), y, 7.5, C.grey, false);
+}
+
+function sectionTitle(d, t, y){
+  d.txt(t, M, y, 10.5, C.ink, true);
+  d.line(M, y-6, A4[0]-M, y-6);
+  return y - 20;
+}
+
+function ratioBar(d, x, y, w, label, val, tot, color){
+  d.txt(label, x, y+13, 8.5, C.mute, false);
+  const t = String(val);
+  d.txt(t, x+w-d.width(t,8.5,true), y+13, 8.5, C.ink, true);
+  d.box(x, y, w, 4.5, C.soft);
+  d.box(x, y, w * Math.min(1, val/(tot||1)), 4.5, color);
+}
+
+function noteBox(d, y, lines, size, extra){
+  const h = lines.length * (size + 3.5) + 18 + (extra || 0);
+  d.box(M, y - h + 10, A4[0]-2*M, h, [0.992,0.965,0.937]);
+  d.box(M, y - h + 10, 2.5, h, C.accent);
+  lines.forEach((l,i) => d.txt(l, M+14, y - i*(size+3.5), size, C.ink, false));
+  return y - h;
+}
+
+async function build(){
+  const { PDFDocument, StandardFonts } = PDFLib;
+  const out = await PDFDocument.load(S.devis);
+  const fonts = { reg: await out.embedFont(StandardFonts.Helvetica),
+                  bold: await out.embedFont(StandardFonts.HelveticaBold) };
+  const mk = makeDrawer(fonts);
+  const ref = $('ref').value || '-';
+  const des = $('des').value || '-';
+  const d = compute(S.srcWb, $('scn').value);
+  const specs = S.pcb ? pcbRows(S.pcb) : [];
+  const nPages = (specs.length || S.pcbPdf) ? 2 : 1;
+  const base = out.getPageCount();
+
+  /* --- page 1 : composants et approvisionnement --- */
+  const p1 = mk(out.addPage(A4));
+  let y = header(p1, ref, des);
+
+  y = sectionTitle(p1, 'Composants', y);
+  p1.txt(String(d.parts), M, y-16, 26, C.accent, true);
+  p1.txt('composants analysés', M, y-30, 8.5, C.mute, false);
+
+  const colX = M + 168, colW = A4[0] - M - colX;
+  const nLate = d.parts - d.inStock;
+  let cx = colX;
+  const segs = [[d.inStock, C.accent], [nLate, C.soft2]];
+  const tot = d.parts || 1;
+  for (const [v,c] of segs){ const sw = colW*v/tot; if (sw>0) p1.box(cx, y-10, sw, 9, c); cx += sw; }
+  let lx = colX;
+  for (const [v,t,c] of [[d.inStock,'en stock',C.accent],[nLate,'sur délai',C.soft2]]){
+    p1.box(lx, y-26, 6, 6, c);
+    p1.txt(v + ' ' + t, lx+9, y-25, 8, C.mute, false);
+    lx += p1.width(v + ' ' + t, 8, false) + 22;
+  }
+  y -= 52;
+
+  if (d.rich){
+    const bw = (A4[0] - 2*M - 24) / 3;
+    ratioBar(p1, M,         y, bw, 'RoHS compatible',    d.rohsOk,  d.parts, C.green);
+    ratioBar(p1, M+bw+12,   y, bw, 'REACH compatible',   d.reachOk, d.parts, C.green);
+    ratioBar(p1, M+2*bw+24, y, bw, 'Cycle de vie actif', d.active,  d.parts, C.green);
+    y -= 24;
+
+    const flags = [];
+    if (d.reachNo)  flags.push([d.reachNo + ' non conformes REACH', C.redBg, C.red]);
+    if (d.nrnd)     flags.push([d.nrnd + ' non recommandés pour nouvelles conceptions', C.amberBg, C.amber]);
+    if (d.eol)      flags.push([d.eol + ' en fin de vie', C.redBg, C.red]);
+    if (d.rohsExe)  flags.push([d.rohsExe + ' RoHS sous exemption', C.amberBg, C.amber]);
+    if (d.reachUnk) flags.push([d.reachUnk + ' REACH non renseigné', C.soft, C.mute]);
+    if (d.lcUnk)    flags.push([d.lcUnk + ' cycle de vie inconnu', C.soft, C.mute]);
+    let fx = M;
+    for (const [t,bg,fg] of flags){
+      const w = p1.width(t, 8, false) + 16;
+      if (fx + w > A4[0]-M){ fx = M; y -= 18; }
+      p1.box(fx, y-4, w, 14, bg);
+      p1.txt(t, fx+8, y, 8, fg, false);
+      fx += w + 7;
+    }
+    y -= 30;
+  }
+
+  /* Approvisionnement : tout ce qui n'est pas en stock, ou rien. */
+  y = sectionTitle(p1, 'Approvisionnement', y);
+  if (d.late.length){
+    p1.txt('Éléments non disponibles immédiatement', M, y, 8.5, C.ink, true);
+    y -= 15;
+    const maxD = d.late[0].days || 1;
+    const barX = M + 250, barW = A4[0] - M - barX - 34;
+    for (const it of d.late){
+      const lab = it.mpn + (it.maker ? ', ' + it.maker : '');
+      p1.txt(lab.length > 46 ? lab.slice(0,45) + '.' : lab, M, y, 8.5, C.ink, false);
+      p1.box(barX, y-2, barW, 9, C.soft);
+      p1.box(barX, y-2, Math.max(2, barW * it.days / maxD), 9, it.days >= 60 ? C.red : C.accent);
+      p1.txt(it.days + ' j', barX + barW + 6, y, 8.5, C.ink, true);
+      y -= 15;
+    }
+    y -= 12;
+  } else {
+    p1.txt('Tous les éléments sont disponibles immédiatement.', M, y, 9, C.mute, false);
+    y -= 24;
+  }
+
+  y = sectionTitle(p1, 'Observations', y);
+  y = noteBox(p1, y, wrap(p1, $('obs').value, 9, A4[0]-2*M-24), 9);
+  footer(p1, base + 1, base + nPages);
+
+  /* --- page 2 : circuit imprime --- */
+  if (nPages === 2){
+    const p2 = mk(out.addPage(A4));
+    let y2 = header(p2, ref, des);
+    y2 = sectionTitle(p2, 'Circuit imprimé nu', y2);
+
+    if (S.pcbPdf){
+      const src = await PDFDocument.load(S.pcbPdf);
+      const p0 = src.getPage(0);
+      const [vt, vb] = await out.embedPages([p0, p0], [PCB_VIEW.top, PCB_VIEW.bottom]);
+      const availW = (A4[0] - 2*M - 20) / 2;
+      const sc = Math.min(availW / vt.width, 168 / vt.height);
+      const w = vt.width * sc, h = vt.height * sc;
+      const x1 = M, x2 = M + availW + 20;
+      p2.page.drawPage(vt, { x:x1, y:y2-h, width:w, height:h });
+      p2.page.drawPage(vb, { x:x2, y:y2-h, width:w, height:h });
+      p2.page.drawRectangle({ x:x1, y:y2-h, width:w, height:h,
+        borderColor:PDFLib.rgb(...C.line), borderWidth:0.5 });
+      p2.page.drawRectangle({ x:x2, y:y2-h, width:w, height:h,
+        borderColor:PDFLib.rgb(...C.line), borderWidth:0.5 });
+      p2.txt('Face composants', x1, y2-h-12, 8, C.mute, false);
+      p2.txt('Face soudure',    x2, y2-h-12, 8, C.mute, false);
+      y2 -= h + 30;
+    }
+
+    if (specs.length){
+      const half = Math.ceil(specs.length / 2);
+      const cw = (A4[0] - 2*M - 26) / 2;
+      const startY = y2;
+      specs.forEach((row, i) => {
+        const col = i < half ? 0 : 1;
+        const ry = startY - (i - col*half) * 16;
+        const rx = M + col * (cw + 26);
+        p2.txt(row[0], rx, ry, 8.5, C.mute, false);
+        p2.txt(row[1], rx + cw - p2.width(row[1], 8.5, false), ry, 8.5, C.ink, false);
+        p2.line(rx, ry-5, rx+cw, ry-5);
+      });
+      y2 = startY - half*16 - 18;
+    }
+
+    const fromGerber = $('orig').value === 'gerber';
+    const txt = fromGerber
+      ? "Origine des données : déduites de l'analyse des fichiers Gerber transmis. En l'absence de spécification client, ces valeurs constituent notre hypothèse de fabrication et demandent votre accord avant lancement."
+      : "Origine des données : spécification fournie par le client, contrôlée par analyse des fichiers Gerber transmis. Toute divergence relève du présent document.";
+    const ls = wrap(p2, txt, 8.5, A4[0]-2*M-28);
+    const yEnd = noteBox(p2, y2, ls, 8.5, 26);
+    const sy = yEnd + 22;
+    p2.txt(fromGerber ? 'Bon pour accord - date :' : 'Vu et vérifié - date :', M+14, sy, 8.5, C.mute, false);
+    p2.line(M+150, sy-2, M+260, sy-2, C.grey);
+    p2.txt('Signature :', M+290, sy, 8.5, C.mute, false);
+    p2.line(M+350, sy-2, A4[0]-M-14, sy-2, C.grey);
+
+    footer(p2, base + 2, base + nPages);
+  }
+
+  return out.save();
+}
+
+/* ---------- evenements ---------- */
+const drop = $('drop'), fi = $('fi');
+drop.onclick = () => fi.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); take(e.dataTransfer.files); };
+fi.onchange = e => take(e.target.files);
+
+async function take(files){
+  show('', '');
+  const unknown = [], ignored = [];
+  for (const f of files){
+    try {
+      const r = await classify(f);
+      if (r.kind === 'devis'){
+        S.devis = r.buf; S.devisName = r.name;
+        const m = r.name.match(/SO\d{4}-\d+/i);
+        if (m && !$('ref').value) $('ref').value = m[0].toUpperCase();
+      }
+      else if (r.kind === 'pcb')    S.pcb = r.data;
+      else if (r.kind === 'pcbPdf') S.pcbPdf = r.buf;
+      else if (r.kind === 'bom')    ignored.push(f.name);
+      else if (r.kind === 'sourcing'){
+        S.srcWb = r.wb;
+        S.srcSheets = sourcingSheets(r.wb);
+        $('scn').innerHTML = S.srcSheets.map(n => '<option>' + n + '</option>').join('');
+        $('scnWrap').style.display = S.srcSheets.length > 1 ? 'block' : 'none';
+        delete $('obs').dataset.touched;
+      }
+      else unknown.push(f.name);
+    } catch(err){
+      unknown.push(f.name);
+      console.error(f.name, err);
+    }
+  }
+  if (ignored.length) show('warn', "L'export BOM n'est plus utilisé : l'export Sourcing " +
+    "porte les mêmes informations de conformité. Fichier ignoré : " + ignored.join(', '));
+  else if (unknown.length) show('warn', 'Fichier non reconnu : ' + unknown.join(', ') +
+    ". Attendu : le PDF du devis, l'export Sourcing Luminovo, ou la spécification PCB en CSV.");
+  paint();
+}
+
+$('obs').oninput = e => e.target.dataset.touched = '1';
+$('scn').onchange = () => { delete $('obs').dataset.touched; paint(); };
+
+$('gen').onclick = async () => {
+  const btn = $('gen');
+  btn.disabled = true; btn.textContent = 'Génération...';
+  try {
+    outBytes = await build();
+    const url = URL.createObjectURL(new Blob([outBytes], { type:'application/pdf' }));
+    $('ph').style.display = 'none';
+    $('prev').style.display = 'block';
+    $('prev').src = url;
+    $('dl').style.display = 'inline-block';
+    show('', '');
+  } catch(err){
+    console.error(err);
+    show('err', "La génération a échoué : " + err.message +
+      ". Vérifiez que le PDF du devis n'est pas protégé par mot de passe.");
+  }
+  btn.disabled = false; btn.textContent = "Générer l'aperçu";
+};
+
+$('dl').onclick = () => {
+  if (!outBytes) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([outBytes], { type:'application/pdf' }));
+  a.download = (S.devisName || 'devis').replace(/\.pdf$/i,'') + '_avec_annexe.pdf';
+  a.click();
+};
+
+paint();
+</script>
+</body>
+</html>
