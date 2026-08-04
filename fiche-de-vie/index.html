@@ -180,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "2.9";
+const APP_VERSION = "3.0";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -207,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '2.9',
+  verifiee: '3.0',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -343,7 +343,12 @@ async function ouvrirCreation(){
     try{
       const r = await fetch(`${BASE}/po-societes`);
       const j = await r.json();
-      CREA.societes = (j && j.societes) || [];
+      // Le webhook rend TOUTES les societes, clients ET fournisseurs : on ne garde
+      // que les clients, sans quoi on pourrait creer une carte au nom d un
+      // fournisseur. Le code arrive sous la cle « code ».
+      CREA.societes = ((j && j.societes) || [])
+        .filter(x => String(x.prefixe || '').toUpperCase() === 'CLI' && x.code)
+        .sort((a, b) => String(a.nom || '').localeCompare(String(b.nom || ''), 'fr'));
     }catch(e){ CREA.societes = []; }
     rendreCreation();
   }
@@ -357,7 +362,7 @@ function rendreCreation(){
 
   if(CREA.etape === 'saisie'){
     const opts = CREA.societes.map(x =>
-      `<option value="${x.id}" data-code="${esc(x.code_client||'')}"${CREA.client && Number(CREA.client.id)===Number(x.id)?' selected':''}>${esc(x.nom||'')}${x.code_client ? ' \u00b7 ' + esc(x.code_client) : ''}</option>`).join('');
+      `<option value="${x.id}" data-code="${esc(x.code||'')}"${CREA.client && Number(CREA.client.id)===Number(x.id)?' selected':''}>${esc(x.nom||'')} \u00b7 ${esc(x.code||'')}</option>`).join('');
     box.innerHTML = `<div class="card" style="border-left:3px solid var(--accent)">
       <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:var(--accent)">Créer une carte</p>
       <p class="hint" style="margin:0 0 4px">On regarde d'abord si Odoo connaît déjà cette carte.</p>
