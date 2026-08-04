@@ -19,7 +19,8 @@
    APPEL — chaque appli fournit SON contenu, le gabarit est commun :
      PPAide.poser({
        titre: 'Analyse dossier client',
-       version: APP_VERSION,
+       version: APP_VERSION,      // version de l appli, lue automatiquement
+       verifiee: '9.8',           // version pour laquelle CE TEXTE a ete relu
        sections: [
          { type:'etapes', titre:'Le parcours', items:[ {titre, texte}, … ] },
          { type:'pieges', titre:'Ce qui coince', items:[ {quoi, faire}, … ] },
@@ -30,7 +31,7 @@
 (function (global) {
 'use strict';
 
-var VERSION = '1.0';
+var VERSION = '1.1';
 var CFG = null;
 
 function esc(s){
@@ -78,6 +79,8 @@ function css(){
     '.ppa-r{border-left:3px solid var(--border2,#333d55);padding:2px 0 2px 14px;margin-bottom:15px}',
     '.ppa-code{font-family:var(--mono,monospace);font-size:12.5px;',
     '  background:var(--surface2,#161b27);padding:1px 6px;border-radius:4px}',
+    '.ppa-vieux{margin-top:20px;padding:11px 14px;border-radius:6px;font-size:13px;',
+    '  background:var(--amber-bg,#FAEEDA);color:var(--amber-badge,#854F0B);font-weight:500}',
     '@media print{.ppa-fond{position:static;background:none;padding:0}',
     '  .ppa-x{display:none}.ppa-boite{border:0}}'
   ].join('\n');
@@ -130,6 +133,19 @@ global.PPAide = {
   ouvrir: function(){
     if (!CFG) return;
     if (document.getElementById('ppa-fond')) return;
+
+    /* GARDE-FOU CONTRE LA DERIVE. Une notice vieillit sans rien dire : le 03/08,
+       cinq versions de devis-client avaient passe sans que le mode operatoire
+       bouge, et c est Olivier qui s en est apercu, pas un controle.
+       La notice declare desormais pour quelle version elle a ete RELUE. Si
+       l appli a bouge depuis, elle le dit elle-meme, en haut, avant tout le
+       reste — celui qui la lit sait qu il lit peut-etre du perime. */
+    var alerte = '';
+    if (CFG.verifiee && CFG.version && String(CFG.verifiee) !== String(CFG.version)) {
+      alerte = '<div class="ppa-vieux">Cette notice a été relue pour la version ' +
+        esc(CFG.verifiee) + '. L\'application est en version ' + esc(CFG.version) +
+        ' : certains passages peuvent être dépassés.</div>';
+    }
     var d = document.createElement('div');
     d.id = 'ppa-fond';
     d.className = 'ppa-fond';
@@ -141,7 +157,7 @@ global.PPAide = {
       '<span class="ppa-v">' + (CFG.version ? 'v' + esc(CFG.version) : '') + '</span>' +
       '<button class="ppa-x" onclick="window.print()">Imprimer</button>' +
       '<button class="ppa-x" onclick="PPAide.fermer()">Fermer</button>' +
-      '</div><div class="ppa-c">' + contenu() + '</div></div>';
+      '</div><div class="ppa-c">' + alerte + contenu() + '</div></div>';
     document.body.appendChild(d);
     document.addEventListener('keydown', PPAide._echap);
   },
