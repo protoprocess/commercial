@@ -180,7 +180,7 @@ label.f{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-t
      ecrit dans ce fichier, pres du code qu il decrit. -->
 <script src="../shared/aide.js?v=1.1"></script>
 <script>
-const APP_VERSION = "3.4";
+const APP_VERSION = "3.5";
 const APP_DATE = "02/08/2026";
 document.title = `Proto Process / Fiche de vie \u2014 v${APP_VERSION} \u2014 ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} \u2014 ${APP_DATE}`;
@@ -207,7 +207,7 @@ PPAide.poser({
   // Version pour laquelle CE TEXTE a ete relu. A remonter des qu une nouvelle
   // version change le PARCOURS et non seulement l apparence : sinon la notice
   // affichera d elle-meme qu elle est peut-etre depassee.
-  verifiee: '3.4',
+  verifiee: '3.5',
   sections: [
     { type:'etapes', titre:'Le parcours, dans l\u2019ordre',
       intro:'La fiche de vie garde la mémoire d\u2019une carte : ce qu\u2019on a appris, ce qui reste à régler, ce qu\u2019on a demandé au client.',
@@ -590,7 +590,8 @@ function ouvrirEdition(id){
   const al = (p.alias || []).filter(a => a && a.indice);
   EDIT = { id: Number(id), code: p.code_client || '', client: p.nom_client || '',
            ref: p.ref_carte || '', libelle: p.libelle_carte || '',
-           indice: (al[0] && al[0].indice) || '', msg: null };
+           indice: (al[0] && al[0].indice) || '', msg: null,
+           arts: null, msg2: null };
   rendreEdition();
 }
 
@@ -621,7 +622,25 @@ function rendreEdition(){
         <i class="ti ti-trash"></i> Supprimer cette carte</button>
       <span id="ed-msg" class="hint">${EDIT.msg ? esc(EDIT.msg) : ''}</span>
     </div>
-    <p class="hint" style="margin-top:9px">Un article Odoo déjà relié garde son nom : corrigez-le dans Odoo si besoin.</p>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:500">Article Odoo</p>
+      <p class="hint" style="margin:0 0 9px">Relier cette carte à un article existant écrit son numéro dans le champ
+        <span style="font-family:var(--mono,monospace)">PP Produit ID</span> de l'article. Le champ paraît verrouillé dans Odoo,
+        mais il s'écrit sans difficulté par cette voie.</p>
+      ${EDIT.arts === null
+        ? `<button class="btn-s" onclick="chercherArticleEdition()"><i class="ti ti-link"></i> Chercher un article à relier</button>`
+        : (EDIT.arts.length
+            ? EDIT.arts.map(a => `<div class="ent" style="cursor:${a.deja_lie?'default':'pointer'};opacity:${a.deja_lie?'.55':'1'}"
+                ${a.deja_lie ? '' : `onclick="lierDepuisEdition(${a.id})"`}>
+                <div class="ent-txt"><b>${esc(a.nom)}</b>${a.conforme_convention ? '' : ' <span class="hint">hors convention</span>'}</div>
+                <div class="ent-h">${esc(a.categorie||'')}${a.deja_lie ? ` \u00b7 déjà relié à la carte n\u00b0 ${a.lie_a_carte}` : ''}${a.lien_orphelin ? ' \u00b7 <span style="color:var(--amber)">ancien lien vers une carte supprimée, sera repris</span>' : ''}</div>
+              </div>`).join('')
+            : `<p class="hint">Aucun article Odoo ne porte la référence ${esc(EDIT.ref)}.</p>`)}
+      <span id="ed-msg2" class="hint" style="display:block;margin-top:7px">${EDIT.msg2 ? EDIT.msg2 : ''}</span>
+    </div>
+
+    <p class="hint" style="margin-top:12px">Un article déjà relié garde son nom : corrigez-le dans Odoo si besoin.</p>
     </div>`;
 }
 
@@ -662,6 +681,53 @@ async function enregistrerEdition(){
    entrees, ou si un article Odoo reference encore la carte. Ce second garde est
    la lecon du 04/08 — une suppression en base laissait un lien orphelin cote
    Odoo qui bloquait l article a jamais. */
+/* Relier un article a une carte DEJA EXISTANTE. La liaison n etait proposee qu a
+   la creation : sur une carte deja creee, rien ne permettait de la rattacher a son
+   article, et le champ paraissant verrouille dans Odoo on pouvait croire que
+   c etait impossible (constat d Olivier, 05/08). Il ne l est qu a l affichage :
+   l ecriture par cette voie passe sans difficulte. */
+async function chercherArticleEdition(){
+  const msg = document.getElementById('ed-msg2');
+  if(msg) msg.textContent = 'Recherche dans Odoo\u2026';
+  try{
+    const q = `reference=${encodeURIComponent(EDIT.ref)}&code=${encodeURIComponent(EDIT.code)}`;
+    const r = await fetch(`${BASE}/produit-odoo-chercher?${q}`);
+    const j = await r.json().catch(()=>null);
+    EDIT.arts = (j && j.ok) ? (j.articles || []) : [];
+    EDIT.msg2 = (j && j.avertissement) ? `<span style="color:var(--amber-badge)">${esc(j.avertissement)}</span>` : null;
+  }catch(e){
+    EDIT.arts = [];
+    EDIT.msg2 = `<span style="color:var(--red)">Odoo n'a pas répondu : ${esc(e.message)}</span>`;
+  }
+  rendreEdition();
+}
+
+async function lierDepuisEdition(articleId){
+  const msg = document.getElementById('ed-msg2');
+  if(msg) msg.textContent = 'Liaison\u2026';
+  try{
+    const r = await fetch(`${BASE}/produit-odoo-lier`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ produit_id: EDIT.id, article_id: articleId })
+    });
+    const j = await r.json().catch(()=>null);
+    if(!j) throw new Error('Réponse illisible.');
+    if(j.ok !== true){
+      // Un refus dit ce qui bloque : article revendique par une autre carte, ou
+      // ecriture qui n a pas pris. Dans les deux cas l humain doit le savoir.
+      EDIT.msg2 = `<span style="color:var(--amber-badge)">${esc(j.motif)}</span>`;
+      rendreEdition();
+      return;
+    }
+    EDIT.msg2 = `<span style="color:var(--green)">${esc(j.article_nom)} relié à cette carte.</span>`;
+    // On relit la liste : l article doit desormais apparaitre comme relie.
+    await chercherArticleEdition();
+  }catch(e){
+    EDIT.msg2 = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+    rendreEdition();
+  }
+}
+
 /* Delier un article de sa carte. C est l inverse exact de la liaison, et le seul
    moyen de debloquer la suppression d une carte sans passer par Odoo. */
 async function delierArticle(articleId){
