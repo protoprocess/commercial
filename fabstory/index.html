@@ -8,9 +8,10 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
 /* ================================================================== FabStory
-   Theme CLAIR dedie (maquettes validees 06/08/2026) : l'orange agit (#F8952D),
-   le bleu informe (#5BC4D8, pastilles #EAF7FA / texte #1B7A8F).
-   Autonome : ne depend pas de shared/fiche-de-vie.js (intact, contrat ch.95). */
+   v0.2 — retours du contre-test Olivier 06/08 : volet lateral type boite mail
+   (toutes les actions), reponses liees aux questions, visibilite explicite,
+   pieces jointes, rangement metier/poles, promotion en regle client.
+   Theme CLAIR dedie : l'orange agit (#F8952D), le bleu informe (#5BC4D8). */
 :root{
   --bg:#f6f7f9; --surface:#ffffff; --surface2:#eef1f5;
   --border:#dde3ec; --border2:#c8d2e0;
@@ -26,13 +27,17 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
-header{background:#0f1117;height:52px;display:flex;align-items:center;padding:0 16px;gap:10px;position:sticky;top:0;z-index:50}
+header{background:#0f1117;height:52px;display:flex;align-items:center;padding:0 16px;gap:10px;position:sticky;top:0;z-index:70}
 .logo-text{display:flex;align-items:center;font-size:13px;font-weight:500}
 .logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--accent)}
 #hdr-version{margin-left:auto;font-size:11px;color:#64748b}
-.wrap{max-width:860px;margin:0 auto;padding:18px 14px 80px}
+.wrap{max-width:min(96vw,900px);margin:0 auto;padding:18px 14px 80px}
+body.volet-ouvert .wrap{max-width:min(96vw,1500px)}
+.page{display:flex;gap:14px;align-items:flex-start}
+.colonne-fil{flex:1;min-width:0}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px}
 h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:7px}
+h3{font-size:13px;margin:0 0 8px}
 .hint{font-size:12.5px;color:var(--text2)}
 button{font-family:inherit;cursor:pointer}
 .btn{background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:9px 16px;font-size:13px;font-weight:500}
@@ -40,8 +45,9 @@ button{font-family:inherit;cursor:pointer}
 .btn:disabled{opacity:.5;cursor:default}
 .btn-s{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:6px 11px;font-size:12.5px}
 .btn-s:hover{border-color:var(--border2)}
+.btn-danger{background:var(--red-bg);color:var(--red-badge);border:1px solid #e7bcbc;border-radius:var(--radius);padding:7px 13px;font-size:12.5px}
 .btn-lien{background:none;border:none;color:var(--info-txt);font-size:12px;padding:2px 4px;text-decoration:underline}
-input[type=text],textarea,input[type=date]{width:100%;background:#fff;border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:9px 11px;font-size:13.5px;outline:none;font-family:inherit}
+input[type=text],textarea,input[type=date],input[type=file]{width:100%;background:#fff;border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:9px 11px;font-size:13.5px;outline:none;font-family:inherit}
 input:focus,textarea:focus{border-color:var(--accent)}
 textarea{resize:vertical;min-height:64px}
 /* ------------------------------------------------------------- ecran cartes */
@@ -52,11 +58,12 @@ textarea{resize:vertical;min-height:64px}
 .carte-item .cli{margin-left:auto;font-size:11.5px;color:var(--text3);white-space:nowrap}
 /* -------------------------------------------------------------------- hero */
 .hero{background:linear-gradient(180deg,#fff 0%,#fdf8f2 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px}
-.hero-haut{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
+.hero-haut{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .hero-ref{font-family:var(--mono);font-size:18px;font-weight:700}
 .hero-lib{font-size:13.5px;color:var(--text2)}
 .hero-cli{font-size:12px;color:var(--text3);margin-left:auto}
-.badge-indice{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info-txt);border:1px solid var(--info);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.badge-indice{display:inline-flex;align-items:center;gap:5px;background:var(--info-bg);color:var(--info-txt);border:1px solid var(--info);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px;font-weight:600}
+.badge-indice .plus{background:var(--info);color:#fff;border:none;border-radius:999px;width:19px;height:19px;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
 .statut-ligne{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
 .statut-nom{font-size:13.5px;font-weight:600}
 .statut-motif{font-size:11.5px;color:var(--text3)}
@@ -70,13 +77,24 @@ textarea{resize:vertical;min-height:64px}
 .jalon::before{content:'';position:absolute;top:6px;left:-50%;width:100%;height:2px;background:var(--border)}
 .jalon:first-child::before{display:none}
 .jalon.fait::before,.jalon.actif::before{background:var(--green)}
-/* --------------------------------------------------------------- en attente */
+/* ------------------------------------------------------- regles + attente -- */
+.regles-resume summary{cursor:pointer;font-size:13px;font-weight:600;list-style:none;display:flex;align-items:center;gap:7px}
+.regle-item{border-left:3px solid var(--info);background:var(--info-bg);border-radius:var(--radius);padding:8px 11px;margin-top:8px;font-size:12.5px}
+.regle-item .dom{font-size:10.5px;font-weight:700;color:var(--info-txt);text-transform:uppercase}
 .attente{border-left:3px solid var(--red)}
 .attente h2 .ti{color:var(--red)}
+/* ----------------------------------------------------------------- filtres -- */
+.filtres{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+.filtre{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-size:12px;color:var(--text2)}
+.filtre.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 /* ----------------------------------------------------------------- timeline */
-.tl-entree{border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px;background:#fff}
+.tl-entree{border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px;background:#fff;cursor:pointer}
+.tl-entree:hover{border-color:var(--border2)}
+.tl-entree.choisie{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
 .tl-entree.indice-evt{background:var(--info-bg);border-color:var(--info)}
-.tl-tete{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.tl-reponse{margin-left:26px;position:relative}
+.tl-reponse::before{content:'\21b3';position:absolute;left:-19px;top:10px;color:var(--text3)}
+.tl-tete{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
 .chip{display:inline-block;font-size:10.5px;font-weight:600;border-radius:999px;padding:2px 8px}
 .chip.note{background:var(--surface2);color:var(--text2)}
 .chip.question_client,.chip.reponse_client{background:var(--accent-bg);color:var(--accent-fonce)}
@@ -84,11 +102,25 @@ textarea{resize:vertical;min-height:64px}
 .chip.indice{background:var(--info-bg);color:var(--info-txt);border:1px solid var(--info)}
 .chip.portee{background:var(--green-bg);color:var(--green-badge)}
 .chip.modif{background:var(--surface2);color:var(--text3);font-weight:500}
+.chip.attente-c{background:var(--red-bg);color:var(--red-badge)}
+.chip.resolu-c{background:var(--green-bg);color:var(--green-badge)}
+.chip.regle-c{background:var(--info-bg);color:var(--info-txt)}
+.chip.vis-client{background:var(--info-bg);color:var(--info-txt)}
+.chip.vis-interne{background:var(--surface2);color:var(--text3);font-weight:500}
 .tl-meta{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
 .tl-texte{font-size:13.5px;line-height:1.5;white-space:pre-wrap}
 .tl-det{font-size:11.5px;color:var(--text2);font-family:var(--mono);margin-top:4px}
-.tl-actions{margin-top:6px;display:flex;gap:4px}
-.oeil{color:var(--info-txt);font-size:13px;vertical-align:-1px}
+/* -------------------------------------------------------------------- volet */
+.volet{width:440px;flex:none;position:sticky;top:66px;max-height:calc(100vh - 82px);overflow:auto;display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+body.volet-ouvert .volet{display:block}
+.volet h2{position:sticky;top:-16px;background:var(--surface);padding:6px 0;z-index:2}
+.volet-fermer{margin-left:auto;background:none;border:none;font-size:18px;color:var(--text3);padding:2px 6px}
+.volet section{border-top:1px solid var(--border);padding:11px 0}
+.volet section > summary,.volet details > summary{cursor:pointer;font-size:12.5px;font-weight:600;list-style:none;display:flex;align-items:center;gap:6px;color:var(--text2)}
+.volet details{border-top:1px solid var(--border);padding:11px 0}
+.volet details[open] > summary{margin-bottom:9px;color:var(--text)}
+.volet details > summary::before{content:'+';font-weight:700;width:14px}
+.volet details[open] > summary::before{content:'\2212'}
 /* -------------------------------------------------------------------- saisie */
 .pastilles{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
 .pastille{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text2)}
@@ -104,13 +136,20 @@ textarea{resize:vertical;min-height:64px}
 .replis[open] summary::before{content:'\2212 '}
 .grille2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
+.piece-ligne{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:var(--radius);padding:6px 9px;margin-top:6px;font-size:12px}
+.piece-ligne .ti{color:var(--text2)}
 .ok-msg{color:var(--green);font-size:12.5px}
 .err-msg{color:var(--red);font-size:12.5px}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
 dialog{border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;max-width:440px;width:92vw}
 dialog::backdrop{background:rgba(20,26,36,.45)}
-@media(max-width:620px){.wrap{padding:11px}.grille2{grid-template-columns:1fr}.hero-cli{margin-left:0;width:100%}}
+@media(max-width:920px){
+  .wrap{padding:11px}
+  .grille2{grid-template-columns:1fr}
+  .hero-cli{margin-left:0;width:100%}
+  .volet{position:fixed;inset:52px 0 0 0;width:auto;max-height:none;border-radius:0;z-index:60}
+}
 </style>
 </head>
 <body>
@@ -185,7 +224,12 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 
 <div class="wrap">
   <div id="ecran-cartes"></div>
-  <div id="ecran-fiche" style="display:none"></div>
+  <div id="ecran-fiche" style="display:none">
+    <div class="page">
+      <div class="colonne-fil" id="colonne-fil"></div>
+      <aside class="volet" id="volet"></aside>
+    </div>
+  </div>
 </div>
 
 <dialog id="dlg-indice">
@@ -203,31 +247,21 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </dialog>
 
-<dialog id="dlg-edit">
-  <h2 id="edit-titre"><i class="ti ti-pencil"></i> Modifier l'entree</h2>
-  <textarea id="edit-texte" rows="4"></textarea>
-  <div id="edit-msg" style="min-height:18px;margin-top:6px"></div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
-    <button class="btn-s" onclick="document.getElementById('dlg-edit').close()">Annuler</button>
-    <button class="btn" id="edit-go">Enregistrer</button>
-  </div>
-</dialog>
-
 <script>
 /* ============================================================== CONFIG ==== */
-const APP_NAME = 'FabStory';                  // decision 06/08 : nom unique ici
-const APP_VERSION = '0.1';
-const APP_DATE = '07/08/2026';
+const APP_NAME = 'FabStory';
+const APP_VERSION = '0.2';
+const APP_DATE = '06/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
-const CLE_QUI = 'pp_fdv_initiales';           // meme cle que les autres applis
+const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
 
 document.title = 'Proto Process / ' + APP_NAME + ' \u2014 v' + APP_VERSION;
 document.getElementById('hdr-app').textContent = APP_NAME;
 document.getElementById('hdr-version').textContent = 'v' + APP_VERSION + ' \u2014 ' + APP_DATE;
 
-/* Metiers mis en avant dans la saisie (les 5 chips) ; le reste sous le depliant */
-const METIERS_FAVORIS = ['BOM','APPRO','CMS','TRAD','CTRL_FINAL'];
+/* Metiers en avant dans la saisie et le volet (retour Olivier 06/08) */
+const METIERS_FAVORIS = ['DEVIS','BOM','PCB','APPRO','METHODES','CMS','TRAD'];
 const STATUTS = [
   { code:'devis',       libelle:'Devis' },
   { code:'preparation', libelle:'Pr\u00e9paration' },
@@ -239,15 +273,19 @@ const TYPES_LIBELLES = {
   question_interne:'\u00c0 traiter', reponse_interne:'R\u00e9ponse interne', indice:'Indice'
 };
 const PORTEES_LIBELLES = { so:'valable pour ce SO', carte:'d\u00e9finitif pour cette carte', client:'r\u00e8gle client' };
+const DOMAINES_REGLE = ['composants','production','pcb','livrables','identification','autre'];
 
 /* ================================================================ ETAT ==== */
 const FS = {};
 let PRODUITS = [];
-let P = null;            // produit courant
-let FICHE = null;        // derniere lecture fabstory-fiche
-let STATUT = null;       // derniere lecture fabstory-statut
+let P = null;
+let FICHE = null;
+let STATUT = null;
+let filtre = 'tous';
+let choisieId = null;                 // entree ouverte dans le volet
 let saisie = { type:'note', etape:null, portee:null, repond_a:null };
-let editCtx = null;      // { id, action }
+let piecesSaisie = [];                // pieces deposees pour la nouvelle note
+let envoiPiece = false;
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function el(id){ return document.getElementById(id); }
@@ -284,6 +322,7 @@ function auteurOuStop(){
   }
   return a;
 }
+function entree(id){ return (FICHE.entrees || []).find(x => x.id === id) || (FICHE.en_attente || []).find(x => x.id === id); }
 
 /* ======================================================== ECRAN CARTES ==== */
 async function chargerCartes(){
@@ -300,14 +339,14 @@ async function chargerCartes(){
       '<button class="btn-s" onclick="chargerCartes()"><i class="ti ti-refresh"></i> R\u00e9essayer</button></div>';
   }
 }
-function rendreCartes(filtre){
+function rendreCartes(filtreTxt){
   const z = el('ecran-cartes');
-  const f = (filtre||'').trim().toLowerCase();
+  const f = (filtreTxt||'').trim().toLowerCase();
   const liste = PRODUITS.filter(p => !f ||
     [p.cle_produit,p.ref_carte,p.libelle_carte,p.nom_client,p.code_client]
       .some(v => String(v||'').toLowerCase().includes(f)));
   let html = '<div class="card"><h2><i class="ti ti-cpu"></i> Quelle carte ?</h2>' +
-    '<input type="text" id="cherche" placeholder="R\u00e9f\u00e9rence, libell\u00e9 ou client\u2026" value="' + esc(filtre) + '" ' +
+    '<input type="text" id="cherche" placeholder="R\u00e9f\u00e9rence, libell\u00e9 ou client\u2026" value="' + esc(filtreTxt) + '" ' +
     'oninput="rendreCartesDiff(this.value)" style="margin-bottom:11px">';
   if(!liste.length){
     html += '<p class="hint" style="margin:0">Aucune carte ne correspond. Une carte appara\u00eet ici une fois cr\u00e9\u00e9e ' +
@@ -331,18 +370,18 @@ function rendreCartesDiff(v){ clearTimeout(_t); _t = setTimeout(()=>rendreCartes
 async function ouvrirFiche(id){
   P = PRODUITS.find(p => p.id === id) || { id: id };
   el('ecran-cartes').style.display = 'none';
-  const z = el('ecran-fiche');
-  z.style.display = '';
-  z.innerHTML = '<div class="card"><p class="hint" style="margin:0"><span class="spin"></span> Lecture de la fiche\u2026</p></div>';
+  el('ecran-fiche').style.display = '';
+  el('colonne-fil').innerHTML = '<div class="card"><p class="hint" style="margin:0"><span class="spin"></span> Lecture de la fiche\u2026</p></div>';
   saisie = { type:'note', etape:null, portee:null, repond_a:null };
-  STATUT = null;
+  piecesSaisie = []; filtre = 'tous'; STATUT = null;
+  fermerVolet();
   try{
     FICHE = await getJson(BASE + '/fabstory-fiche?produit=' + encodeURIComponent(id));
     P = FICHE.produit;
     rendreFiche();
-    chargerStatut();       // en parallele, la fiche s'affiche sans attendre Odoo
+    chargerStatut();
   }catch(e){
-    z.innerHTML = '<div class="card"><p class="err-msg" style="margin:0 0 9px">Fiche indisponible : ' + esc(e.message) + '</p>' +
+    el('colonne-fil').innerHTML = '<div class="card"><p class="err-msg" style="margin:0 0 9px">Fiche indisponible : ' + esc(e.message) + '</p>' +
       '<button class="btn-s" onclick="ouvrirFiche(' + id + ')"><i class="ti ti-refresh"></i> R\u00e9essayer</button> ' +
       '<button class="btn-s" onclick="retourCartes()"><i class="ti ti-arrow-left"></i> Retour</button></div>';
   }
@@ -350,6 +389,7 @@ async function ouvrirFiche(id){
 function retourCartes(){
   el('ecran-fiche').style.display = 'none';
   el('ecran-cartes').style.display = '';
+  fermerVolet();
   P = null; FICHE = null; STATUT = null;
 }
 async function chargerStatut(){
@@ -362,12 +402,14 @@ async function chargerStatut(){
   const zone = el('zone-statut');
   if(zone) zone.outerHTML = htmlStatut();
 }
-async function recharger(){
+async function recharger(garderVolet){
   if(!P) return;
   try{
     FICHE = await getJson(BASE + '/fabstory-fiche?produit=' + encodeURIComponent(P.id));
     rendreFiche();
-  }catch(e){ /* l'ecran courant reste */ }
+    if(garderVolet && choisieId && entree(choisieId)){ ouvrirVolet(choisieId); }
+    else { fermerVolet(); }
+  }catch(e){ /* on garde l ecran courant */ }
 }
 
 /* ----------------------------------------------------------------- rendu -- */
@@ -394,79 +436,317 @@ function htmlStatut(){
   }
   return '<div class="statut-ligne" id="zone-statut">' + inner + '</div>';
 }
-function htmlIndices(){
+function htmlIndice(){
   const ind = FICHE.indice_courant;
   const hist = FICHE.indices || [];
-  const titre = hist.map(i => 'Indice ' + i.indice + ' depuis le ' + fjour(i.depuis_le)).join('\n');
-  return '<span class="badge-indice" title="' + esc(titre || 'Aucun indice pos\u00e9') + '" onclick="FS.ouvrirIndice()">' +
-    '<i class="ti ti-versions"></i>' + (ind ? 'Indice ' + esc(ind) : '+ Indice') + '</span>';
+  const titre = hist.length
+    ? hist.map(i => 'Indice ' + i.indice + ' depuis le ' + fjour(i.depuis_le)).join('\n')
+    : 'Aucun indice renseign\u00e9 pour cette carte';
+  return '<span class="badge-indice" title="' + esc(titre) + '">' +
+    '<i class="ti ti-versions"></i>Indice ' + (ind ? esc(ind) : '\u2014') +
+    '<button class="plus" title="Nouvel indice" onclick="FS.ouvrirIndice()">+</button></span>';
 }
-function chipsEntree(e){
+function chipsEntree(e, complet){
   let h = '<span class="chip ' + esc(e.type) + '">' + esc(TYPES_LIBELLES[e.type] || e.type) + '</span>';
+  if(e.etat === 'en_attente') h += '<span class="chip attente-c">En attente</span>';
+  if(e.etat === 'resolu') h += '<span class="chip resolu-c">R\u00e9solu</span>';
+  if(e.type !== 'indice'){
+    h += e.visible_client
+      ? '<span class="chip vis-client"><i class="ti ti-eye"></i> Client</span>'
+      : '<span class="chip vis-interne">Interne</span>';
+  }
   if(e.portee_validation) h += '<span class="chip portee">' + esc(PORTEES_LIBELLES[e.portee_validation]) + '</span>';
-  if(e.modifiee) h += '<span class="chip modif">modifi\u00e9e</span>';
-  if(e.visible_client) h += '<i class="ti ti-eye oeil" title="Visible du client"></i>';
+  if(e.deja_regle) h += '<span class="chip regle-c"><i class="ti ti-gavel"></i> R\u00e8gle</span>';
+  if(e.modifiee && complet) h += '<span class="chip modif">modifi\u00e9e</span>';
   return h;
 }
 function detEntree(e){
-  const morceaux = [];
-  if(e.etape_libelle) morceaux.push(e.etape_libelle);
-  if(e.repere) morceaux.push('Rep. ' + e.repere);
-  if(e.mpn) morceaux.push(e.mpn);
-  if(e.so_canonique) morceaux.push(e.so_canonique);
-  let h = morceaux.length ? '<div class="tl-det">' + esc(morceaux.join(' \u00b7 ')) + '</div>' : '';
-  if(e.lien) h += '<div class="tl-det"><a href="' + esc(e.lien) + '" target="_blank" rel="noopener">' + esc(e.lien) + '</a></div>';
+  const m = [];
+  if(e.etape_libelle) m.push(e.etape_libelle);
+  if(e.poles && e.poles.length) m.push('\u2192 ' + e.poles.join(', '));
+  if(e.repere) m.push('Rep. ' + e.repere);
+  if(e.mpn) m.push(e.mpn);
+  if(e.so_canonique) m.push(e.so_canonique);
+  let h = m.length ? '<div class="tl-det">' + esc(m.join(' \u00b7 ')) + '</div>' : '';
+  if(e.lien) h += '<div class="tl-det"><a href="' + esc(e.lien) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(e.lien) + '</a></div>';
   return h;
 }
-function actionsEntree(e){
-  let h = '<div class="tl-actions">';
-  if(e.etat === 'en_attente')
-    h += '<button class="btn-lien" onclick="FS.repondre(' + e.id + ')"><i class="ti ti-corner-down-right"></i> R\u00e9pondre</button>';
-  h += '<button class="btn-lien" onclick="FS.modifier(' + e.id + ')">Modifier</button>' +
-       '<button class="btn-lien" onclick="FS.retirer(' + e.id + ')">Retirer</button></div>';
-  return h;
+function piecesEntree(e){
+  if(!e.photos || !e.photos.length) return '';
+  return '<p style="margin:6px 0 0">' + e.photos.map(c => {
+    const nom = String(c).split('/').pop().replace(/^[a-z0-9]{8}-/, '');
+    const img = /\.(jpe?g|png|webp|heic|heif)$/i.test(nom);
+    return '<button class="btn-s" style="margin:0 6px 4px 0" onclick="event.stopPropagation();FS.ouvrirPiece(\'' + esc(c) + '\')">' +
+      '<i class="ti ' + (img?'ti-photo':'ti-file-text') + '"></i> ' + esc(nom) + '</button>';
+  }).join('') + '</p>';
 }
-function htmlEntree(e){
-  return '<div class="tl-entree' + (e.type==='indice'?' indice-evt':'') + '">' +
-    '<div class="tl-tete">' + chipsEntree(e) +
+function passeFiltre(e){
+  if(filtre === 'tous') return true;
+  if(filtre === 'attente') return e.etat === 'en_attente';
+  if(filtre === 'client')  return e.visible_client === true;
+  if(filtre === 'interne') return e.visible_client !== true && e.type !== 'indice';
+  return true;
+}
+function htmlEntree(e, cls){
+  return '<div class="tl-entree ' + (cls||'') + (e.type==='indice'?' indice-evt':'') +
+    (e.id===choisieId?' choisie':'') + '" onclick="ouvrirVolet(' + e.id + ')">' +
+    '<div class="tl-tete">' + chipsEntree(e, false) +
     '<span class="tl-meta">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) + '</span></div>' +
     '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
-    detEntree(e) + actionsEntree(e) + '</div>';
+    detEntree(e) + piecesEntree(e) + '</div>';
 }
 function rendreFiche(){
-  const z = el('ecran-fiche');
-  const enAttente = FICHE.en_attente || [];
+  const z = el('colonne-fil');
   const entrees = FICHE.entrees || [];
+  const enAttente = FICHE.en_attente || [];
   const attIds = new Set(enAttente.map(a => a.id));
-  const fil = entrees.filter(e => !attIds.has(e.id));
+  const regles = FICHE.regles || [];
+
+  /* arbre question -> reponses (retour n1 : les reponses sous leur question) */
+  const parId = {}; entrees.forEach(e => parId[e.id] = e);
+  const enfants = {};
+  entrees.forEach(e => {
+    if(e.repond_a && parId[e.repond_a]) (enfants[e.repond_a] = enfants[e.repond_a] || []).push(e);
+  });
+  const racines = entrees.filter(e => !(e.repond_a && parId[e.repond_a]) && !attIds.has(e.id));
+  Object.values(enfants).forEach(l => l.sort((a,b) => new Date(a.cree_le) - new Date(b.cree_le)));
 
   let html =
     '<button class="btn-s" style="margin-bottom:11px" onclick="retourCartes()"><i class="ti ti-arrow-left"></i> Cartes</button>' +
     '<div class="hero"><div class="hero-haut">' +
     '<span class="hero-ref">' + esc(P.ref_carte || P.cle_produit) + '</span>' +
-    htmlIndices() +
+    htmlIndice() +
     '<span class="hero-lib">' + esc(P.libelle_carte || '') + '</span>' +
     '<span class="hero-cli">' + esc(P.nom_client || P.code_client || '') + '</span>' +
     '</div>' + htmlStatut() + '</div>';
 
+  if(regles.length){
+    html += '<div class="card"><details class="regles-resume"><summary><i class="ti ti-gavel" style="color:var(--info-txt)"></i> ' +
+      'R\u00e8gles de ce client (' + regles.length + ')</summary>' +
+      regles.map(r => '<div class="regle-item"><span class="dom">' + esc(r.domaine) + '</span><br>' + esc(r.texte) + '</div>').join('') +
+      '</details></div>';
+  }
+
   if(enAttente.length){
     html += '<div class="card attente"><h2><i class="ti ti-alert-circle"></i> En attente de r\u00e9ponse (' + enAttente.length + ')</h2>';
     const complets = entrees.filter(e => attIds.has(e.id));
-    html += (complets.length ? complets : enAttente).map(htmlEntree).join('');
+    html += (complets.length ? complets : enAttente).map(e => htmlEntree(e)).join('');
     html += '</div>';
   }
 
   html += htmlSaisie();
 
+  const visibles = racines.filter(passeFiltre);
   html += '<div class="card"><h2><i class="ti ti-timeline"></i> Fil de la carte' +
-    (fil.length ? ' <span class="hint" style="font-weight:400">(' + fil.length + ')</span>' : '') + '</h2>';
-  html += fil.length ? fil.map(htmlEntree).join('')
-    : '<p class="hint" style="margin:0">Rien encore \u2014 la premi\u00e8re note lance l\u2019histoire de cette carte.</p>';
+    ' <span class="hint" style="font-weight:400">(' + racines.length + ')</span></h2>' +
+    '<div class="filtres">' +
+    [['tous','Tous'],['attente','En attente'],['client','Visible client'],['interne','Interne']].map(f =>
+      '<button class="filtre' + (filtre===f[0]?' on':'') + '" onclick="FS.filtrer(\'' + f[0] + '\')">' + f[1] + '</button>').join('') +
+    '</div>';
+  if(!visibles.length){
+    html += '<p class="hint" style="margin:0">' + (racines.length ? 'Rien ne passe ce filtre.' :
+      'Rien encore \u2014 la premi\u00e8re note lance l\u2019histoire de cette carte.') + '</p>';
+  } else {
+    html += visibles.map(e =>
+      htmlEntree(e) + (enfants[e.id] || []).map(r => htmlEntree(r, 'tl-reponse')).join('')
+    ).join('');
+  }
   html += '</div>';
 
   z.innerHTML = html;
   brancherSaisie();
 }
+FS.filtrer = function(f){ filtre = f; rendreFiche(); };
+
+/* ================================================================ VOLET ==== */
+function fermerVolet(){
+  choisieId = null;
+  document.body.classList.remove('volet-ouvert');
+  el('volet').innerHTML = '';
+}
+FS.fermerVolet = fermerVolet;
+function ouvrirVolet(id){
+  const e = entree(id);
+  if(!e) return;
+  choisieId = id;
+  document.body.classList.add('volet-ouvert');
+  const etapes = FICHE.etapes || [];
+  const estQuestion = (e.type === 'question_client' || e.type === 'question_interne');
+  const chipsMetier = etapes.map(x =>
+    '<button class="pastille v-metier' + (e.etape_code===x.code?' on':'') + '" data-etape="' + x.code + '">' + esc(x.libelle) + '</button>').join('');
+  const chipsPoles = etapes.map(x =>
+    '<button class="pastille v-pole' + ((e.poles||[]).includes(x.code)?' on':'') + '" data-pole="' + x.code + '">' + esc(x.libelle) + '</button>').join('');
+
+  let h = '<h2>Entr\u00e9e #' + e.id +
+    '<button class="volet-fermer" title="Fermer" onclick="FS.fermerVolet()"><i class="ti ti-x"></i></button></h2>' +
+    '<div class="tl-tete" style="margin-bottom:7px">' + chipsEntree(e, true) + '</div>' +
+    '<p class="hint" style="margin:0 0 7px">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) +
+    (e.so_canonique ? ' \u00b7 ' + esc(e.so_canonique) : '') + '</p>' +
+    '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
+    detEntree(e) + piecesEntree(e);
+
+  if(estQuestion && e.etat === 'en_attente'){
+    h += '<details class="v-sec" open><summary><i class="ti ti-corner-down-right"></i> R\u00e9pondre</summary>' +
+      '<textarea id="v-rep-texte" rows="3" placeholder="Votre r\u00e9ponse\u2026"></textarea>';
+    if(e.type === 'question_client'){
+      h += '<label class="mini">Cette validation vaudra\u2026</label><div class="pastilles">' +
+        ['so','carte','client'].map(p => '<button class="pastille v-rep-portee" data-portee="' + p + '">' +
+          PORTEES_LIBELLES[p] + '</button>').join('') + '</div>';
+    }
+    h += '<div id="v-rep-msg" style="min-height:16px"></div>' +
+      '<button class="btn" onclick="FS.voletRepondre()">Envoyer la r\u00e9ponse</button></details>';
+  }
+
+  if(e.type !== 'indice'){
+    h += '<details class="v-sec"><summary><i class="ti ti-pencil"></i> Modifier le texte</summary>' +
+      '<textarea id="v-mod-texte" rows="4">' + esc(e.texte_brut||'') + '</textarea>' +
+      '<div id="v-mod-msg" style="min-height:16px"></div>' +
+      '<button class="btn-s" onclick="FS.voletModifier()">Enregistrer la modification</button>' +
+      '<p class="hint" style="margin:7px 0 0">L\u2019ancienne version reste dans l\u2019historique.</p></details>';
+
+    h += '<details class="v-sec"><summary><i class="ti ti-eye"></i> Visibilit\u00e9 client</summary>' +
+      '<p class="hint" style="margin:0 0 8px">Actuellement : <strong>' + (e.visible_client ? 'visible du client' : 'interne') + '</strong></p>' +
+      '<div id="v-vis-msg" style="min-height:16px"></div>' +
+      '<button class="btn-s" onclick="FS.voletVisibilite(' + (e.visible_client ? 'false' : 'true') + ')">' +
+      (e.visible_client ? 'Rendre interne' : 'Rendre visible du client') + '</button></details>';
+
+    h += '<details class="v-sec"><summary><i class="ti ti-category"></i> M\u00e9tier et destinataires</summary>' +
+      '<label class="mini">M\u00e9tier concern\u00e9</label><div class="pastilles">' + chipsMetier + '</div>' +
+      '<label class="mini">\u00c0 montrer aussi aux m\u00e9tiers\u2026</label><div class="pastilles">' + chipsPoles + '</div>' +
+      '<div id="v-rng-msg" style="min-height:16px"></div>' +
+      '<button class="btn-s" onclick="FS.voletRanger()">Enregistrer le classement</button></details>';
+
+    if(!e.deja_regle){
+      h += '<details class="v-sec"><summary><i class="ti ti-gavel"></i> Faire de cette entr\u00e9e une r\u00e8gle client</summary>' +
+        '<p class="hint" style="margin:0 0 7px">La r\u00e8gle vaudra pour toutes les cartes de ' + esc(P.nom_client || P.code_client || 'ce client') + '.</p>' +
+        '<label class="mini">Domaine</label><div class="pastilles">' +
+        DOMAINES_REGLE.map(d => '<button class="pastille v-regle-dom" data-dom="' + d + '">' + d + '</button>').join('') + '</div>' +
+        '<label class="mini">Texte de la r\u00e8gle</label>' +
+        '<textarea id="v-regle-texte" rows="3">' + esc(e.texte_brut||'') + '</textarea>' +
+        '<div id="v-regle-msg" style="min-height:16px"></div>' +
+        '<button class="btn" onclick="FS.voletRegle()">Promouvoir en r\u00e8gle</button></details>';
+    }
+
+    h += '<details class="v-sec"><summary><i class="ti ti-trash"></i> Retirer l\u2019entr\u00e9e</summary>' +
+      '<input type="text" id="v-ret-motif" placeholder="Motif du retrait (facultatif)">' +
+      '<div id="v-ret-msg" style="min-height:16px;margin-top:6px"></div>' +
+      '<button class="btn-danger" onclick="FS.voletRetirer()">Retirer du fil</button>' +
+      '<p class="hint" style="margin:7px 0 0">L\u2019entr\u00e9e dispara\u00eet de l\u2019affichage mais reste dans l\u2019historique.</p></details>';
+  }
+
+  el('volet').innerHTML = h;
+
+  /* pastilles du volet */
+  document.querySelectorAll('.v-metier').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.v-metier').forEach(x => x.classList.toggle('on', x === b && !b.classList.contains('on')));
+  });
+  document.querySelectorAll('.v-pole').forEach(b => b.onclick = () => b.classList.toggle('on'));
+  document.querySelectorAll('.v-rep-portee').forEach(b => b.onclick = () => {
+    const on = b.classList.contains('on');
+    document.querySelectorAll('.v-rep-portee').forEach(x => x.classList.remove('on'));
+    if(!on) b.classList.add('on');
+  });
+  document.querySelectorAll('.v-regle-dom').forEach(b => b.onclick = () => {
+    const on = b.classList.contains('on');
+    document.querySelectorAll('.v-regle-dom').forEach(x => x.classList.remove('on'));
+    if(!on) b.classList.add('on');
+  });
+
+  /* marquer la selection dans le fil sans tout re-rendre */
+  document.querySelectorAll('.tl-entree').forEach(x => x.classList.remove('choisie'));
+  document.querySelectorAll('.tl-entree').forEach(x => {
+    if(x.getAttribute('onclick') === 'ouvrirVolet(' + id + ')') x.classList.add('choisie');
+  });
+}
+window.ouvrirVolet = ouvrirVolet;
+
+FS.voletRepondre = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const texte = (el('v-rep-texte').value||'').trim();
+  const msg = el('v-rep-msg');
+  if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est n\u00e9cessaire.</span>'; return; }
+  const auteur = auteurOuStop(); if(!auteur) return;
+  const porteeBtn = document.querySelector('.v-rep-portee.on');
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    await postJson(BASE + '/fabstory-note', {
+      produit_id: P.id, repond_a: e.id, auteur, texte_brut: texte,
+      type: e.type === 'question_client' ? 'reponse_client' : 'reponse_interne',
+      etape_code: e.etape_code || null,
+      portee_validation: (e.type === 'question_client' && porteeBtn) ? porteeBtn.dataset.portee : null,
+      source: 'fabstory'
+    });
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletModifier = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const texte = (el('v-mod-texte').value||'').trim();
+  const msg = el('v-mod-msg');
+  if(!texte){ msg.innerHTML = '<span class="err-msg">Le texte ne peut pas \u00eatre vide.</span>'; return; }
+  const auteur = auteurOuStop(); if(!auteur) return;
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, texte_brut: texte });
+    choisieId = j.id;   /* la nouvelle version remplace l ancienne dans le volet */
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletVisibilite = async function(nouvelle){
+  const e = entree(choisieId); if(!e) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  const msg = el('v-vis-msg');
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, visible_client: nouvelle });
+    choisieId = j.id;
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletRanger = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const msg = el('v-rng-msg');
+  const metierBtn = document.querySelector('.v-metier.on');
+  const poles = Array.from(document.querySelectorAll('.v-pole.on')).map(b => b.dataset.pole);
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    await postJson(BASE + '/fabstory-ranger', {
+      id: e.id,
+      etape_code: metierBtn ? metierBtn.dataset.etape : null,
+      poles: poles
+    });
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletRegle = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const msg = el('v-regle-msg');
+  const domBtn = document.querySelector('.v-regle-dom.on');
+  if(!domBtn){ msg.innerHTML = '<span class="err-msg">Choisissez un domaine.</span>'; return; }
+  const auteur = auteurOuStop(); if(!auteur) return;
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    await postJson(BASE + '/fabstory-regle', {
+      fiche_id: e.id, domaine: domBtn.dataset.dom,
+      texte: (el('v-regle-texte').value||'').trim() || null, auteur
+    });
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletRetirer = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  const msg = el('v-ret-msg');
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    await postJson(BASE + '/fabstory-note-edition', {
+      id: e.id, action: 'retirer', auteur,
+      motif: (el('v-ret-motif').value||'').trim() || null
+    });
+    fermerVolet();
+    await recharger(false);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
 
 /* ---------------------------------------------------------------- saisie -- */
 function htmlSaisie(){
@@ -497,7 +777,6 @@ function htmlSaisie(){
       '<button class="pastille" data-portee="carte">pour la carte, d\u00e9finitivement</button>' +
       '<button class="pastille" data-portee="client">comme r\u00e8gle de ce client</button>' +
     '</div></div>' +
-  '<label class="mini" id="lbl-visible" style="display:none"></label>' +
   '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
     '<input type="checkbox" id="note-visible"> Visible du client</label>' +
   '<details class="replis"><summary>Rep\u00e8re, composant, lien</summary>' +
@@ -506,6 +785,10 @@ function htmlSaisie(){
     '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div>' +
     '</div>' +
     '<label class="mini">Lien</label><input type="text" id="note-lien" placeholder="https://\u2026">' +
+  '</details>' +
+  '<details class="replis"><summary>Photo ou fichier joint</summary>' +
+    '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip">' +
+    '<div id="zone-pieces"></div>' +
   '</details>' +
   '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
   '<div style="display:flex;gap:8px;align-items:center">' +
@@ -516,8 +799,8 @@ function htmlSaisie(){
 function brancherSaisie(){
   document.querySelectorAll('.pastille.metier').forEach(b => b.onclick = () => {
     saisie.etape = (saisie.etape === b.dataset.etape) ? null : b.dataset.etape;
-    /* re-render CIBLE du bloc metiers + amorces seulement : on ne re-rend jamais
-       tout le formulaire (bug historique : le clic metier vidait repere/MPN) */
+    /* re-rendu CIBLE : uniquement chips + amorces, jamais le formulaire
+       (le bug historique du clic metier qui vidait repere/MPN) */
     document.querySelectorAll('.pastille.metier').forEach(x =>
       x.classList.toggle('on', x.dataset.etape === saisie.etape));
     rendreAmorces();
@@ -528,13 +811,15 @@ function brancherSaisie(){
       x.classList.toggle('on', x.dataset.type === saisie.type));
     majVisibilite();
   });
-  document.querySelectorAll('.pastille[data-portee]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#zone-portee .pastille[data-portee]').forEach(b => b.onclick = () => {
     saisie.portee = (saisie.portee === b.dataset.portee) ? null : b.dataset.portee;
-    document.querySelectorAll('.pastille[data-portee]').forEach(x =>
+    document.querySelectorAll('#zone-portee .pastille[data-portee]').forEach(x =>
       x.classList.toggle('on', x.dataset.portee === saisie.portee));
   });
   el('note-go').onclick = envoyerNote;
+  el('note-piece').onchange = deposerPiece;
   rendreAmorces();
+  rendrePieces();
   majVisibilite();
 }
 function majVisibilite(){
@@ -548,18 +833,78 @@ function majVisibilite(){
 function rendreAmorces(){
   const z = el('zone-amorces');
   const props = (FICHE.propositions || {})[saisie.etape] || [];
-  z.innerHTML = props.map(t =>
-    '<button class="amorce">' + esc(t) + '</button>').join('');
+  z.innerHTML = props.map(t => '<button class="amorce">' + esc(t) + '</button>').join('');
   z.querySelectorAll('.amorce').forEach(b => b.onclick = () => {
     const ta = el('note-texte');
     ta.value = ta.value ? ta.value : (b.textContent + ' : ');
     ta.focus();
   });
 }
+/* ----- pieces jointes (mecanisme eprouve de l ancienne appli, reutilise) ---- */
+function compresser(file, maxCote, qualite){
+  maxCote = maxCote || 1600; qualite = qualite || 0.8;
+  return new Promise(function(res){
+    if(!/^image\//.test(file.type || '')) { res(file); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function(){
+      const r = Math.min(1, maxCote / Math.max(img.width, img.height));
+      if(r >= 1){ URL.revokeObjectURL(url); res(file); return; }
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(function(b){ URL.revokeObjectURL(url); res(b || file); }, 'image/jpeg', qualite);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); res(file); };
+    img.src = url;
+  });
+}
+async function deposerPiece(ev){
+  const fichier = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!fichier || envoiPiece) return;
+  envoiPiece = true; rendrePieces();
+  try{
+    const j = await postJson(BASE + '/fiche-de-vie-piece', { produit_id: P.id, nom: fichier.name || 'piece' });
+    const corps = await compresser(fichier);
+    /* Le type vient de l EXTENSION (deduit par n8n), pas du navigateur */
+    const up = await fetch(j.url, { method: 'PUT', headers: { 'Content-Type': j.type }, body: corps });
+    if(!up.ok) throw new Error('Envoi refus\u00e9 par le stockage (' + up.status + ').');
+    piecesSaisie.push({ chemin: j.chemin, nom: fichier.name, type: j.type });
+    envoiPiece = false; rendrePieces();
+  }catch(e){
+    envoiPiece = false; rendrePieces('Pi\u00e8ce non d\u00e9pos\u00e9e : ' + e.message);
+  }
+}
+function rendrePieces(erreur){
+  const z = el('zone-pieces'); if(!z) return;
+  let h = '';
+  if(envoiPiece) h += '<p class="hint" style="margin:6px 0 0"><span class="spin"></span> Envoi en cours\u2026</p>';
+  if(erreur) h += '<p class="err-msg" style="margin:6px 0 0">' + esc(erreur) + '</p>';
+  piecesSaisie.forEach((p, i) => {
+    h += '<div class="piece-ligne"><i class="ti ' + (/^image\//.test(p.type)?'ti-photo':'ti-file-text') + '"></i>' +
+      '<span style="flex:1">' + esc(p.nom) + '</span>' +
+      '<button class="btn-lien" onclick="FS.retirerPiece(' + i + ')">retirer</button></div>';
+  });
+  z.innerHTML = h;
+}
+FS.retirerPiece = function(i){ piecesSaisie.splice(i, 1); rendrePieces(); };
+FS.ouvrirPiece = function(chemin){
+  /* onglet ouvert AVANT l appel asynchrone, sinon bloque comme pop-up */
+  const w = window.open('', '_blank');
+  fetch(BASE + '/fiche-de-vie-piece-lire?chemin=' + encodeURIComponent(chemin))
+    .then(r => r.json())
+    .then(j => {
+      if(!j || j.ok !== true || !j.url) throw new Error((j && j.motif) || 'Lien indisponible.');
+      if(w) w.location.href = j.url; else window.location.href = j.url;
+    })
+    .catch(e => { if(w) w.close(); alert('Pi\u00e8ce jointe indisponible : ' + e.message); });
+};
 async function envoyerNote(){
   const texte = el('note-texte').value.trim();
   const msg = el('note-msg');
   if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est n\u00e9cessaire.</span>'; return; }
+  if(envoiPiece){ msg.innerHTML = '<span class="err-msg">Une pi\u00e8ce est en cours d\u2019envoi, un instant.</span>'; return; }
   const auteur = auteurOuStop();
   if(!auteur) return;
   const corps = {
@@ -568,9 +913,9 @@ async function envoyerNote(){
     repere: el('note-repere').value.trim() || null,
     mpn: el('note-mpn').value.trim() || null,
     lien: el('note-lien').value.trim() || null,
+    photos: piecesSaisie.map(p => p.chemin),
     visible_client: el('note-visible').checked,
     portee_validation: (saisie.type === 'question_client') ? saisie.portee : null,
-    repond_a: saisie.repond_a || null,
     source: 'fabstory'
   };
   const btn = el('note-go');
@@ -578,72 +923,11 @@ async function envoyerNote(){
   msg.innerHTML = '<span class="spin"></span>';
   try{
     await postJson(BASE + '/fabstory-note', corps);
-    saisie.repond_a = null;
-    await recharger();
+    piecesSaisie = [];
+    await recharger(false);
   }catch(e){
     msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
     btn.disabled = false;
-  }
-}
-
-/* ----------------------------------------------------- actions du fil ----- */
-FS.repondre = function(id){
-  saisie.repond_a = id;
-  const e = (FICHE.entrees || []).find(x => x.id === id) || {};
-  saisie.type = (e.type === 'question_client') ? 'reponse_client' : 'reponse_interne';
-  const zone = el('note-repond');
-  zone.style.display = '';
-  zone.innerHTML = 'R\u00e9pond \u00e0 l\u2019entr\u00e9e #' + id + ' \u2014 <button class="btn-lien" onclick="FS.annulerReponse()">annuler</button>';
-  el('note-texte').focus();
-  el('note-texte').scrollIntoView({behavior:'smooth', block:'center'});
-};
-FS.annulerReponse = function(){
-  saisie.repond_a = null; saisie.type = 'note';
-  el('note-repond').style.display = 'none';
-  document.querySelectorAll('.pastille[data-type]').forEach(x =>
-    x.classList.toggle('on', x.dataset.type === 'note'));
-  majVisibilite();
-};
-FS.modifier = function(id){
-  const e = (FICHE.entrees || []).find(x => x.id === id);
-  if(!e) return;
-  editCtx = { id, action:'modifier' };
-  el('edit-titre').innerHTML = '<i class="ti ti-pencil"></i> Modifier l\u2019entr\u00e9e #' + id;
-  el('edit-texte').value = e.texte_brut || '';
-  el('edit-msg').textContent = '';
-  el('edit-go').textContent = 'Enregistrer';
-  el('edit-go').onclick = envoyerEdition;
-  el('dlg-edit').showModal();
-};
-FS.retirer = function(id){
-  editCtx = { id, action:'retirer' };
-  el('edit-titre').innerHTML = '<i class="ti ti-trash"></i> Retirer l\u2019entr\u00e9e #' + id;
-  el('edit-texte').value = '';
-  el('edit-texte').placeholder = 'Motif du retrait (facultatif)';
-  el('edit-msg').innerHTML = '<span class="hint">L\u2019entr\u00e9e dispara\u00eet de l\u2019affichage mais reste dans l\u2019historique.</span>';
-  el('edit-go').textContent = 'Retirer';
-  el('edit-go').onclick = envoyerEdition;
-  el('dlg-edit').showModal();
-};
-async function envoyerEdition(){
-  const auteur = auteurOuStop();
-  if(!auteur || !editCtx) return;
-  const corps = { id: editCtx.id, action: editCtx.action, auteur };
-  const v = el('edit-texte').value.trim();
-  if(editCtx.action === 'modifier'){
-    if(!v){ el('edit-msg').innerHTML = '<span class="err-msg">Le texte ne peut pas \u00eatre vide.</span>'; return; }
-    corps.texte_brut = v;
-  } else if(v){ corps.motif = v; }
-  el('edit-go').disabled = true;
-  el('edit-msg').innerHTML = '<span class="spin"></span>';
-  try{
-    await postJson(BASE + '/fabstory-note-edition', corps);
-    el('dlg-edit').close();
-    el('edit-go').disabled = false;
-    await recharger();
-  }catch(e){
-    el('edit-msg').innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
-    el('edit-go').disabled = false;
   }
 }
 
@@ -668,7 +952,7 @@ FS.poserIndice = async function(){
     await postJson(BASE + '/fabstory-indice', corps);
     el('dlg-indice').close();
     el('ind-go').disabled = false;
-    await recharger();
+    await recharger(false);
   }catch(e){
     msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
     el('ind-go').disabled = false;
