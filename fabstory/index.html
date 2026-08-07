@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
 /* ================================================================== FabStory
+   v0.3 — retours 07/08 : volet toujours visible (tiroir), œil/œil barré,
+   composant en tête d entrée, portee des regles (SO / carte / client), labels bleus.
    v0.2 — retours du contre-test Olivier 06/08 : volet lateral type boite mail
    (toutes les actions), reponses liees aux questions, visibilite explicite,
    pieces jointes, rangement metier/poles, promotion en regle client.
@@ -110,6 +112,9 @@ textarea{resize:vertical;min-height:64px}
 .tl-meta{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
 .tl-texte{font-size:13.5px;line-height:1.5;white-space:pre-wrap}
 .tl-det{font-size:11.5px;color:var(--text2);font-family:var(--mono);margin-top:4px}
+.tl-comp{font-family:var(--mono);font-size:12px;font-weight:600;background:var(--surface2);border-radius:var(--radius);padding:3px 9px;display:inline-block;margin-bottom:6px}
+.tl-src{font-size:11px;color:var(--text3);margin-top:5px}
+label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;margin:8px 0 4px}
 /* -------------------------------------------------------------------- volet */
 .volet{width:440px;flex:none;position:sticky;top:66px;max-height:calc(100vh - 82px);overflow:auto;display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
 body.volet-ouvert .volet{display:block}
@@ -144,11 +149,15 @@ label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 @keyframes sp{to{transform:rotate(360deg)}}
 dialog{border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;max-width:440px;width:92vw}
 dialog::backdrop{background:rgba(20,26,36,.45)}
+@media(max-width:1259px){
+  /* retour Olivier : le volet en colonne partait hors ecran sur portable ->
+     sous 1260px il devient un TIROIR fixe a droite, toujours visible */
+  .volet{position:fixed;top:52px;right:0;bottom:0;width:min(460px,96vw);max-height:none;border-radius:0;box-shadow:-10px 0 26px rgba(20,26,36,.2);z-index:60}
+}
 @media(max-width:920px){
   .wrap{padding:11px}
   .grille2{grid-template-columns:1fr}
   .hero-cli{margin-left:0;width:100%}
-  .volet{position:fixed;inset:52px 0 0 0;width:auto;max-height:none;border-radius:0;z-index:60}
 }
 </style>
 </head>
@@ -250,8 +259,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '0.2';
-const APP_DATE = '06/08/2026';
+const APP_VERSION = '0.3';
+const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -446,29 +455,35 @@ function htmlIndice(){
     '<i class="ti ti-versions"></i>Indice ' + (ind ? esc(ind) : '\u2014') +
     '<button class="plus" title="Nouvel indice" onclick="FS.ouvrirIndice()">+</button></span>';
 }
-function chipsEntree(e, complet){
-  let h = '<span class="chip ' + esc(e.type) + '">' + esc(TYPES_LIBELLES[e.type] || e.type) + '</span>';
+function chipsEntree(e, complet, sansType){
+  let h = sansType ? '' : '<span class="chip ' + esc(e.type) + '">' + esc(TYPES_LIBELLES[e.type] || e.type) + '</span>';
   if(e.etat === 'en_attente') h += '<span class="chip attente-c">En attente</span>';
   if(e.etat === 'resolu') h += '<span class="chip resolu-c">R\u00e9solu</span>';
   if(e.type !== 'indice'){
     h += e.visible_client
       ? '<span class="chip vis-client"><i class="ti ti-eye"></i> Client</span>'
-      : '<span class="chip vis-interne">Interne</span>';
+      : '<span class="chip vis-interne"><i class="ti ti-eye-off"></i> Interne</span>';
   }
   if(e.portee_validation) h += '<span class="chip portee">' + esc(PORTEES_LIBELLES[e.portee_validation]) + '</span>';
   if(e.deja_regle) h += '<span class="chip regle-c"><i class="ti ti-gavel"></i> R\u00e8gle</span>';
   if(e.modifiee && complet) h += '<span class="chip modif">modifi\u00e9e</span>';
   return h;
 }
+function compEntree(e){
+  /* retour Olivier : identifier D ABORD le composant, la cause ensuite */
+  if(!e.repere && !e.mpn) return '';
+  const m = [];
+  if(e.repere) m.push('Rep. ' + e.repere);
+  if(e.mpn) m.push('R\u00e9f./MPN ' + e.mpn);
+  return '<div class="tl-comp">' + esc(m.join(' \u2014 ')) + '</div>';
+}
 function detEntree(e){
   const m = [];
   if(e.etape_libelle) m.push(e.etape_libelle);
   if(e.poles && e.poles.length) m.push('\u2192 ' + e.poles.join(', '));
-  if(e.repere) m.push('Rep. ' + e.repere);
-  if(e.mpn) m.push(e.mpn);
   if(e.so_canonique) m.push(e.so_canonique);
-  let h = m.length ? '<div class="tl-det">' + esc(m.join(' \u00b7 ')) + '</div>' : '';
-  if(e.lien) h += '<div class="tl-det"><a href="' + esc(e.lien) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(e.lien) + '</a></div>';
+  let h = m.length ? '<div class="tl-src">' + esc(m.join(' \u00b7 ')) + '</div>' : '';
+  if(e.lien) h += '<div class="tl-src"><a href="' + esc(e.lien) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(e.lien) + '</a></div>';
   return h;
 }
 function piecesEntree(e){
@@ -492,6 +507,7 @@ function htmlEntree(e, cls){
     (e.id===choisieId?' choisie':'') + '" onclick="ouvrirVolet(' + e.id + ')">' +
     '<div class="tl-tete">' + chipsEntree(e, false) +
     '<span class="tl-meta">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) + '</span></div>' +
+    compEntree(e) +
     '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
     detEntree(e) + piecesEntree(e) + '</div>';
 }
@@ -577,11 +593,12 @@ function ouvrirVolet(id){
   const chipsPoles = etapes.map(x =>
     '<button class="pastille v-pole' + ((e.poles||[]).includes(x.code)?' on':'') + '" data-pole="' + x.code + '">' + esc(x.libelle) + '</button>').join('');
 
-  let h = '<h2>Entr\u00e9e #' + e.id +
+  let h = '<h2>' + esc(TYPES_LIBELLES[e.type] || e.type) +
     '<button class="volet-fermer" title="Fermer" onclick="FS.fermerVolet()"><i class="ti ti-x"></i></button></h2>' +
-    '<div class="tl-tete" style="margin-bottom:7px">' + chipsEntree(e, true) + '</div>' +
+    '<div class="tl-tete" style="margin-bottom:7px">' + chipsEntree(e, true, true) + '</div>' +
     '<p class="hint" style="margin:0 0 7px">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) +
     (e.so_canonique ? ' \u00b7 ' + esc(e.so_canonique) : '') + '</p>' +
+    compEntree(e) +
     '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
     detEntree(e) + piecesEntree(e);
 
@@ -611,20 +628,35 @@ function ouvrirVolet(id){
       (e.visible_client ? 'Rendre interne' : 'Rendre visible du client') + '</button></details>';
 
     h += '<details class="v-sec"><summary><i class="ti ti-category"></i> M\u00e9tier et destinataires</summary>' +
-      '<label class="mini">M\u00e9tier concern\u00e9</label><div class="pastilles">' + chipsMetier + '</div>' +
-      '<label class="mini">\u00c0 montrer aussi aux m\u00e9tiers\u2026</label><div class="pastilles">' + chipsPoles + '</div>' +
+      '<label class="lbl">M\u00e9tier concern\u00e9</label><div class="pastilles">' + chipsMetier + '</div>' +
+      '<label class="lbl">Aussi visible pour</label><div class="pastilles">' + chipsPoles + '</div>' +
       '<div id="v-rng-msg" style="min-height:16px"></div>' +
       '<button class="btn-s" onclick="FS.voletRanger()">Enregistrer le classement</button></details>';
 
-    if(!e.deja_regle){
-      h += '<details class="v-sec"><summary><i class="ti ti-gavel"></i> Faire de cette entr\u00e9e une r\u00e8gle client</summary>' +
-        '<p class="hint" style="margin:0 0 7px">La r\u00e8gle vaudra pour toutes les cartes de ' + esc(P.nom_client || P.code_client || 'ce client') + '.</p>' +
-        '<label class="mini">Domaine</label><div class="pastilles">' +
+    {
+      /* retour Olivier : au moins 2 degres de portee, surtout pour un composant.
+         so / carte -> portee posee sur l entree ; client -> regle dans specs. */
+      const dejaP = e.portee_validation ? ('Actuellement : <strong>' + esc(PORTEES_LIBELLES[e.portee_validation]) + '</strong>.') : '';
+      const texteRegle = ((e.repere || e.mpn)
+        ? ([e.repere ? 'Rep. ' + e.repere : null, e.mpn].filter(Boolean).join(' \u2014 ') + ' : ')
+        : '') + (e.texte_brut || '');
+      h += '<details class="v-sec"><summary><i class="ti ti-gavel"></i> Port\u00e9e de cette validation</summary>' +
+        (dejaP ? '<p class="hint" style="margin:0 0 7px">' + dejaP + '</p>' : '') +
+        '<div class="pastilles">' +
+        '<button class="pastille v-portee" data-portee="so">Pour ce SO seulement</button>' +
+        '<button class="pastille v-portee" data-portee="carte">Pour cette carte, toujours</button>' +
+        (e.deja_regle ? '' : '<button class="pastille v-portee" data-portee="client">R\u00e8gle client (toutes ses cartes)</button>') +
+        '</div>' +
+        (e.deja_regle ? '<p class="hint" style="margin:4px 0 0"><i class="ti ti-gavel"></i> D\u00e9j\u00e0 promue en r\u00e8gle client.</p>' : '') +
+        '<div id="v-portee-client" style="display:none">' +
+        '<p class="hint" style="margin:6px 0 5px">La r\u00e8gle vaudra pour toutes les cartes de ' + esc(P.nom_client || P.code_client || 'ce client') + '. Elle doit dire clairement de quoi elle parle.</p>' +
+        '<label class="lbl">Domaine</label><div class="pastilles">' +
         DOMAINES_REGLE.map(d => '<button class="pastille v-regle-dom" data-dom="' + d + '">' + d + '</button>').join('') + '</div>' +
-        '<label class="mini">Texte de la r\u00e8gle</label>' +
-        '<textarea id="v-regle-texte" rows="3">' + esc(e.texte_brut||'') + '</textarea>' +
-        '<div id="v-regle-msg" style="min-height:16px"></div>' +
-        '<button class="btn" onclick="FS.voletRegle()">Promouvoir en r\u00e8gle</button></details>';
+        '<label class="lbl">Texte de la r\u00e8gle</label>' +
+        '<textarea id="v-regle-texte" rows="3">' + esc(texteRegle) + '</textarea>' +
+        '</div>' +
+        '<div id="v-portee-msg" style="min-height:16px"></div>' +
+        '<button class="btn" onclick="FS.voletPortee()">Enregistrer</button></details>';
     }
 
     h += '<details class="v-sec"><summary><i class="ti ti-trash"></i> Retirer l\u2019entr\u00e9e</summary>' +
@@ -651,7 +683,17 @@ function ouvrirVolet(id){
     document.querySelectorAll('.v-regle-dom').forEach(x => x.classList.remove('on'));
     if(!on) b.classList.add('on');
   });
+  document.querySelectorAll('.v-portee').forEach(b => b.onclick = () => {
+    const on = b.classList.contains('on');
+    document.querySelectorAll('.v-portee').forEach(x => x.classList.remove('on'));
+    if(!on) b.classList.add('on');
+    const bloc = el('v-portee-client');
+    if(bloc) bloc.style.display = (!on && b.dataset.portee === 'client') ? '' : 'none';
+  });
 
+  if(window.innerWidth >= 1260){
+    el('volet').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
   /* marquer la selection dans le fil sans tout re-rendre */
   document.querySelectorAll('.tl-entree').forEach(x => x.classList.remove('choisie'));
   document.querySelectorAll('.tl-entree').forEach(x => {
@@ -718,18 +760,26 @@ FS.voletRanger = async function(){
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
-FS.voletRegle = async function(){
+FS.voletPortee = async function(){
   const e = entree(choisieId); if(!e) return;
-  const msg = el('v-regle-msg');
-  const domBtn = document.querySelector('.v-regle-dom.on');
-  if(!domBtn){ msg.innerHTML = '<span class="err-msg">Choisissez un domaine.</span>'; return; }
+  const msg = el('v-portee-msg');
+  const pBtn = document.querySelector('.v-portee.on');
+  if(!pBtn){ msg.innerHTML = '<span class="err-msg">Choisissez une port\u00e9e.</span>'; return; }
   const auteur = auteurOuStop(); if(!auteur) return;
+  const portee = pBtn.dataset.portee;
   msg.innerHTML = '<span class="spin"></span>';
   try{
-    await postJson(BASE + '/fabstory-regle', {
-      fiche_id: e.id, domaine: domBtn.dataset.dom,
-      texte: (el('v-regle-texte').value||'').trim() || null, auteur
-    });
+    if(portee === 'client'){
+      const domBtn = document.querySelector('.v-regle-dom.on');
+      if(!domBtn){ msg.innerHTML = '<span class="err-msg">Choisissez un domaine pour la r\u00e8gle.</span>'; return; }
+      await postJson(BASE + '/fabstory-regle', {
+        fiche_id: e.id, domaine: domBtn.dataset.dom,
+        texte: (el('v-regle-texte').value||'').trim() || null, auteur
+      });
+    } else {
+      const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, portee_validation: portee });
+      choisieId = j.id;
+    }
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
@@ -758,7 +808,7 @@ function htmlSaisie(){
     esc(e.libelle) + '</button>').join('');
   return '' +
   '<div class="card"><h2><i class="ti ti-pencil-plus"></i> Nouvelle note</h2>' +
-  '<label class="mini">M\u00e9tier concern\u00e9</label>' +
+  '<label class="lbl" style="margin-top:0">M\u00e9tier concern\u00e9</label>' +
   '<div class="pastilles" id="metiers-fav">' + chipsMetier(favoris) + '</div>' +
   (autres.length ? '<details class="replis"><summary>Autres m\u00e9tiers</summary>' +
     '<div class="pastilles">' + chipsMetier(autres) + '</div></details>' : '') +
