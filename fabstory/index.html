@@ -285,7 +285,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.1';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -392,7 +392,7 @@ function rendreCartes(filtreTxt){
   } else {
     html += liste.map(p =>
       '<div class="carte-item" onclick="ouvrirFiche(' + p.id + ')">' +
-      '<div><div class="ref">' + esc(p.ref_carte || p.cle_produit) + '</div>' +
+      '<div><div class="ref">' + esc(p.cle_produit || p.ref_carte) + '</div>' +
       '<div class="lib">' + esc(p.libelle_carte || '') + '</div></div>' +
       '<div class="cli">' + esc(p.nom_client || p.code_client || '') + '</div></div>').join('');
   }
@@ -438,7 +438,8 @@ function retourCartes(){
 async function chargerStatut(){
   if(!P || !P.cle_produit) return;
   try{
-    STATUT = await getJson(BASE + '/fabstory-statut?ref=' + encodeURIComponent(P.cle_produit));
+    STATUT = await getJson(BASE + '/fabstory-statut?ref=' + encodeURIComponent(P.cle_produit) +
+      '&libelle=' + encodeURIComponent(P.libelle_carte || ''));
   }catch(e){
     STATUT = { erreur: e.message };
   }
@@ -588,7 +589,7 @@ function rendreFiche(){
   let html =
     '<button class="btn-s" style="margin-bottom:11px" onclick="retourCartes()"><i class="ti ti-arrow-left"></i> Cartes</button>' +
     '<div class="hero"><div class="hero-haut">' +
-    '<span class="hero-ref">' + esc(P.ref_carte || P.cle_produit) + '</span>' +
+    '<span class="hero-ref">' + esc(P.cle_produit || P.ref_carte) + '</span>' +
     htmlIndice() + htmlLien() +
     '<span class="hero-lib">' + esc(P.libelle_carte || '') + '</span>' +
     '<span class="hero-cli">' + esc(P.nom_client || P.code_client || '') + '</span>' +
