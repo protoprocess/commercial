@@ -34,7 +34,7 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;padding:0 
 .logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--accent)}
 #hdr-version{margin-left:auto;font-size:11px;color:#64748b}
 .wrap{max-width:min(96vw,900px);margin:0 auto;padding:18px 14px 80px}
-body.volet-ouvert .wrap{max-width:min(96vw,1500px)}
+body.fiche-ouverte .wrap{max-width:min(96vw,1800px)}
 .page{display:flex;gap:14px;align-items:flex-start}
 .colonne-fil{flex:1;min-width:0}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px}
@@ -123,7 +123,7 @@ label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;m
 .dropzone{border:2px dashed var(--border2);border-radius:var(--radius);padding:14px;text-align:center;font-size:12.5px;color:var(--text2);cursor:pointer}
 .dropzone.survol{border-color:var(--accent);background:var(--accent-bg)}
 /* -------------------------------------------------------------------- volet */
-.volet{width:440px;flex:none;position:sticky;top:66px;max-height:calc(100vh - 82px);overflow:auto;display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.volet{width:clamp(420px,28vw,560px);flex:none;position:sticky;top:66px;max-height:calc(100vh - 82px);overflow:auto;display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
 body.avec-attente .volet,body.volet-ouvert .volet{display:block}
 .att-titre{font-size:13px;font-weight:700;color:var(--red-badge);margin:0 0 8px;display:flex;align-items:center;gap:6px}
 .att-mini{border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:8px 10px;margin-bottom:7px;cursor:pointer;background:#fff}
@@ -284,7 +284,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '0.7';
+const APP_VERSION = '0.8';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -408,6 +408,7 @@ async function ouvrirFiche(id){
   P = PRODUITS.find(p => p.id === id) || { id: id };
   el('ecran-cartes').style.display = 'none';
   el('ecran-fiche').style.display = '';
+  document.body.classList.add('fiche-ouverte');
   el('colonne-fil').innerHTML = '<div class="card"><p class="hint" style="margin:0"><span class="spin"></span> Lecture de la fiche\u2026</p></div>';
   saisie = { type:'note', etape:null, portee:null, repond_a:null };
   piecesSaisie = []; filtre = 'tous'; filtreMetier = ''; STATUT = null;
@@ -426,6 +427,7 @@ async function ouvrirFiche(id){
 function retourCartes(){
   el('ecran-fiche').style.display = 'none';
   el('ecran-cartes').style.display = '';
+  document.body.classList.remove('fiche-ouverte');
   choisieId = null;
   const d = el('volet-detail'); if(d) d.innerHTML = '';
   const za = el('zone-attente'); if(za) za.innerHTML = '';
@@ -479,11 +481,17 @@ function htmlStatut(){
 function htmlIndice(){
   const ind = FICHE.indice_courant;
   const hist = FICHE.indices || [];
-  const titre = hist.length
-    ? hist.map(i => 'Indice ' + i.indice + ' depuis le ' + fjour(i.depuis_le)).join('\n')
-    : 'Aucun indice renseign\u00e9 pour cette carte';
+  let titre;
+  if(hist.length){
+    titre = hist.map(i => 'Indice ' + i.indice + ' depuis le ' + fjour(i.depuis_le)).join('\n');
+  } else if(FICHE.indice_source === 'so'){
+    titre = 'Indice issu de la derni\u00e8re commande (non historis\u00e9) \u2014 le + l historisera au prochain changement';
+  } else {
+    titre = 'Aucun indice renseign\u00e9 pour cette carte';
+  }
   return '<span class="badge-indice" title="' + esc(titre) + '">' +
     '<i class="ti ti-versions"></i>Indice ' + (ind ? esc(ind) : '\u2014') +
+    (FICHE.indice_source === 'so' ? '<span style="font-weight:400;font-size:10.5px">\u00a0(SO)</span>' : '') +
     '<button class="plus" title="Nouvel indice" onclick="FS.ouvrirIndice()">+</button></span>';
 }
 function htmlLien(){
