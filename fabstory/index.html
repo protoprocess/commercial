@@ -112,7 +112,7 @@ textarea{resize:vertical;min-height:64px}
 .tl-meta{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
 .tl-texte{font-size:13.5px;line-height:1.5;white-space:pre-wrap}
 .tl-det{font-size:11.5px;color:var(--text2);font-family:var(--mono);margin-top:4px}
-.tl-comp{font-family:var(--mono);font-size:12px;font-weight:600;background:var(--surface2);border-radius:var(--radius);padding:3px 9px;display:inline-block;margin-bottom:6px}
+.tl-comp{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--info-txt);margin-bottom:5px}
 .tl-src{font-size:11px;color:var(--text3);margin-top:5px}
 label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;margin:8px 0 4px}
 /* -------------------------------------------------------------------- volet */
@@ -259,7 +259,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '0.3';
+const APP_VERSION = '0.4';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -281,16 +281,19 @@ const TYPES_LIBELLES = {
   note:'Information', question_client:'Question client', reponse_client:'R\u00e9ponse client',
   question_interne:'\u00c0 traiter', reponse_interne:'R\u00e9ponse interne', indice:'Indice'
 };
-const PORTEES_LIBELLES = { so:'valable pour ce SO', carte:'d\u00e9finitif pour cette carte', client:'r\u00e8gle client' };
+const PORTEES_LIBELLES = { so:'Cette commande', carte:'Cette carte', client:'Ce client' };
 const DOMAINES_REGLE = ['composants','production','pcb','livrables','identification','autre'];
 
 /* ================================================================ ETAT ==== */
+const SVG_OEIL = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const SVG_OEIL_BARRE = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>';
 const FS = {};
 let PRODUITS = [];
 let P = null;
 let FICHE = null;
 let STATUT = null;
 let filtre = 'tous';
+let filtreMetier = '';
 let choisieId = null;                 // entree ouverte dans le volet
 let saisie = { type:'note', etape:null, portee:null, repond_a:null };
 let piecesSaisie = [];                // pieces deposees pour la nouvelle note
@@ -382,7 +385,7 @@ async function ouvrirFiche(id){
   el('ecran-fiche').style.display = '';
   el('colonne-fil').innerHTML = '<div class="card"><p class="hint" style="margin:0"><span class="spin"></span> Lecture de la fiche\u2026</p></div>';
   saisie = { type:'note', etape:null, portee:null, repond_a:null };
-  piecesSaisie = []; filtre = 'tous'; STATUT = null;
+  piecesSaisie = []; filtre = 'tous'; filtreMetier = ''; STATUT = null;
   fermerVolet();
   try{
     FICHE = await getJson(BASE + '/fabstory-fiche?produit=' + encodeURIComponent(id));
@@ -461,8 +464,8 @@ function chipsEntree(e, complet, sansType){
   if(e.etat === 'resolu') h += '<span class="chip resolu-c">R\u00e9solu</span>';
   if(e.type !== 'indice'){
     h += e.visible_client
-      ? '<span class="chip vis-client"><i class="ti ti-eye"></i> Client</span>'
-      : '<span class="chip vis-interne"><i class="ti ti-eye-off"></i> Interne</span>';
+      ? '<span class="chip vis-client">' + SVG_OEIL + ' Client</span>'
+      : '<span class="chip vis-interne">' + SVG_OEIL_BARRE + ' Interne</span>';
   }
   if(e.portee_validation) h += '<span class="chip portee">' + esc(PORTEES_LIBELLES[e.portee_validation]) + '</span>';
   if(e.deja_regle) h += '<span class="chip regle-c"><i class="ti ti-gavel"></i> R\u00e8gle</span>';
@@ -473,9 +476,9 @@ function compEntree(e){
   /* retour Olivier : identifier D ABORD le composant, la cause ensuite */
   if(!e.repere && !e.mpn) return '';
   const m = [];
-  if(e.repere) m.push('Rep. ' + e.repere);
-  if(e.mpn) m.push('R\u00e9f./MPN ' + e.mpn);
-  return '<div class="tl-comp">' + esc(m.join(' \u2014 ')) + '</div>';
+  if(e.repere) m.push('Rep: ' + e.repere);
+  if(e.mpn) m.push('Ref/MPN: ' + e.mpn);
+  return '<div class="tl-comp">' + esc(m.join('\u00a0\u00a0\u00a0')) + '</div>';
 }
 function detEntree(e){
   const m = [];
@@ -496,6 +499,7 @@ function piecesEntree(e){
   }).join('') + '</p>';
 }
 function passeFiltre(e){
+  if(filtreMetier && e.etape_code !== filtreMetier && !((e.poles||[]).includes(filtreMetier))) return false;
   if(filtre === 'tous') return true;
   if(filtre === 'attente') return e.etat === 'en_attente';
   if(filtre === 'client')  return e.visible_client === true;
@@ -558,6 +562,11 @@ function rendreFiche(){
     '<div class="filtres">' +
     [['tous','Tous'],['attente','En attente'],['client','Visible client'],['interne','Interne']].map(f =>
       '<button class="filtre' + (filtre===f[0]?' on':'') + '" onclick="FS.filtrer(\'' + f[0] + '\')">' + f[1] + '</button>').join('') +
+    '<select onchange="FS.filtrerMetier(this.value)" style="width:auto;padding:5px 9px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2)">' +
+    '<option value="">Tous les m\u00e9tiers</option>' +
+    (FICHE.etapes||[]).map(x => '<option value="' + x.code + '"' + (filtreMetier===x.code?' selected':'') + '>' + esc(x.libelle) + '</option>').join('') +
+    '</select>' +
+    '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie le suivi visible client, pr\u00eat \u00e0 coller dans un mail">Copier pour le client</button>' +
     '</div>';
   if(!visibles.length){
     html += '<p class="hint" style="margin:0">' + (racines.length ? 'Rien ne passe ce filtre.' :
@@ -573,6 +582,32 @@ function rendreFiche(){
   brancherSaisie();
 }
 FS.filtrer = function(f){ filtre = f; rendreFiche(); };
+FS.filtrerMetier = function(m){ filtreMetier = m; rendreFiche(); };
+FS.copierClient = async function(){
+  /* collecte du suivi visible client, pret a coller dans un mail */
+  const tout = (FICHE.entrees || []).filter(e => e.visible_client).slice().reverse();
+  const lignes = [];
+  lignes.push('Suivi de votre carte ' + (P.libelle_carte || '') + ' (' + (P.ref_carte || P.cle_produit) + ')');
+  if(FICHE.indice_courant) lignes.push('Indice courant : ' + FICHE.indice_courant);
+  if(STATUT && STATUT.statut){
+    const s = STATUTS.find(x => x.code === STATUT.statut);
+    lignes.push('Statut : ' + (s ? s.libelle : STATUT.statut) + (STATUT.so ? ' (' + STATUT.so + ')' : ''));
+  }
+  lignes.push('');
+  if(!tout.length) lignes.push('(aucun \u00e9l\u00e9ment visible client pour le moment)');
+  tout.forEach(e => {
+    const comp = [e.repere ? 'Rep ' + e.repere : null, e.mpn || null].filter(Boolean).join(', ');
+    lignes.push('- ' + fjour(e.cree_le) + (comp ? ' [' + comp + ']' : '') + ' : ' + (e.texte_brut || '') +
+      (e.etat === 'en_attente' ? '  \u2192 en attente de votre retour' : ''));
+  });
+  const texte = lignes.join('\n');
+  try{
+    await navigator.clipboard.writeText(texte);
+    alert('Suivi copi\u00e9 (' + tout.length + ' \u00e9l\u00e9ment(s) visibles client). Collez-le dans votre mail.');
+  }catch(err){
+    prompt('Copiez le texte ci-dessous :', texte);
+  }
+};
 
 /* ================================================================ VOLET ==== */
 function fermerVolet(){
@@ -643,9 +678,9 @@ function ouvrirVolet(id){
       h += '<details class="v-sec"><summary><i class="ti ti-gavel"></i> Port\u00e9e de cette validation</summary>' +
         (dejaP ? '<p class="hint" style="margin:0 0 7px">' + dejaP + '</p>' : '') +
         '<div class="pastilles">' +
-        '<button class="pastille v-portee" data-portee="so">Pour ce SO seulement</button>' +
-        '<button class="pastille v-portee" data-portee="carte">Pour cette carte, toujours</button>' +
-        (e.deja_regle ? '' : '<button class="pastille v-portee" data-portee="client">R\u00e8gle client (toutes ses cartes)</button>') +
+        '<button class="pastille v-portee" data-portee="so">Cette commande</button>' +
+        '<button class="pastille v-portee" data-portee="carte">Cette carte</button>' +
+        (e.deja_regle ? '' : '<button class="pastille v-portee" data-portee="client">Ce client</button>') +
         '</div>' +
         (e.deja_regle ? '<p class="hint" style="margin:4px 0 0"><i class="ti ti-gavel"></i> D\u00e9j\u00e0 promue en r\u00e8gle client.</p>' : '') +
         '<div id="v-portee-client" style="display:none">' +
@@ -823,9 +858,9 @@ function htmlSaisie(){
   '<div id="zone-portee" style="display:none">' +
     '<label class="mini">Cette validation vaudra\u2026</label>' +
     '<div class="pastilles">' +
-      '<button class="pastille" data-portee="so">pour ce SO seulement</button>' +
-      '<button class="pastille" data-portee="carte">pour la carte, d\u00e9finitivement</button>' +
-      '<button class="pastille" data-portee="client">comme r\u00e8gle de ce client</button>' +
+      '<button class="pastille" data-portee="so">Cette commande</button>' +
+      '<button class="pastille" data-portee="carte">Cette carte</button>' +
+      '<button class="pastille" data-portee="client">Ce client</button>' +
     '</div></div>' +
   '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
     '<input type="checkbox" id="note-visible"> Visible du client</label>' +
