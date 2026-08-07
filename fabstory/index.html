@@ -124,7 +124,19 @@ label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;m
 .dropzone.survol{border-color:var(--accent);background:var(--accent-bg)}
 /* -------------------------------------------------------------------- volet */
 .volet{width:440px;flex:none;position:sticky;top:66px;max-height:calc(100vh - 82px);overflow:auto;display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
-body.volet-ouvert .volet{display:block}
+body.avec-attente .volet,body.volet-ouvert .volet{display:block}
+.att-titre{font-size:13px;font-weight:700;color:var(--red-badge);margin:0 0 8px;display:flex;align-items:center;gap:6px}
+.att-mini{border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:8px 10px;margin-bottom:7px;cursor:pointer;background:#fff}
+.att-mini:hover{border-color:var(--accent)}
+.att-mini.choisie{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.att-mini .am-comp{font-family:var(--mono);font-size:11.5px;font-weight:600;margin-bottom:2px}
+.att-mini .am-comp .cl{color:var(--text2)}.att-mini .am-comp .cv{color:var(--info-txt)}
+.att-mini .am-texte{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#zone-attente:not(:empty){border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:12px}
+.attente-strip{display:none;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:9px}
+.attente-strip .att-mini{min-width:210px;max-width:260px;flex:none;margin-bottom:0}
+.badge-lien{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);color:var(--info-txt);border:1px solid var(--border2);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer}
+.badge-lien:hover{border-color:var(--info)}
 .volet h2{position:sticky;top:-16px;background:var(--surface);padding:6px 0;z-index:2}
 .volet-fermer{margin-left:auto;background:none;border:none;font-size:18px;color:var(--text3);padding:2px 6px}
 .volet section{border-top:1px solid var(--border);padding:11px 0}
@@ -157,9 +169,12 @@ label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 dialog{border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;max-width:440px;width:92vw}
 dialog::backdrop{background:rgba(20,26,36,.45)}
 @media(max-width:1259px){
-  /* retour Olivier : le volet en colonne partait hors ecran sur portable ->
-     sous 1260px il devient un TIROIR fixe a droite, toujours visible */
+  /* sous 1260px : tiroir fixe, ouvert seulement quand un detail est choisi ;
+     la zone d attente passe en bandeau horizontal au-dessus du fil */
   .volet{position:fixed;top:52px;right:0;bottom:0;width:min(460px,96vw);max-height:none;border-radius:0;box-shadow:-10px 0 26px rgba(20,26,36,.2);z-index:60}
+  body.avec-attente .volet{display:none}
+  body.volet-ouvert .volet{display:block}
+  .attente-strip{display:flex}
 }
 @media(max-width:920px){
   .wrap{padding:11px}
@@ -243,7 +258,10 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   <div id="ecran-fiche" style="display:none">
     <div class="page">
       <div class="colonne-fil" id="colonne-fil"></div>
-      <aside class="volet" id="volet"></aside>
+      <aside class="volet" id="colonne-droite">
+        <div id="zone-attente"></div>
+        <div id="volet-detail"></div>
+      </aside>
     </div>
   </div>
 </div>
@@ -266,7 +284,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '0.6';
+const APP_VERSION = '0.7';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -408,7 +426,10 @@ async function ouvrirFiche(id){
 function retourCartes(){
   el('ecran-fiche').style.display = 'none';
   el('ecran-cartes').style.display = '';
-  fermerVolet();
+  choisieId = null;
+  const d = el('volet-detail'); if(d) d.innerHTML = '';
+  const za = el('zone-attente'); if(za) za.innerHTML = '';
+  document.body.classList.remove('avec-attente', 'volet-ouvert');
   P = null; FICHE = null; STATUT = null;
 }
 async function chargerStatut(){
@@ -465,6 +486,24 @@ function htmlIndice(){
     '<i class="ti ti-versions"></i>Indice ' + (ind ? esc(ind) : '\u2014') +
     '<button class="plus" title="Nouvel indice" onclick="FS.ouvrirIndice()">+</button></span>';
 }
+function htmlLien(){
+  const l = FICHE.lien_luminovo;
+  if(l && l.url){
+    return '<a class="badge-lien" href="' + esc(l.url) + '" target="_blank" rel="noopener" ' +
+      'title="Ouvrir dans Luminovo' + (l.indice ? ' (indice ' + esc(l.indice) + ')' : '') + '">Luminovo</a>' +
+      '<button class="badge-lien" style="padding:2px 8px" title="Modifier le lien" onclick="FS.editerLien()">\u270e</button>';
+  }
+  return '<button class="badge-lien" onclick="FS.editerLien()">+ Luminovo</button>';
+}
+FS.editerLien = async function(){
+  const actuel = (FICHE.lien_luminovo && FICHE.lien_luminovo.url) || '';
+  const v = prompt('Lien Luminovo de cette carte (vide pour le retirer) :', actuel);
+  if(v === null) return;
+  try{
+    await postJson(BASE + '/fabstory-lien-carte', { produit_id: P.id, lien: v.trim() || null });
+    await recharger(true);
+  }catch(e){ alert('Lien non enregistr\u00e9 : ' + e.message); }
+};
 function chipsEntree(e, complet, sansType){
   let h = sansType ? '' : '<span class="chip ' + esc(e.type) + '">' + esc(TYPES_LIBELLES[e.type] || e.type) + '</span>';
   if(e.etat === 'en_attente') h += '<span class="chip attente-c">En attente</span>';
@@ -526,7 +565,6 @@ function rendreFiche(){
   const z = el('colonne-fil');
   const entrees = FICHE.entrees || [];
   const enAttente = FICHE.en_attente || [];
-  const attIds = new Set(enAttente.map(a => a.id));
   const regles = FICHE.regles || [];
 
   /* arbre question -> reponses (retour n1 : les reponses sous leur question) */
@@ -535,14 +573,14 @@ function rendreFiche(){
   entrees.forEach(e => {
     if(e.repond_a && parId[e.repond_a]) (enfants[e.repond_a] = enfants[e.repond_a] || []).push(e);
   });
-  const racines = entrees.filter(e => !(e.repond_a && parId[e.repond_a]) && !attIds.has(e.id));
+  const racines = entrees.filter(e => !(e.repond_a && parId[e.repond_a]));
   Object.values(enfants).forEach(l => l.sort((a,b) => new Date(a.cree_le) - new Date(b.cree_le)));
 
   let html =
     '<button class="btn-s" style="margin-bottom:11px" onclick="retourCartes()"><i class="ti ti-arrow-left"></i> Cartes</button>' +
     '<div class="hero"><div class="hero-haut">' +
     '<span class="hero-ref">' + esc(P.ref_carte || P.cle_produit) + '</span>' +
-    htmlIndice() +
+    htmlIndice() + htmlLien() +
     '<span class="hero-lib">' + esc(P.libelle_carte || '') + '</span>' +
     '<span class="hero-cli">' + esc(P.nom_client || P.code_client || '') + '</span>' +
     '</div>' + htmlStatut() + '</div>';
@@ -554,17 +592,13 @@ function rendreFiche(){
       '</details></div>';
   }
 
-  if(enAttente.length){
-    html += '<div class="card attente"><h2><i class="ti ti-alert-circle"></i> En attente de r\u00e9ponse (' + enAttente.length + ')</h2>';
-    const complets = entrees.filter(e => attIds.has(e.id));
-    html += (complets.length ? complets : enAttente).map(e => htmlEntree(e)).join('');
-    html += '</div>';
-  }
-
   html += htmlSaisie();
 
   const visibles = racines.filter(passeFiltre);
-  html += '<div class="card"><h2><i class="ti ti-timeline"></i> Fil de la carte' +
+  const strip = enAttente.length
+    ? '<div class="attente-strip">' + enAttente.map(a => miniAttente(a)).join('') + '</div>'
+    : '';
+  html += '<div class="card">' + strip + '<h2><i class="ti ti-timeline"></i> Fil de la carte' +
     ' <span class="hint" style="font-weight:400">(' + racines.length + ')</span></h2>' +
     '<div class="filtres">' +
     [['tous','Tous'],['attente','En attente'],['client','Visible client'],['interne','Interne']].map(f =>
@@ -593,6 +627,27 @@ function rendreFiche(){
 
   z.innerHTML = html;
   brancherSaisie();
+  majAside();
+}
+function miniAttente(a){
+  const comp = [];
+  if(a.repere) comp.push('<span class="cl">Rep:</span> <span class="cv">' + esc(a.repere) + '</span>');
+  if(a.mpn) comp.push('<span class="cl">Ref/MPN:</span> <span class="cv">' + esc(a.mpn) + '</span>');
+  return '<div class="att-mini' + (a.id===choisieId?' choisie':'') + '" onclick="ouvrirVolet(' + a.id + ')">' +
+    (comp.length ? '<div class="am-comp">' + comp.join('\u00a0\u00a0') + '</div>' : '') +
+    '<div class="am-texte">' + esc(a.texte_brut || '') + '</div></div>';
+}
+function majAside(){
+  const enAttente = FICHE ? (FICHE.en_attente || []) : [];
+  const zone = el('zone-attente');
+  if(zone){
+    zone.innerHTML = enAttente.length
+      ? '<h3 class="att-titre">En attente de r\u00e9ponse (' + enAttente.length + ')</h3>' +
+        enAttente.map(a => miniAttente(a)).join('')
+      : '';
+  }
+  document.body.classList.toggle('avec-attente', enAttente.length > 0);
+  document.body.classList.toggle('volet-ouvert', !!choisieId);
 }
 FS.filtrer = function(f){ filtre = f; rendreFiche(); };
 FS.filtrerMetier = function(m){ filtreMetier = m; rendreFiche(); };
@@ -621,15 +676,15 @@ FS.copierClient = async function(){
 /* ================================================================ VOLET ==== */
 function fermerVolet(){
   choisieId = null;
-  document.body.classList.remove('volet-ouvert');
-  el('volet').innerHTML = '';
+  const d = el('volet-detail');
+  if(d) d.innerHTML = '';
+  majAside();
 }
 FS.fermerVolet = fermerVolet;
 function ouvrirVolet(id){
   const e = entree(id);
   if(!e) return;
   choisieId = id;
-  document.body.classList.add('volet-ouvert');
   const etapes = FICHE.etapes || [];
   const estQuestion = (e.type === 'question_client' || e.type === 'question_interne');
   const chipsMetier = etapes.map(x =>
@@ -720,7 +775,8 @@ function ouvrirVolet(id){
       '<p class="hint" style="margin:7px 0 0">L\u2019entr\u00e9e dispara\u00eet de l\u2019affichage mais reste dans l\u2019historique.</p></details>';
   }
 
-  el('volet').innerHTML = h;
+  el('volet-detail').innerHTML = h;
+  majAside();
 
   /* pastilles du volet */
   document.querySelectorAll('.v-metier').forEach(b => b.onclick = () => {
@@ -749,8 +805,11 @@ function ouvrirVolet(id){
   });
 
   if(window.innerWidth >= 1260){
-    el('volet').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    el('colonne-droite').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+  document.querySelectorAll('.att-mini').forEach(x => {
+    x.classList.toggle('choisie', x.getAttribute('onclick') === 'ouvrirVolet(' + id + ')');
+  });
   /* marquer la selection dans le fil sans tout re-rendre */
   document.querySelectorAll('.tl-entree').forEach(x => x.classList.remove('choisie'));
   document.querySelectorAll('.tl-entree').forEach(x => {
@@ -900,12 +959,11 @@ function htmlSaisie(){
     '</div></div>' +
   '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
     '<input type="checkbox" id="note-visible"> Visible du client</label>' +
-  '<details class="replis"><summary>Rep\u00e8re, composant, lien</summary>' +
+  '<details class="replis"><summary>Rep\u00e8re, composant</summary>' +
     '<div class="grille2">' +
     '<div><label class="mini">Rep\u00e8re</label><input type="text" id="note-repere" placeholder="C12, U3\u2026"></div>' +
     '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div>' +
     '</div>' +
-    '<label class="mini">Lien</label><input type="text" id="note-lien" placeholder="https://\u2026">' +
   '</details>' +
   '<details class="replis"><summary>Photo ou fichier joint</summary>' +
     '<div class="dropzone" id="drop-piece">Glissez un fichier ici, ou cliquez pour parcourir' +
@@ -1048,7 +1106,7 @@ async function envoyerNote(){
     etape_code: saisie.etape || null,
     repere: el('note-repere').value.trim() || null,
     mpn: el('note-mpn').value.trim() || null,
-    lien: el('note-lien').value.trim() || null,
+    lien: null,
     photos: piecesSaisie.map(p => p.chemin),
     visible_client: el('note-visible').checked,
     portee_validation: (saisie.type === 'question_client') ? saisie.portee : null,
