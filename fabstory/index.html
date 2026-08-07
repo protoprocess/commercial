@@ -112,7 +112,9 @@ textarea{resize:vertical;min-height:64px}
 .tl-meta{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
 .tl-texte{font-size:13.5px;line-height:1.5;white-space:pre-wrap}
 .tl-det{font-size:11.5px;color:var(--text2);font-family:var(--mono);margin-top:4px}
-.tl-comp{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--info-txt);margin-bottom:5px}
+.tl-comp{font-family:var(--mono);font-size:12.5px;font-weight:600;margin-bottom:5px}
+.tl-comp .cl{color:var(--text2)}
+.tl-comp .cv{color:var(--info-txt)}
 .tl-src{font-size:11px;color:var(--text3);margin-top:5px}
 label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;margin:8px 0 4px}
 /* -------------------------------------------------------------------- volet */
@@ -259,7 +261,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '0.4';
+const APP_VERSION = '0.5';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -476,9 +478,9 @@ function compEntree(e){
   /* retour Olivier : identifier D ABORD le composant, la cause ensuite */
   if(!e.repere && !e.mpn) return '';
   const m = [];
-  if(e.repere) m.push('Rep: ' + e.repere);
-  if(e.mpn) m.push('Ref/MPN: ' + e.mpn);
-  return '<div class="tl-comp">' + esc(m.join('\u00a0\u00a0\u00a0')) + '</div>';
+  if(e.repere) m.push('<span class="cl">Rep:</span> <span class="cv">' + esc(e.repere) + '</span>');
+  if(e.mpn) m.push('<span class="cl">Ref/MPN:</span> <span class="cv">' + esc(e.mpn) + '</span>');
+  return '<div class="tl-comp">' + m.join('\u00a0\u00a0\u00a0') + '</div>';
 }
 function detEntree(e){
   const m = [];
@@ -566,7 +568,7 @@ function rendreFiche(){
     '<option value="">Tous les m\u00e9tiers</option>' +
     (FICHE.etapes||[]).map(x => '<option value="' + x.code + '"' + (filtreMetier===x.code?' selected':'') + '>' + esc(x.libelle) + '</option>').join('') +
     '</select>' +
-    '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie le suivi visible client, pr\u00eat \u00e0 coller dans un mail">Copier pour le client</button>' +
+    '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
     '</div>';
   if(!visibles.length){
     html += '<p class="hint" style="margin:0">' + (racines.length ? 'Rien ne passe ce filtre.' :
@@ -584,26 +586,22 @@ function rendreFiche(){
 FS.filtrer = function(f){ filtre = f; rendreFiche(); };
 FS.filtrerMetier = function(m){ filtreMetier = m; rendreFiche(); };
 FS.copierClient = async function(){
-  /* collecte du suivi visible client, pret a coller dans un mail */
-  const tout = (FICHE.entrees || []).filter(e => e.visible_client).slice().reverse();
+  /* collecte des QUESTIONS CLIENT ouvertes, a joindre au devis (retour Olivier) */
+  const questions = (FICHE.entrees || [])
+    .filter(e => e.type === 'question_client' && e.etat === 'en_attente')
+    .slice().reverse();
   const lignes = [];
-  lignes.push('Suivi de votre carte ' + (P.libelle_carte || '') + ' (' + (P.ref_carte || P.cle_produit) + ')');
-  if(FICHE.indice_courant) lignes.push('Indice courant : ' + FICHE.indice_courant);
-  if(STATUT && STATUT.statut){
-    const s = STATUTS.find(x => x.code === STATUT.statut);
-    lignes.push('Statut : ' + (s ? s.libelle : STATUT.statut) + (STATUT.so ? ' (' + STATUT.so + ')' : ''));
-  }
+  lignes.push('Points en attente de votre validation \u2014 carte ' + (P.libelle_carte || '') + ' (' + (P.ref_carte || P.cle_produit) + ')');
   lignes.push('');
-  if(!tout.length) lignes.push('(aucun \u00e9l\u00e9ment visible client pour le moment)');
-  tout.forEach(e => {
+  if(!questions.length) lignes.push('(aucune question client en attente)');
+  questions.forEach((e, i) => {
     const comp = [e.repere ? 'Rep ' + e.repere : null, e.mpn || null].filter(Boolean).join(', ');
-    lignes.push('- ' + fjour(e.cree_le) + (comp ? ' [' + comp + ']' : '') + ' : ' + (e.texte_brut || '') +
-      (e.etat === 'en_attente' ? '  \u2192 en attente de votre retour' : ''));
+    lignes.push((i + 1) + '. ' + (comp ? '[' + comp + '] ' : '') + (e.texte_brut || ''));
   });
   const texte = lignes.join('\n');
   try{
     await navigator.clipboard.writeText(texte);
-    alert('Suivi copi\u00e9 (' + tout.length + ' \u00e9l\u00e9ment(s) visibles client). Collez-le dans votre mail.');
+    alert(questions.length + ' question(s) client copi\u00e9e(s), pr\u00eates \u00e0 joindre au devis.');
   }catch(err){
     prompt('Copiez le texte ci-dessous :', texte);
   }
@@ -656,11 +654,12 @@ function ouvrirVolet(id){
       '<button class="btn-s" onclick="FS.voletModifier()">Enregistrer la modification</button>' +
       '<p class="hint" style="margin:7px 0 0">L\u2019ancienne version reste dans l\u2019historique.</p></details>';
 
-    h += '<details class="v-sec"><summary><i class="ti ti-eye"></i> Visibilit\u00e9 client</summary>' +
-      '<p class="hint" style="margin:0 0 8px">Actuellement : <strong>' + (e.visible_client ? 'visible du client' : 'interne') + '</strong></p>' +
+    h += '<details class="v-sec"><summary>' + (e.visible_client ? SVG_OEIL : SVG_OEIL_BARRE) + ' Visibilit\u00e9 client</summary>' +
+      '<p class="hint" style="margin:0 0 8px">Actuellement : ' + (e.visible_client ? SVG_OEIL : SVG_OEIL_BARRE) +
+      ' <strong>' + (e.visible_client ? 'visible du client' : 'interne') + '</strong></p>' +
       '<div id="v-vis-msg" style="min-height:16px"></div>' +
       '<button class="btn-s" onclick="FS.voletVisibilite(' + (e.visible_client ? 'false' : 'true') + ')">' +
-      (e.visible_client ? 'Rendre interne' : 'Rendre visible du client') + '</button></details>';
+      (e.visible_client ? SVG_OEIL_BARRE + ' Rendre interne' : SVG_OEIL + ' Rendre visible du client') + '</button></details>';
 
     h += '<details class="v-sec"><summary><i class="ti ti-category"></i> M\u00e9tier et destinataires</summary>' +
       '<label class="lbl">M\u00e9tier concern\u00e9</label><div class="pastilles">' + chipsMetier + '</div>' +
