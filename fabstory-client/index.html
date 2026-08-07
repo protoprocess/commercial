@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Suivi de votre carte</title>
+<style>
+  :root {
+    /* Palette FabStory theme clair (v0.9 : l'orange agit, le bleu informe) */
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e3e7ee;
+    --border2: #d2d9e4;
+    --text: #1c2430;
+    --text2: #5a6678;
+    --text3: #8b96a8;
+    --accent: #F8952D;
+    --accent-fonce: #d97c14;
+    --info: #5BC4D8;
+    --info-bg: #EAF7FA;
+    --info-txt: #1B7A8F;
+    --rouge: #c93b3b;
+    --rouge-bg: #fdeeee;
+    --vert: #3B6D11;
+    --vert-bg: #EAF3DE;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+
+  header {
+    background: #0f1117; height: 52px; display: flex; align-items: center;
+    padding: 0 18px; gap: 9px; position: sticky; top: 0; z-index: 10;
+  }
+  .logo-text { display: flex; align-items: center; font-size: 13px; font-weight: 500; }
+  .logo-text .lt { color: #fff; }
+  .logo-text .ls { color: #555; margin: 0 5px; }
+  .logo-text .lo { color: var(--accent); }
+  .ver { margin-left: auto; color: #6b7280; font-size: 11px; font-family: var(--mono); }
+
+  main { max-width: 860px; margin: 0 auto; padding: 22px 16px 60px; }
+
+  .carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+
+  /* ---- Hero ---- */
+  #hero { margin-bottom: 22px; }
+  .hero-haut { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+  .hero-ref { font-family: var(--mono); font-size: 20px; font-weight: 700; letter-spacing: 0.2px; }
+  .hero-lib { font-size: 15px; font-weight: 600; color: var(--text2); }
+  .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 11px; font-size: 12px; font-weight: 600; }
+  .badge-indice { background: var(--info-bg); color: var(--info-txt); }
+  .hero-client { color: var(--text3); font-size: 12.5px; margin-top: 4px; }
+
+  /* Barre de jalons */
+  .jalons { display: flex; align-items: center; margin-top: 18px; }
+  .jalon { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+  .jalon .pt {
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border: 2px solid var(--border2); color: var(--text3); z-index: 1;
+  }
+  .jalon .lbl { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.2; }
+  .jalon:not(:first-child)::before {
+    content: ""; position: absolute; top: 12px; right: 50%; width: 100%; height: 2px; background: var(--border2);
+  }
+  .jalon.fait .pt { background: var(--info-bg); border-color: var(--info); color: var(--info-txt); }
+  .jalon.fait .lbl { color: var(--info-txt); font-weight: 600; }
+  .jalon.fait:not(:first-child)::before { background: var(--info); }
+  .jalon.actuel .pt { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .jalon.actuel .lbl { color: var(--accent-fonce); font-weight: 700; }
+  .jalon.actuel:not(:first-child)::before { background: var(--info); }
+  .jalons.attente .pt { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) { .jalons.attente .pt { animation: none; } }
+  .jalons-note { margin-top: 8px; font-size: 11.5px; color: var(--text3); text-align: center; }
+
+  /* ---- Bandeaux d'etat ---- */
+  .bandeau { border-radius: var(--radius); padding: 12px 15px; font-size: 13px; margin-bottom: 18px; }
+  .bandeau-info { background: var(--info-bg); color: var(--info-txt); border: 1px solid #cdeaf1; }
+
+  /* ---- Points a trancher ---- */
+  .sec-titre { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; margin: 26px 0 12px; }
+  .sec-titre .compte { background: var(--rouge); color: #fff; border-radius: 20px; font-size: 12px; padding: 1px 9px; }
+  .sec-titre .compte.zero { background: var(--vert); }
+  .sec-sous { font-size: 12.5px; color: var(--text2); margin: -6px 0 14px; }
+
+  .point { border-left: 4px solid var(--rouge); margin-bottom: 14px; padding: 16px 18px; }
+  .point.resolu { border-left-color: var(--vert); }
+  .point-tete { display: flex; align-items: flex-start; gap: 11px; }
+  .point-ico { flex: none; margin-top: 1px; }
+  .point-corps { flex: 1; min-width: 0; }
+  .badge-so { background: var(--accent); color: #fff; }
+  .comp { font-family: var(--mono); font-size: 12.5px; margin-bottom: 5px; overflow-wrap: anywhere; }
+  .comp .k { color: var(--text2); }
+  .comp .v { color: var(--info-txt); font-weight: 600; }
+  .point-texte { font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .point-meta { font-size: 11.5px; color: var(--text3); margin-top: 5px; }
+
+  /* Formulaire de reponse */
+  .rep-form { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 13px; }
+  .rep-lbl { font-size: 12px; font-weight: 600; color: var(--info-txt); margin-bottom: 7px; }
+  .choix-liste { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 11px; }
+  .choix-btn {
+    border: 1px solid var(--border2); background: var(--surface); color: var(--text2);
+    border-radius: 20px; padding: 6px 14px; font-size: 12.5px; cursor: pointer; font-family: var(--sans);
+  }
+  .choix-btn:hover { border-color: var(--accent); color: var(--text); }
+  .choix-btn.sel { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .choix-btn:focus-visible, .portee-btn:focus-visible, .btn-envoyer:focus-visible, textarea:focus-visible, input:focus-visible {
+    outline: 2px solid var(--info-txt); outline-offset: 2px;
+  }
+  textarea, input[type=text] {
+    width: 100%; border: 1px solid var(--border2); border-radius: var(--radius); background: #fcfdfe;
+    padding: 9px 11px; font-size: 13px; font-family: var(--sans); color: var(--text); resize: vertical;
+  }
+  textarea { min-height: 64px; }
+  .portee-liste { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 12px; }
+  .portee-btn {
+    border: 1px solid var(--border); background: var(--bg); color: var(--text2);
+    border-radius: 20px; padding: 4px 12px; font-size: 11.5px; cursor: pointer; font-family: var(--sans);
+  }
+  .portee-btn.sel { background: var(--info-bg); border-color: var(--info); color: var(--info-txt); font-weight: 700; }
+  .rep-bas { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  .rep-bas input { flex: 1; min-width: 170px; width: auto; }
+  .btn-envoyer {
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+    padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--sans);
+  }
+  .btn-envoyer:hover { background: var(--accent-fonce); }
+  .btn-envoyer:disabled { opacity: 0.55; cursor: default; }
+  .rep-erreur { color: var(--rouge); font-size: 12.5px; margin-top: 9px; display: none; }
+  .rep-fait { background: var(--vert-bg); color: var(--vert); border-radius: var(--radius); padding: 10px 13px; font-size: 13px; margin-top: 13px; display: flex; gap: 9px; align-items: flex-start; }
+  .rep-fait .txt { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* ---- Fil ---- */
+  .fil { display: flex; flex-direction: column; gap: 11px; }
+  .entree { padding: 14px 17px; }
+  .entree-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .chip { border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  .chip-etape { background: var(--info-bg); color: var(--info-txt); }
+  .chip-attente { background: var(--rouge-bg); color: var(--rouge); }
+  .chip-resolu { background: var(--vert-bg); color: var(--vert); }
+  .entree-date { font-size: 11.5px; color: var(--text3); margin-left: auto; }
+  .entree-texte { font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .entree.indice-evt { background: var(--info-bg); border-color: #cdeaf1; }
+  .entree.indice-evt .entree-texte { color: var(--info-txt); font-weight: 600; }
+  .reponse-bloc { margin-top: 10px; margin-left: 16px; border-left: 3px solid var(--vert); background: #fbfdf8; border-radius: 0 var(--radius) var(--radius) 0; padding: 10px 13px; }
+  .reponse-de { font-size: 11.5px; color: var(--vert); font-weight: 700; margin-bottom: 3px; }
+  .vide { color: var(--text3); font-size: 13px; text-align: center; padding: 26px 0; }
+
+  /* ---- Page entiere en refus / chargement ---- */
+  #chargement, #refus { text-align: center; padding: 70px 20px; color: var(--text2); }
+  #refus h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
+  #refus p { font-size: 13.5px; max-width: 420px; margin: 0 auto; }
+
+  footer { text-align: center; color: var(--text3); font-size: 11px; padding: 26px 0 34px; font-family: var(--mono); }
+
+  @media (max-width: 560px) {
+    .jalon .lbl { font-size: 10px; }
+    .hero-ref { font-size: 17px; }
+    main { padding: 14px 10px 50px; }
+    .carte { padding: 15px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
+       style="object-fit:contain" onerror="this.style.display='none'">
+  <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi de votre carte</span></span>
+  <span class="ver" id="verBadge"></span>
+</header>
+
+<main>
+  <div id="chargement">Chargement de votre suivi&hellip;</div>
+
+  <div id="refus" style="display:none">
+    <h1>Ce lien n&rsquo;est pas ou plus valide</h1>
+    <p>Le lien de suivi que vous avez ouvert n&rsquo;est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.</p>
+  </div>
+
+  <div id="contenu" style="display:none">
+    <section id="hero" class="carte">
+      <div class="hero-haut">
+        <span class="hero-ref" id="heroRef"></span>
+        <span class="hero-lib" id="heroLib"></span>
+        <span class="badge badge-indice" id="heroIndice" style="display:none"></span>
+      </div>
+      <div class="hero-client" id="heroClient"></div>
+      <div class="jalons attente" id="jalons"></div>
+      <div class="jalons-note" id="jalonsNote">Statut de fabrication en cours de lecture&hellip;</div>
+    </section>
+
+    <div class="bandeau bandeau-info" id="bandeauLecture" style="display:none">
+      Ce lien est en lecture seule : le suivi reste consultable, mais les r&eacute;ponses en ligne sont ferm&eacute;es. Contactez Proto Process pour toute question.
+    </div>
+
+    <div class="sec-titre" id="pointsTitre" style="display:none">
+      <span id="pointsIco"></span>
+      <span>Points &agrave; trancher</span>
+      <span class="compte" id="pointsCompte"></span>
+    </div>
+    <div class="sec-sous" id="pointsSous" style="display:none">Votre r&eacute;ponse d&eacute;bloque directement la pr&eacute;paration de votre carte.</div>
+    <div id="points"></div>
+
+    <div class="sec-titre"><span>Historique de votre carte</span></div>
+    <div class="fil" id="fil"></div>
+  </div>
+</main>
+
+<footer id="pied"></footer>
+
+<script>
+"use strict";
+/* =========================================================================
+   FABSTORY — VUE CLIENT PAR LIEN A JETON (chantiers 61 / 95 / 106)
+   Page publique : AUCUNE cle d'acces ici, le jeton de l'URL est le seul
+   secret et il est valide cote serveur. Tout ce que cette page recoit a
+   deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
+   ========================================================================= */
+const APP_NAME = "FabStory Client";
+const APP_VERSION = "0.1";
+const APP_DATE = "07/08/2026";
+const API = "https://protoprocess.app.n8n.cloud/webhook";
+
+document.getElementById("verBadge").textContent = "v" + APP_VERSION;
+document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
+document.title = "Suivi de votre carte · " + APP_NAME + " v" + APP_VERSION;
+
+const params = new URLSearchParams(location.search);
+const JETON = (params.get("jeton") || "").trim();
+const SO_AVANT = (params.get("so") || "").trim();
+
+/* Les 5 choix fermes du chantier 106 (le systeme generique de choix par
+   question est un chantier futur — n°111). Les codes doivent rester alignes
+   avec le workflow FabStory - Client (public). */
+const CHOIX_FERMES = [
+  { code: "je_fournis",     label: "Je fournis ce composant" },
+  { code: "alternative_ok", label: "Une r\u00e9f\u00e9rence \u00e9quivalente est accept\u00e9e" },
+  { code: "attendre",       label: "Attendre le retour en disponibilit\u00e9" },
+  { code: "cabler_sans",    label: "C\u00e2bler sans ce composant" },
+  { code: "autre",          label: "Autre r\u00e9ponse\u2026" }
+];
+const PORTEES = [
+  { code: "so",     label: "Pour cette commande" },
+  { code: "carte",  label: "Pour cette carte, toujours" },
+  { code: "client", label: "Pour toutes nos cartes" }
+];
+const JALONS = [
+  { code: "devis",       label: "Devis" },
+  { code: "preparation", label: "Pr\u00e9paration" },
+  { code: "fabrication", label: "Fabrication" },
+  { code: "expediee",    label: "Exp\u00e9di\u00e9e" }
+];
+
+/* Icones en SVG EMBARQUE uniquement : la police d'icones ne charge pas chez
+   tous les utilisateurs (constat FabStory v0.4), et cette page est publique. */
+function svgCroix(taille) {
+  return '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="10" fill="#fdeeee" stroke="#c93b3b" stroke-width="2"/>' +
+    '<path d="M9 9l6 6M15 9l-6 6" stroke="#c93b3b" stroke-width="2.2" stroke-linecap="round"/></svg>';
+}
+function svgCoche(taille) {
+  return '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="10" fill="#EAF3DE" stroke="#3B6D11" stroke-width="2"/>' +
+    '<path d="M8 12.5l2.6 2.6L16 9.5" stroke="#3B6D11" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function svgPoint() {
+  return '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>';
+}
+
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+let DONNEES = null;
+
+/* ------------------------------------------------------------------ */
+/* Chargement en deux temps : le journal d'abord (rapide), le statut  */
+/* Odoo ensuite (~4 s) — le client n'attend jamais devant une page    */
+/* blanche pendant l'interrogation de l'ERP.                          */
+/* ------------------------------------------------------------------ */
+async function charger() {
+  if (!JETON) { montrerRefus(); return; }
+  let r;
+  try {
+    const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) +
+      (SO_AVANT ? "&so=" + encodeURIComponent(SO_AVANT) : ""));
+    r = await rep.json();
+  } catch (e) {
+    montrerRefus("Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.");
+    return;
+  }
+  if (!r || !r.ok) { montrerRefus(); return; }
+  DONNEES = r;
+  document.getElementById("chargement").style.display = "none";
+  document.getElementById("contenu").style.display = "block";
+  rendreHero(r);
+  rendrePoints(r);
+  rendreFil(r);
+  chargerStatut();
+}
+
+function montrerRefus(message) {
+  document.getElementById("chargement").style.display = "none";
+  const refus = document.getElementById("refus");
+  refus.style.display = "block";
+  if (message) refus.querySelector("p").textContent = message;
+}
+
+async function chargerStatut() {
+  try {
+    const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + "&partie=statut");
+    const r = await rep.json();
+    rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
+  } catch (e) {
+    rendreJalons(null, null);
+  }
+}
+
+/* ------------------------------ Hero ------------------------------ */
+function rendreHero(r) {
+  const p = r.produit || {};
+  document.getElementById("heroRef").textContent = p.ref_carte || p.cle_produit || "";
+  document.getElementById("heroLib").textContent = p.libelle_carte || "";
+  if (r.indice_courant) {
+    const b = document.getElementById("heroIndice");
+    b.textContent = "Indice " + r.indice_courant;
+    b.style.display = "inline-flex";
+  }
+  document.getElementById("heroClient").textContent = p.nom_client ? ("Carte suivie pour " + p.nom_client) : "";
+  rendreJalons(null, null, true);
+  if (r.repondable === false) document.getElementById("bandeauLecture").style.display = "block";
+}
+
+function rendreJalons(statut, so, enAttente) {
+  const conteneur = document.getElementById("jalons");
+  const note = document.getElementById("jalonsNote");
+  const idx = JALONS.findIndex(function (j) { return j.code === statut; });
+  conteneur.classList.toggle("attente", !!enAttente);
+  let html = "";
+  JALONS.forEach(function (j, i) {
+    let cls = "jalon";
+    if (idx >= 0) {
+      if (i < idx) cls += " fait";
+      else if (i === idx) cls += " actuel";
+    }
+    html += '<div class="' + cls + '"><span class="pt">' + svgPointOuCoche(i, idx) + '</span><span class="lbl">' + esc(j.label) + "</span></div>";
+  });
+  conteneur.innerHTML = html;
+  if (enAttente) { note.textContent = "Statut de fabrication en cours de lecture\u2026"; return; }
+  if (idx < 0) { note.textContent = "Statut de fabrication indisponible pour le moment."; return; }
+  note.textContent = "Statut actuel : " + JALONS[idx].label + (so ? " (commande " + so + ")" : "");
+}
+function svgPointOuCoche(i, idx) {
+  if (idx >= 0 && i < idx) {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  return svgPoint();
+}
+
+/* -------------------------- Points a trancher --------------------- */
+function rendrePoints(r) {
+  const attente = (r.entrees || []).filter(function (e) { return e.a_repondre; });
+  /* Les points de la commande du lien (&so=) passent en tete (decision 07/08). */
+  attente.sort(function (a, b) {
+    const aSo = SO_AVANT && a.so_canonique === SO_AVANT ? 0 : 1;
+    const bSo = SO_AVANT && b.so_canonique === SO_AVANT ? 0 : 1;
+    if (aSo !== bSo) return aSo - bSo;
+    return new Date(a.cree_le) - new Date(b.cree_le);
+  });
+  const titre = document.getElementById("pointsTitre");
+  if (!attente.length) { titre.style.display = "none"; return; }
+  titre.style.display = "flex";
+  document.getElementById("pointsSous").style.display = "block";
+  document.getElementById("pointsIco").innerHTML = svgCroix(20);
+  document.getElementById("pointsCompte").textContent = String(attente.length);
+  const zone = document.getElementById("points");
+  zone.innerHTML = "";
+  attente.forEach(function (e) { zone.appendChild(construirePoint(e)); });
+}
+
+function construirePoint(e) {
+  const bloc = document.createElement("div");
+  bloc.className = "carte point";
+  bloc.dataset.id = e.id;
+  const soBadge = (SO_AVANT && e.so_canonique === SO_AVANT)
+    ? '<span class="badge badge-so">Votre commande ' + esc(e.so_canonique) + "</span>"
+    : (e.so_canonique ? '<span class="chip chip-etape">Commande ' + esc(e.so_canonique) + "</span>" : "");
+  const comp = (e.repere || e.mpn)
+    ? '<div class="comp">' +
+      (e.repere ? '<span class="k">Rep&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
+      (e.mpn ? '<span class="k">Ref/MPN&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
+      "</div>"
+    : "";
+  bloc.innerHTML =
+    '<div class="point-tete">' +
+      '<span class="point-ico">' + svgCroix(24) + "</span>" +
+      '<div class="point-corps">' +
+        (soBadge ? '<div style="margin-bottom:7px">' + soBadge + "</div>" : "") +
+        comp +
+        '<div class="point-texte">' + esc(e.texte) + "</div>" +
+        '<div class="point-meta">Question pos\u00e9e le ' + esc(fmtDate(e.cree_le)) +
+          (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
+        construireFormulaire(e) +
+      "</div>" +
+    "</div>";
+  if (DONNEES.repondable !== false) brancherFormulaire(bloc, e);
+  return bloc;
+}
+
+function construireFormulaire(e) {
+  if (DONNEES.repondable === false) return "";
+  let html = '<div class="rep-form">';
+  if (e.choix_fermes) {
+    html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div><div class="choix-liste">';
+    CHOIX_FERMES.forEach(function (c) {
+      html += '<button type="button" class="choix-btn" data-choix="' + c.code + '">' + esc(c.label) + "</button>";
+    });
+    html += "</div>";
+    html += '<textarea class="rep-comm" placeholder="Commentaire (facultatif, obligatoire pour \u00ab\u00a0Autre r\u00e9ponse\u00a0\u00bb)"></textarea>';
+  } else {
+    html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div>' +
+      '<textarea class="rep-comm" placeholder="\u00c9crivez votre r\u00e9ponse ici"></textarea>';
+  }
+  html += '<div class="rep-lbl" style="margin-top:11px">Cette r\u00e9ponse vaut&nbsp;:</div><div class="portee-liste">';
+  PORTEES.forEach(function (p, i) {
+    html += '<button type="button" class="portee-btn' + (i === 0 ? " sel" : "") + '" data-portee="' + p.code + '">' + esc(p.label) + "</button>";
+  });
+  html += "</div>";
+  html += '<div class="rep-bas">' +
+    '<input type="text" class="rep-nom" maxlength="80" placeholder="Votre nom (facultatif)">' +
+    '<button type="button" class="btn-envoyer">Envoyer la r\u00e9ponse</button>' +
+    "</div>" +
+    '<div class="rep-erreur"></div>' +
+  "</div>";
+  return html;
+}
+
+function brancherFormulaire(bloc, e) {
+  const form = bloc.querySelector(".rep-form");
+  if (!form) return;
+  let choixSel = e.choix_fermes ? null : "libre";
+  form.querySelectorAll(".choix-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      form.querySelectorAll(".choix-btn").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      choixSel = b.dataset.choix;
+      const zone = form.querySelector(".rep-comm");
+      if (choixSel === "autre") zone.focus();
+    });
+  });
+  form.querySelectorAll(".portee-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      form.querySelectorAll(".portee-btn").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+    });
+  });
+  form.querySelector(".btn-envoyer").addEventListener("click", function () {
+    envoyerReponse(bloc, e, form, choixSel);
+  });
+}
+
+async function envoyerReponse(bloc, e, form, choixSel) {
+  const erreur = form.querySelector(".rep-erreur");
+  erreur.style.display = "none";
+  const commentaire = (form.querySelector(".rep-comm").value || "").trim();
+  if (!choixSel) { montrerErreur(erreur, "Choisissez une r\u00e9ponse avant d\u2019envoyer."); return; }
+  if ((choixSel === "autre" || choixSel === "libre") && !commentaire) {
+    montrerErreur(erreur, "\u00c9crivez votre r\u00e9ponse dans le champ de commentaire."); return;
+  }
+  const porteeBtn = form.querySelector(".portee-btn.sel");
+  const portee = porteeBtn ? porteeBtn.dataset.portee : "so";
+  const nom = (form.querySelector(".rep-nom").value || "").trim();
+  const bouton = form.querySelector(".btn-envoyer");
+  bouton.disabled = true;
+  bouton.textContent = "Envoi\u2026";
+  let r;
+  try {
+    const rep = await fetch(API + "/fabstory-client-reponse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jeton: JETON, question_id: e.id, choix: choixSel,
+        commentaire: commentaire, portee: portee, auteur: nom
+      })
+    });
+    r = await rep.json();
+  } catch (err) { r = null; }
+  if (!r || !r.ok) {
+    bouton.disabled = false;
+    bouton.textContent = "Envoyer la r\u00e9ponse";
+    montrerErreur(erreur, (r && r.motif) ? r.motif :
+      "L\u2019envoi n\u2019a pas abouti. V\u00e9rifiez votre connexion puis r\u00e9essayez.");
+    return;
+  }
+  /* Croix rouge -> coche verte, sans recharger la page. */
+  bloc.classList.add("resolu");
+  bloc.querySelector(".point-ico").innerHTML = svgCoche(24);
+  const choixObj = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+  const resume = (choixSel === "libre") ? commentaire
+    : (choixSel === "autre") ? ("Autre r\u00e9ponse \u2014 " + commentaire)
+    : (choixObj ? choixObj.label : "") + (commentaire ? " \u2014 " + commentaire : "");
+  form.outerHTML = '<div class="rep-fait">' + svgCoche(20) +
+    '<span class="txt"><strong>R\u00e9ponse enregistr\u00e9e.</strong>\n' + esc(resume) +
+    "\nL\u2019atelier Proto Process en est inform\u00e9 \u2014 merci\u00a0!</span></div>";
+  majCompte();
+}
+
+function montrerErreur(zone, message) {
+  zone.textContent = message;
+  zone.style.display = "block";
+}
+
+function majCompte() {
+  const restants = document.querySelectorAll(".point:not(.resolu)").length;
+  const compte = document.getElementById("pointsCompte");
+  compte.textContent = String(restants);
+  compte.classList.toggle("zero", restants === 0);
+  if (restants === 0) {
+    document.getElementById("pointsIco").innerHTML = svgCoche(20);
+    document.getElementById("pointsSous").textContent = "Tous les points sont trait\u00e9s \u2014 merci\u00a0!";
+  }
+}
+
+/* ------------------------------- Fil ------------------------------ */
+function rendreFil(r) {
+  const fil = document.getElementById("fil");
+  const entrees = (r.entrees || []).slice();
+  /* Les questions encore ouvertes vivent dans la section du haut ;
+     le fil raconte le reste, reponses rangees SOUS leur question. */
+  const parId = {};
+  entrees.forEach(function (e) { parId[e.id] = e; });
+  const racines = entrees.filter(function (e) {
+    if (e.a_repondre) return false;
+    if (e.repond_a && parId[e.repond_a]) return false;
+    return true;
+  });
+  const reponsesDe = {};
+  entrees.forEach(function (e) {
+    if (e.repond_a && parId[e.repond_a]) {
+      (reponsesDe[e.repond_a] = reponsesDe[e.repond_a] || []).push(e);
+    }
+  });
+  if (!racines.length) {
+    fil.innerHTML = '<div class="vide">Le journal de votre carte d\u00e9marre ici \u2014 les prochaines \u00e9tapes s\u2019afficheront au fil de la fabrication.</div>';
+    return;
+  }
+  racines.sort(function (a, b) { return new Date(b.cree_le) - new Date(a.cree_le); });
+  fil.innerHTML = "";
+  racines.forEach(function (e) {
+    const bloc = document.createElement("div");
+    bloc.className = "carte entree" + (e.type === "indice" ? " indice-evt" : "");
+    const chips = [];
+    if (e.etape_libelle) chips.push('<span class="chip chip-etape">' + esc(e.etape_libelle) + "</span>");
+    if (e.so_canonique) chips.push('<span class="chip chip-etape">' + esc(e.so_canonique) + "</span>");
+    if (e.type === "question_client") {
+      chips.push(e.etat === "en_attente"
+        ? '<span class="chip chip-attente">En attente</span>'
+        : '<span class="chip chip-resolu">R\u00e9solu</span>');
+    }
+    const comp = (e.repere || e.mpn)
+      ? '<div class="comp">' +
+        (e.repere ? '<span class="k">Rep&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
+        (e.mpn ? '<span class="k">Ref/MPN&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
+        "</div>"
+      : "";
+    let html = '<div class="entree-tete">' + chips.join("") +
+      '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
+      comp + '<div class="entree-texte">' + esc(e.texte) + "</div>";
+    (reponsesDe[e.id] || []).forEach(function (rep) {
+      html += '<div class="reponse-bloc">' +
+        '<div class="reponse-de">' + esc(rep.auteur || (rep.emetteur === "client" ? "Vous" : "Proto Process")) +
+        " \u00b7 " + esc(fmtDate(rep.cree_le)) + "</div>" +
+        '<div class="entree-texte">' + esc(rep.texte) + "</div></div>";
+    });
+    bloc.innerHTML = html;
+    fil.appendChild(bloc);
+  });
+}
+
+charger();
+</script>
+</body>
+</html>
