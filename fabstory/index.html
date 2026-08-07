@@ -267,6 +267,24 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </div>
 
+<dialog id="dlg-creer">
+  <h2>Nouvelle carte</h2>
+  <label class="mini">Client</label>
+  <select id="cr-client" style="width:100%;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13.5px;background:#fff"></select>
+  <div class="grille2">
+    <div><label class="mini">Référence de la carte</label><input type="text" id="cr-ref" placeholder="GAD28, 10079-01…"></div>
+    <div><label class="mini">Indice (facultatif)</label><input type="text" id="cr-indice" maxlength="8" placeholder="A, V1…"></div>
+  </div>
+  <label class="mini">Libellé (facultatif)</label>
+  <input type="text" id="cr-libelle" placeholder="Carte alimentation…">
+  <p class="hint" style="margin:9px 0 0">Clé de la carte : <strong id="cr-cle" style="font-family:var(--mono)">—</strong></p>
+  <div id="cr-msg" style="min-height:18px;margin-top:6px"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+    <button class="btn-s" onclick="document.getElementById('dlg-creer').close()">Annuler</button>
+    <button class="btn" id="cr-go" onclick="FS.creerCarte()">Créer la carte</button>
+  </div>
+</dialog>
+
 <dialog id="dlg-indice">
   <h2><i class="ti ti-versions"></i> Nouvel indice</h2>
   <label class="mini">Indice (ex : V2, B, 01)</label>
@@ -285,7 +303,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.2';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -383,7 +401,8 @@ function rendreCartes(filtreTxt){
   const liste = PRODUITS.filter(p => !f ||
     [p.cle_produit,p.ref_carte,p.libelle_carte,p.nom_client,p.code_client]
       .some(v => String(v||'').toLowerCase().includes(f)));
-  let html = '<div class="card"><h2><i class="ti ti-cpu"></i> Quelle carte ?</h2>' +
+  let html = '<div class="card"><h2><i class="ti ti-cpu"></i> Quelle carte ?' +
+    '<button class="btn" style="margin-left:auto;padding:6px 13px;font-size:12.5px" onclick="FS.ouvrirCreation()">+ Nouvelle carte</button></h2>' +
     '<input type="text" id="cherche" placeholder="R\u00e9f\u00e9rence, libell\u00e9 ou client\u2026" value="' + esc(filtreTxt) + '" ' +
     'oninput="rendreCartesDiff(this.value)" style="margin-bottom:11px">';
   if(!liste.length){
@@ -969,7 +988,7 @@ function htmlSaisie(){
     '</div></div>' +
   '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
     '<input type="checkbox" id="note-visible"> Visible du client</label>' +
-  '<details class="replis"><summary>Rep\u00e8re, composant</summary>' +
+  '<details class="replis" open><summary>Rep\u00e8re, composant</summary>' +
     '<div class="grille2">' +
     '<div><label class="mini">Rep\u00e8re</label><input type="text" id="note-repere" placeholder="C12, U3\u2026"></div>' +
     '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div>' +
@@ -1135,6 +1154,64 @@ async function envoyerNote(){
   }
 }
 
+/* ------------------------------------------------------- creation carte --- */
+let SOCIETES = null;
+FS.ouvrirCreation = async function(){
+  const dlg = el('dlg-creer');
+  el('cr-ref').value = ''; el('cr-indice').value = ''; el('cr-libelle').value = '';
+  el('cr-msg').textContent = ''; el('cr-cle').textContent = '\u2014';
+  dlg.showModal();
+  if(!SOCIETES){
+    el('cr-client').innerHTML = '<option>Chargement\u2026</option>';
+    try{
+      const j = await getJson(BASE + '/po-societes');
+      // toutes societes confondues : on ne garde que les CLIENTS (prefixe CLI),
+      // sans quoi on pourrait creer une carte au nom d un fournisseur
+      SOCIETES = ((j && j.societes) || [])
+        .filter(x => String(x.prefixe || '').toUpperCase() === 'CLI' && x.code)
+        .sort((a, b) => String(a.nom || '').localeCompare(String(b.nom || ''), 'fr'));
+    }catch(e){ SOCIETES = []; el('cr-msg').innerHTML = '<span class="err-msg">Liste clients indisponible : ' + esc(e.message) + '</span>'; }
+  }
+  el('cr-client').innerHTML = '<option value="">\u2014 choisir \u2014</option>' +
+    SOCIETES.map(x => '<option value="' + x.id + '" data-code="' + esc(x.code||'') + '" data-nom="' + esc(x.nom||'') + '">' +
+      esc(x.nom||'') + ' \u00b7 ' + esc(x.code||'') + '</option>').join('');
+  const majCle = () => {
+    const opt = el('cr-client').selectedOptions[0];
+    const code = opt ? (opt.dataset.code||'') : '';
+    const ref = el('cr-ref').value.trim().toUpperCase();
+    el('cr-cle').textContent = (code && ref) ? (code + '-' + ref) : '\u2014';
+  };
+  el('cr-client').onchange = majCle;
+  el('cr-ref').oninput = majCle;
+};
+FS.creerCarte = async function(){
+  const msg = el('cr-msg');
+  const opt = el('cr-client').selectedOptions[0];
+  if(!opt || !opt.value){ msg.innerHTML = '<span class="err-msg">Choisissez le client.</span>'; return; }
+  const ref = el('cr-ref').value.trim();
+  if(!ref){ msg.innerHTML = '<span class="err-msg">La r\u00e9f\u00e9rence est obligatoire : elle forme la cl\u00e9.</span>'; return; }
+  const code = opt.dataset.code || '';
+  if(ref.toUpperCase().startsWith(code.toUpperCase())){ msg.innerHTML = '<span class="err-msg">La r\u00e9f\u00e9rence ne doit pas r\u00e9p\u00e9ter le code client \u2014 la cl\u00e9 le porte d\u00e9j\u00e0.</span>'; return; }
+  const indice = el('cr-indice').value.trim() || null;
+  el('cr-go').disabled = true;
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/produit-rattacher', {
+      odoo_partner_id: Number(opt.value), code_client: code, nom_client: opt.dataset.nom || '',
+      ref_carte: ref, libelle_carte: el('cr-libelle').value.trim() || null,
+      alias: indice ? (ref + '_' + indice) : null, indice: indice
+    });
+    el('dlg-creer').close();
+    el('cr-go').disabled = false;
+    const lj = await getJson(BASE + '/produits');
+    PRODUITS = (lj && lj.produits) || [];
+    ouvrirFiche(j.produit_id);
+  }catch(e){
+    msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
+    el('cr-go').disabled = false;
+  }
+};
+
 /* ------------------------------------------------------------- indices ---- */
 FS.ouvrirIndice = function(){
   el('ind-val').value = ''; el('ind-chg').value = ''; el('ind-date').value = '';
@@ -1164,7 +1241,11 @@ FS.poserIndice = async function(){
 };
 
 /* ================================================================ BOOT ==== */
-chargerCartes();
+(async function(){
+  await chargerCartes();
+  const pid = parseInt(new URLSearchParams(location.search).get('produit'), 10);
+  if(pid > 0) ouvrirFiche(pid);
+})();
 </script>
 </body>
 </html>
