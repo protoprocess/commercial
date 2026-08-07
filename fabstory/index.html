@@ -117,6 +117,11 @@ textarea{resize:vertical;min-height:64px}
 .tl-comp .cv{color:var(--info-txt)}
 .tl-src{font-size:11px;color:var(--text3);margin-top:5px}
 label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;margin:8px 0 4px}
+.reps{margin:-3px 0 9px 26px}
+.reps > summary{cursor:pointer;list-style:none;font-size:12px;color:var(--info-txt);margin-bottom:6px}
+.reps > summary::before{content:'\21b3 '}
+.dropzone{border:2px dashed var(--border2);border-radius:var(--radius);padding:14px;text-align:center;font-size:12.5px;color:var(--text2);cursor:pointer}
+.dropzone.survol{border-color:var(--accent);background:var(--accent-bg)}
 /* -------------------------------------------------------------------- volet */
 .volet{width:440px;flex:none;position:sticky;top:66px;max-height:calc(100vh - 82px);overflow:auto;display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
 body.volet-ouvert .volet{display:block}
@@ -261,7 +266,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '0.5';
+const APP_VERSION = '0.6';
 const APP_DATE = '07/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -574,9 +579,15 @@ function rendreFiche(){
     html += '<p class="hint" style="margin:0">' + (racines.length ? 'Rien ne passe ce filtre.' :
       'Rien encore \u2014 la premi\u00e8re note lance l\u2019histoire de cette carte.') + '</p>';
   } else {
-    html += visibles.map(e =>
-      htmlEntree(e) + (enfants[e.id] || []).map(r => htmlEntree(r, 'tl-reponse')).join('')
-    ).join('');
+    html += visibles.map(e => {
+      const reps = enfants[e.id] || [];
+      let bloc = htmlEntree(e);
+      if(reps.length){
+        bloc += '<details class="reps"><summary>' + reps.length + ' r\u00e9ponse' + (reps.length > 1 ? 's' : '') + '</summary>' +
+          reps.map(r => htmlEntree(r)).join('') + '</details>';
+      }
+      return bloc;
+    }).join('');
   }
   html += '</div>';
 
@@ -654,6 +665,15 @@ function ouvrirVolet(id){
       '<button class="btn-s" onclick="FS.voletModifier()">Enregistrer la modification</button>' +
       '<p class="hint" style="margin:7px 0 0">L\u2019ancienne version reste dans l\u2019historique.</p></details>';
 
+    if(!e.repond_a && e.type !== 'indice'){
+      h += '<details class="v-sec"><summary><i class="ti ti-tag"></i> Nature</summary>' +
+        '<div class="pastilles">' +
+        [['note','Information'],['question_interne','\u00c0 traiter'],['question_client','Question client']].map(t =>
+          '<button class="pastille v-nature' + (e.type===t[0]?' on':'') + '" data-nature="' + t[0] + '">' + t[1] + '</button>').join('') +
+        '</div>' +
+        '<div id="v-nat-msg" style="min-height:16px"></div>' +
+        '<button class="btn-s" onclick="FS.voletNature()">Enregistrer la nature</button></details>';
+    }
     h += '<details class="v-sec"><summary>' + (e.visible_client ? SVG_OEIL : SVG_OEIL_BARRE) + ' Visibilit\u00e9 client</summary>' +
       '<p class="hint" style="margin:0 0 8px">Actuellement : ' + (e.visible_client ? SVG_OEIL : SVG_OEIL_BARRE) +
       ' <strong>' + (e.visible_client ? 'visible du client' : 'interne') + '</strong></p>' +
@@ -717,6 +737,9 @@ function ouvrirVolet(id){
     document.querySelectorAll('.v-regle-dom').forEach(x => x.classList.remove('on'));
     if(!on) b.classList.add('on');
   });
+  document.querySelectorAll('.v-nature').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.v-nature').forEach(x => x.classList.toggle('on', x === b));
+  });
   document.querySelectorAll('.v-portee').forEach(b => b.onclick = () => {
     const on = b.classList.contains('on');
     document.querySelectorAll('.v-portee').forEach(x => x.classList.remove('on'));
@@ -765,6 +788,20 @@ FS.voletModifier = async function(){
   try{
     const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, texte_brut: texte });
     choisieId = j.id;   /* la nouvelle version remplace l ancienne dans le volet */
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletNature = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const btn = document.querySelector('.v-nature.on');
+  const msg = el('v-nat-msg');
+  if(!btn){ msg.innerHTML = '<span class="err-msg">Choisissez une nature.</span>'; return; }
+  if(btn.dataset.nature === e.type){ msg.innerHTML = '<span class="hint">D\u00e9j\u00e0 cette nature.</span>'; return; }
+  const auteur = auteurOuStop(); if(!auteur) return;
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, type: btn.dataset.nature });
+    choisieId = j.id;
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
@@ -871,7 +908,8 @@ function htmlSaisie(){
     '<label class="mini">Lien</label><input type="text" id="note-lien" placeholder="https://\u2026">' +
   '</details>' +
   '<details class="replis"><summary>Photo ou fichier joint</summary>' +
-    '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip">' +
+    '<div class="dropzone" id="drop-piece">Glissez un fichier ici, ou cliquez pour parcourir' +
+    '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip" style="display:none"></div>' +
     '<div id="zone-pieces"></div>' +
   '</details>' +
   '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
@@ -902,6 +940,17 @@ function brancherSaisie(){
   });
   el('note-go').onclick = envoyerNote;
   el('note-piece').onchange = deposerPiece;
+  const dz = el('drop-piece');
+  if(dz){
+    dz.onclick = () => el('note-piece').click();
+    dz.ondragover = ev => { ev.preventDefault(); dz.classList.add('survol'); };
+    dz.ondragleave = () => dz.classList.remove('survol');
+    dz.ondrop = ev => {
+      ev.preventDefault(); dz.classList.remove('survol');
+      const fic = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if(fic) traiterPiece(fic);
+    };
+  }
   rendreAmorces();
   rendrePieces();
   majVisibilite();
@@ -946,6 +995,9 @@ function compresser(file, maxCote, qualite){
 async function deposerPiece(ev){
   const fichier = ev.target.files && ev.target.files[0];
   ev.target.value = '';
+  traiterPiece(fichier);
+}
+async function traiterPiece(fichier){
   if(!fichier || envoiPiece) return;
   envoiPiece = true; rendrePieces();
   try{
