@@ -66,8 +66,17 @@
   .lien-signer { font-size: 12px; color: var(--text3); text-decoration: underline; cursor: pointer; }
   .lien-signer:hover { color: var(--text2); }
   .fichiers-zone { margin-top: 11px; }
-  .fichiers-zone input[type=file] { font-size: 12px; color: var(--text2); }
+  .dropzone {
+    border: 1.5px dashed var(--border2); border-radius: var(--radius); padding: 13px;
+    text-align: center; font-size: 12.5px; color: var(--text3); cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  .dropzone.survol { border-color: var(--accent); background: #fff7ef; color: var(--accent-fonce); }
+  .dropzone input[type=file] { display: none; }
   .fichiers-aide { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+  .fichier-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border2); color: var(--text2); border-radius: 20px; padding: 3px 6px 3px 12px; font-size: 12px; margin: 6px 7px 0 0; }
+  .fichier-chip button { border: none; background: transparent; color: var(--text3); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 5px; }
+  .fichier-chip button:hover { color: var(--rouge); }
   .piece-lien { display: inline-flex; align-items: center; gap: 5px; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 600; text-decoration: none; margin: 5px 7px 0 0; }
   .piece-lien:hover { border-color: var(--info); }
 
@@ -75,12 +84,12 @@
   .jalons { display: flex; align-items: center; margin-top: 18px; }
   .jalon { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
   .jalon .pt {
-    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     background: var(--bg); border: 2px solid var(--border2); color: var(--text3); z-index: 1;
   }
   .jalon .lbl { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.2; }
   .jalon:not(:first-child)::before {
-    content: ""; position: absolute; top: 12px; right: 50%; width: 100%; height: 2px; background: var(--border2);
+    content: ""; position: absolute; top: 15px; right: 50%; width: 100%; height: 2px; background: var(--border2);
   }
   .jalon.fait .pt { background: var(--info-bg); border-color: var(--info); color: var(--info-txt); }
   .jalon.fait .lbl { color: var(--info-txt); font-weight: 600; }
@@ -242,7 +251,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.9";
+const APP_VERSION = "0.10";
 const APP_DATE = "08/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -308,6 +317,19 @@ function svgPoint() {
 function svgTrombone() {
   return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
     '<path d="M21 12.5l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-8.8 8.8a1.8 1.8 0 01-2.6-2.6l8-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+/* Pictos des jalons : SVG monochromes embarques (decision 08/08) — ils prennent
+   la couleur de l etat via currentColor, ce que les pictos PNG de la banque
+   (polychromes) ne permettent pas. */
+function svgJalon(code) {
+  const t = 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const D = {
+    devis: '<path d="M7 3h7l4 4v14H7z" ' + t + '/><path d="M14 3v4h4M10.5 12h5M10.5 15.5h5" ' + t + '/>',
+    preparation: '<circle cx="12" cy="12" r="3.2" ' + t + '/><path d="M12 4.5v2.3M12 17.2v2.3M4.5 12h2.3M17.2 12h2.3M6.7 6.7l1.6 1.6M15.7 15.7l1.6 1.6M17.3 6.7l-1.6 1.6M8.3 15.7l-1.6 1.6" ' + t + '/>',
+    fabrication: '<rect x="7.5" y="7.5" width="9" height="9" rx="1" ' + t + '/><path d="M10 7.5V4.5M14 7.5V4.5M10 19.5v-3M14 19.5v-3M7.5 10h-3M7.5 14h-3M19.5 10h-3M19.5 14h-3" ' + t + '/>',
+    expediee: '<path d="M12 3.5l7.5 4.2v8.6L12 20.5l-7.5-4.2V7.7z" ' + t + '/><path d="M4.5 7.7l7.5 4.2 7.5-4.2M12 11.9v8.6" ' + t + '/>'
+  };
+  return '<svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">' + (D[code] || '') + '</svg>';
 }
 function fmtTaille(o) {
   if (!o && o !== 0) return "";
@@ -429,19 +451,12 @@ function rendreJalons(statut, so, enAttente) {
       if (i < idx) cls += " fait";
       else if (i === idx) cls += " actuel";
     }
-    html += '<div class="' + cls + '"><span class="pt">' + svgPointOuCoche(i, idx) + '</span><span class="lbl">' + esc(j.label) + "</span></div>";
+    html += '<div class="' + cls + '"><span class="pt">' + svgJalon(j.code) + '</span><span class="lbl">' + esc(j.label) + "</span></div>";
   });
   conteneur.innerHTML = html;
   if (enAttente) { note.textContent = "Statut de fabrication en cours de lecture\u2026"; return; }
   if (idx < 0) { note.textContent = "Statut de fabrication indisponible pour le moment."; return; }
   note.textContent = "Statut actuel : " + JALONS[idx].label + (so ? " (commande " + so + ")" : "");
-}
-function svgPointOuCoche(i, idx) {
-  if (idx >= 0 && i < idx) {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-  return svgPoint();
 }
 
 /* -------------------------- Points a trancher --------------------- */
@@ -512,7 +527,11 @@ function construireFormulaire(e) {
   }
   html += '<div class="fichiers-zone">' +
     '<div class="rep-lbl">Joindre des fichiers&nbsp;:</div>' +
-    '<input type="file" class="rep-fichiers" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.xls,.csv">' +
+    '<div class="dropzone" role="button" tabindex="0">' +
+      'Cliquez ici ou glissez-d\u00e9posez vos fichiers' +
+      '<input type="file" class="rep-fichiers" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.xls,.csv">' +
+    '</div>' +
+    '<div class="fichiers-liste"></div>' +
     '<div class="fichiers-aide">Facultatif \u2014 3 fichiers max, 5\u00a0Mo chacun (PDF, image, Excel, CSV). Utile pour une datasheet ou une r\u00e9f\u00e9rence propos\u00e9e.</div>' +
     '</div>';
   html += '<div class="rep-lbl" style="margin-top:11px">Port\u00e9e de la d\u00e9cision&nbsp;:</div>' +
@@ -578,6 +597,66 @@ function brancherFormulaire(bloc, e) {
       champ.focus();
     });
   }
+  /* Glisser-deposer (demande 08/08) : la liste vit en memoire sur le formulaire
+     (form._fichiers) — l input ne sert que de declencheur au clic. Les
+     controles format/taille sont faits a l AJOUT, pas seulement a l envoi. */
+  const zone = form.querySelector(".dropzone");
+  if (zone) {
+    form._fichiers = [];
+    const champ = zone.querySelector(".rep-fichiers");
+    const liste = form.querySelector(".fichiers-liste");
+    const erreurZone = form.querySelector(".rep-erreur");
+    const dessiner = function () {
+      liste.innerHTML = "";
+      form._fichiers.forEach(function (f, i) {
+        const chip = document.createElement("span");
+        chip.className = "fichier-chip";
+        chip.innerHTML = svgTrombone() + " " + esc(f.name) +
+          ' <span style="color:var(--text3)">(' + esc(fmtTaille(f.size)) + ')</span>' +
+          '<button type="button" aria-label="Retirer" data-i="' + i + '">\u00d7</button>';
+        chip.querySelector("button").addEventListener("click", function () {
+          form._fichiers.splice(i, 1);
+          dessiner();
+        });
+        liste.appendChild(chip);
+      });
+    };
+    const ajouter = function (nouveaux) {
+      erreurZone.style.display = "none";
+      for (let i = 0; i < nouveaux.length; i++) {
+        const f = nouveaux[i];
+        const ext = (f.name.lastIndexOf(".") > 0) ? f.name.slice(f.name.lastIndexOf(".") + 1).toLowerCase() : "";
+        if (EXT_OK.indexOf(ext) < 0) {
+          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb n\u2019est pas un format accept\u00e9 (PDF, image, Excel, CSV)."); continue;
+        }
+        if (f.size > 5242880) {
+          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb d\u00e9passe 5\u00a0Mo."); continue;
+        }
+        if (form._fichiers.length >= 3) {
+          montrerErreur(erreurZone, "3 fichiers maximum par r\u00e9ponse."); break;
+        }
+        form._fichiers.push(f);
+      }
+      dessiner();
+    };
+    zone.addEventListener("click", function () { champ.click(); });
+    zone.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); champ.click(); } });
+    champ.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    champ.addEventListener("change", function () {
+      ajouter(Array.prototype.slice.call(champ.files || []));
+      champ.value = "";
+    });
+    ["dragenter", "dragover"].forEach(function (t) {
+      zone.addEventListener(t, function (ev) { ev.preventDefault(); zone.classList.add("survol"); });
+    });
+    ["dragleave", "drop"].forEach(function (t) {
+      zone.addEventListener(t, function (ev) { ev.preventDefault(); zone.classList.remove("survol"); });
+    });
+    zone.addEventListener("drop", function (ev) {
+      const dt = ev.dataTransfer;
+      if (dt && dt.files && dt.files.length) ajouter(Array.prototype.slice.call(dt.files));
+    });
+  }
   form.querySelector(".btn-envoyer").addEventListener("click", function () {
     envoyerReponse(bloc, e, form, choixSel);
   });
@@ -596,23 +675,9 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   const porteeBtn = form.querySelector(".portee-btn.sel");
   const portee = porteeBtn ? porteeBtn.dataset.portee : "so";
   const nom = (form.querySelector(".rep-nom").value || "").trim();
-  /* Fichiers CONTROLES AVANT d envoyer la reponse : refuser apres coup, alors
-     que la question est deja fermee, serait le pire moment. */
-  const champFichiers = form.querySelector(".rep-fichiers");
-  const fichiers = champFichiers ? Array.prototype.slice.call(champFichiers.files || []) : [];
-  if (fichiers.length > 3) {
-    montrerErreur(erreur, "3 fichiers maximum par r\u00e9ponse."); return;
-  }
-  for (let i = 0; i < fichiers.length; i++) {
-    const f = fichiers[i];
-    const ext = (f.name.lastIndexOf(".") > 0) ? f.name.slice(f.name.lastIndexOf(".") + 1).toLowerCase() : "";
-    if (EXT_OK.indexOf(ext) < 0) {
-      montrerErreur(erreur, "\u00ab\u00a0" + f.name + "\u00a0\u00bb n\u2019est pas un format accept\u00e9 (PDF, image, Excel, CSV)."); return;
-    }
-    if (f.size > 5242880) {
-      montrerErreur(erreur, "\u00ab\u00a0" + f.name + "\u00a0\u00bb d\u00e9passe 5\u00a0Mo."); return;
-    }
-  }
+  /* Fichiers : la liste geree par la dropzone (controles deja faits a l ajout).
+     Garde ceinture-bretelles conservee sur le nombre. */
+  const fichiers = Array.isArray(form._fichiers) ? form._fichiers.slice(0, 3) : [];
   const bouton = form.querySelector(".btn-envoyer");
   bouton.disabled = true;
   bouton.textContent = "Envoi\u2026";
