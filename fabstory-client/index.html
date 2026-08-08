@@ -59,6 +59,8 @@
   .btn-bom:hover { border-color: var(--info); }
   .choix-aide { display: none; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: var(--radius); padding: 9px 12px; font-size: 12.5px; margin-bottom: 11px; }
   .portee-aide { font-size: 11.5px; color: var(--text3); margin: -6px 0 12px; }
+  .lien-signer { font-size: 12px; color: var(--text3); text-decoration: underline; cursor: pointer; }
+  .lien-signer:hover { color: var(--text2); }
 
   /* Barre de jalons */
   .jalons { display: flex; align-items: center; margin-top: 18px; }
@@ -228,7 +230,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.2";
+const APP_VERSION = "0.3";
 const APP_DATE = "08/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -259,10 +261,15 @@ const CHOIX_FERMES = [
   { code: "autre", label: "Autre\u2026", commentaireObligatoire: true,
     aide: "D\u00e9crivez votre r\u00e9ponse dans le champ de commentaire." }
 ];
+/* Portees renommees le 08/08 (retour Olivier), chacune avec son sous-entendu
+   explicite — l aide change avec la selection, comme pour les choix. */
 const PORTEES = [
-  { code: "so",     label: "Pour cette commande" },
-  { code: "carte",  label: "Pour cette carte, toujours" },
-  { code: "client", label: "Pour toutes nos cartes" }
+  { code: "so", label: "Pour cette commande uniquement",
+    aide: "Vaut pour cette commande. En cas de re-commande, la question pourra \u00eatre repos\u00e9e si le cas se repr\u00e9sente." },
+  { code: "carte", label: "Pour ce projet / cette carte",
+    aide: "Enregistr\u00e9 pour cette carte\u00a0: vaut aussi pour ses futures re-commandes. La question sera repos\u00e9e si elle se pr\u00e9sente sur un autre produit." },
+  { code: "client", label: "Tous les projets / toutes les cartes",
+    aide: "R\u00e8gle d\u00e9finitive pour l\u2019ensemble de vos cartes, quel que soit le produit\u00a0: la question ne sera plus pos\u00e9e." }
 ];
 const JALONS = [
   { code: "devis",       label: "Devis" },
@@ -465,9 +472,14 @@ function construireFormulaire(e) {
     html += '<button type="button" class="portee-btn' + (i === 0 ? " sel" : "") + '" data-portee="' + p.code + '">' + esc(p.label) + "</button>";
   });
   html += "</div>" +
-    '<div class="portee-aide">Par d\u00e9faut, votre choix ne vaut que pour cette commande. \u00ab\u00a0Pour cette carte, toujours\u00a0\u00bb ou \u00ab\u00a0Pour toutes nos cartes\u00a0\u00bb l\u2019enregistrent comme r\u00e8gle pour les fabrications suivantes \u2014 nous ne reposerons plus la question.</div>';
+    '<div class="portee-aide">' + esc(PORTEES[0].aide) + '</div>';
+  /* Signature repliee (decision 08/08) : le destinataire du mail est connu de
+     PP, le nom ne sert que si le lien a circule en interne chez le client.
+     Le jour ou le lien saura QUI le porte (portail client, ou destinataire
+     attache au SO en seance relances), ce champ se pre-remplira tout seul. */
   html += '<div class="rep-bas">' +
-    '<input type="text" class="rep-nom" maxlength="80" placeholder="Votre nom (facultatif)">' +
+    '<a class="lien-signer" role="button" tabindex="0">Signer ma r\u00e9ponse (facultatif)</a>' +
+    '<input type="text" class="rep-nom" maxlength="80" placeholder="Votre nom" style="display:none">' +
     '<button type="button" class="btn-envoyer">Envoyer la r\u00e9ponse</button>' +
     "</div>" +
     '<div class="rep-erreur"></div>' +
@@ -503,8 +515,20 @@ function brancherFormulaire(bloc, e) {
     b.addEventListener("click", function () {
       form.querySelectorAll(".portee-btn").forEach(function (x) { x.classList.remove("sel"); });
       b.classList.add("sel");
+      const def = PORTEES.find(function (p) { return p.code === b.dataset.portee; });
+      const aide = form.querySelector(".portee-aide");
+      if (aide && def) aide.textContent = def.aide;
     });
   });
+  const lienSigner = form.querySelector(".lien-signer");
+  if (lienSigner) {
+    lienSigner.addEventListener("click", function () {
+      lienSigner.style.display = "none";
+      const champ = form.querySelector(".rep-nom");
+      champ.style.display = "block";
+      champ.focus();
+    });
+  }
   form.querySelector(".btn-envoyer").addEventListener("click", function () {
     envoyerReponse(bloc, e, form, choixSel);
   });
