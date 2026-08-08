@@ -55,11 +55,11 @@
   .hero-lib { font-size: 15px; font-weight: 600; color: var(--text2); }
   .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 11px; font-size: 12px; font-weight: 600; }
   .badge-indice { background: var(--info-bg); color: var(--info-txt); }
-  .btn-bom { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; margin-left: auto; text-decoration: none; padding: 4px 8px; border-radius: var(--radius); }
-  .btn-bom img { width: 34px; height: 34px; object-fit: contain; transition: transform 0.12s ease; }
+  .btn-bom { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; margin-left: auto; text-decoration: none; padding: 8px 16px; border: 1px solid #cdeaf1; background: var(--info-bg); border-radius: var(--radius-lg); }
+  .btn-bom img { width: 36px; height: 36px; object-fit: contain; transition: transform 0.12s ease; }
   .btn-bom span { font-size: 12px; font-weight: 700; color: var(--info-txt); }
-  .btn-bom:hover img { transform: scale(1.12); }
-  .btn-bom:hover span { text-decoration: underline; }
+  .btn-bom:hover { border-color: var(--info); }
+  .btn-bom:hover img { transform: scale(1.1); }
   .choix-aide { display: none; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: var(--radius); padding: 9px 12px; font-size: 12.5px; margin-bottom: 11px; }
   .portee-aide { font-size: 11.5px; color: var(--text3); margin: -6px 0 12px; }
   .lien-signer { font-size: 12px; color: var(--text3); text-decoration: underline; cursor: pointer; }
@@ -236,7 +236,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.5";
+const APP_VERSION = "0.6";
 const APP_DATE = "08/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
