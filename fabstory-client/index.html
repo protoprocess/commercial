@@ -55,7 +55,8 @@
   .hero-lib { font-size: 15px; font-weight: 600; color: var(--text2); }
   .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 11px; font-size: 12px; font-weight: 600; }
   .badge-indice { background: var(--info-bg); color: var(--info-txt); }
-  .btn-bom { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; margin-left: auto; text-decoration: none; padding: 8px 16px; border: 1px solid #cdeaf1; background: transparent; border-radius: var(--radius-lg); }
+  #hero { position: relative; }
+  .btn-bom { position: absolute; top: 16px; right: 18px; display: inline-flex; flex-direction: column; align-items: center; gap: 5px; text-decoration: none; padding: 9px 16px; border: 1px solid #cdeaf1; background: transparent; border-radius: var(--radius-lg); }
   .btn-bom img { width: 36px; height: 36px; object-fit: contain; transition: transform 0.12s ease; }
   .btn-bom span { font-size: 12px; font-weight: 700; color: var(--info-txt); }
   .btn-bom:hover { border-color: var(--info); }
@@ -194,15 +195,15 @@
 
   <div id="contenu" style="display:none">
     <section id="hero" class="carte">
+      <a class="btn-bom" id="btnBom" style="display:none" target="_blank" rel="noopener">
+        <span>Voir la BOM</span>
+        <img src="../shared/picto-bom.png?v=3" alt="" width="36" height="36" onerror="this.style.display='none'">
+      </a>
       <div class="hero-societe" id="heroSociete"></div>
       <div class="hero-haut">
         <span class="hero-ref" id="heroRef"></span>
         <span class="hero-lib" id="heroLib"></span>
         <span class="badge badge-indice" id="heroIndice" style="display:none"></span>
-        <a class="btn-bom" id="btnBom" style="display:none" target="_blank" rel="noopener">
-          <img src="../shared/picto-bom.png?v=2" alt="" width="38" height="38" onerror="this.style.display='none'">
-          <span>Voir la BOM</span>
-        </a>
       </div>
       <div class="jalons attente" id="jalons"></div>
       <div class="jalons-note" id="jalonsNote">Statut de fabrication en cours de lecture&hellip;</div>
@@ -236,7 +237,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.7";
+const APP_VERSION = "0.8";
 const APP_DATE = "08/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
