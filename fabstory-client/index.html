@@ -65,6 +65,11 @@
   .portee-aide { font-size: 11.5px; color: var(--text3); margin: -6px 0 12px; }
   .lien-signer { font-size: 12px; color: var(--text3); text-decoration: underline; cursor: pointer; }
   .lien-signer:hover { color: var(--text2); }
+  .fichiers-zone { margin-top: 11px; }
+  .fichiers-zone input[type=file] { font-size: 12px; color: var(--text2); }
+  .fichiers-aide { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+  .piece-lien { display: inline-flex; align-items: center; gap: 5px; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 600; text-decoration: none; margin: 5px 7px 0 0; }
+  .piece-lien:hover { border-color: var(--info); }
 
   /* Barre de jalons */
   .jalons { display: flex; align-items: center; margin-top: 18px; }
@@ -300,6 +305,37 @@ function svgCoche(taille) {
 function svgPoint() {
   return '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>';
 }
+function svgTrombone() {
+  return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M21 12.5l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-8.8 8.8a1.8 1.8 0 01-2.6-2.6l8-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function fmtTaille(o) {
+  if (!o && o !== 0) return "";
+  if (o < 1024) return o + " o";
+  if (o < 1048576) return Math.round(o / 1024) + " ko";
+  return (o / 1048576).toFixed(1).replace(".", ",") + " Mo";
+}
+function lienPiece(id) {
+  return API + "/fabstory-client-piece?jeton=" + encodeURIComponent(JETON) + "&id=" + encodeURIComponent(id);
+}
+function htmlPieces(pieces) {
+  if (!pieces || !pieces.length) return "";
+  let h = "<div>";
+  pieces.forEach(function (p) {
+    h += '<a class="piece-lien" href="' + esc(lienPiece(p.id)) + '" target="_blank" rel="noopener">' +
+      svgTrombone() + esc(p.nom) + ' <span style="font-weight:400">(' + esc(fmtTaille(p.taille)) + ")</span></a>";
+  });
+  return h + "</div>";
+}
+const EXT_OK = ["pdf", "png", "jpg", "jpeg", "webp", "gif", "xlsx", "xls", "csv"];
+function lireFichierB64(fichier) {
+  return new Promise(function (res, rej) {
+    const lecteur = new FileReader();
+    lecteur.onload = function () { res(String(lecteur.result).split(",")[1] || ""); };
+    lecteur.onerror = function () { rej(new Error("lecture")); };
+    lecteur.readAsDataURL(fichier);
+  });
+}
 
 function esc(v) {
   return String(v == null ? "" : v)
@@ -449,6 +485,7 @@ function construirePoint(e) {
         (soBadge ? '<div style="margin-bottom:7px">' + soBadge + "</div>" : "") +
         comp +
         '<div class="point-texte">' + esc(e.texte) + "</div>" +
+        htmlPieces(e.pieces) +
         '<div class="point-meta">Question pos\u00e9e le ' + esc(fmtDate(e.cree_le)) +
           (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
         construireFormulaire(e) +
@@ -473,6 +510,11 @@ function construireFormulaire(e) {
     html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div>' +
       '<textarea class="rep-comm" placeholder="\u00c9crivez votre r\u00e9ponse ici"></textarea>';
   }
+  html += '<div class="fichiers-zone">' +
+    '<div class="rep-lbl">Joindre des fichiers&nbsp;:</div>' +
+    '<input type="file" class="rep-fichiers" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.xls,.csv">' +
+    '<div class="fichiers-aide">Facultatif \u2014 3 fichiers max, 5\u00a0Mo chacun (PDF, image, Excel, CSV). Utile pour une datasheet ou une r\u00e9f\u00e9rence propos\u00e9e.</div>' +
+    '</div>';
   html += '<div class="rep-lbl" style="margin-top:11px">Port\u00e9e de la d\u00e9cision&nbsp;:</div>' +
     '<div class="portee-liste">';
   PORTEES.forEach(function (p, i) {
@@ -554,6 +596,23 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   const porteeBtn = form.querySelector(".portee-btn.sel");
   const portee = porteeBtn ? porteeBtn.dataset.portee : "so";
   const nom = (form.querySelector(".rep-nom").value || "").trim();
+  /* Fichiers CONTROLES AVANT d envoyer la reponse : refuser apres coup, alors
+     que la question est deja fermee, serait le pire moment. */
+  const champFichiers = form.querySelector(".rep-fichiers");
+  const fichiers = champFichiers ? Array.prototype.slice.call(champFichiers.files || []) : [];
+  if (fichiers.length > 3) {
+    montrerErreur(erreur, "3 fichiers maximum par r\u00e9ponse."); return;
+  }
+  for (let i = 0; i < fichiers.length; i++) {
+    const f = fichiers[i];
+    const ext = (f.name.lastIndexOf(".") > 0) ? f.name.slice(f.name.lastIndexOf(".") + 1).toLowerCase() : "";
+    if (EXT_OK.indexOf(ext) < 0) {
+      montrerErreur(erreur, "\u00ab\u00a0" + f.name + "\u00a0\u00bb n\u2019est pas un format accept\u00e9 (PDF, image, Excel, CSV)."); return;
+    }
+    if (f.size > 5242880) {
+      montrerErreur(erreur, "\u00ab\u00a0" + f.name + "\u00a0\u00bb d\u00e9passe 5\u00a0Mo."); return;
+    }
+  }
   const bouton = form.querySelector(".btn-envoyer");
   bouton.disabled = true;
   bouton.textContent = "Envoi\u2026";
@@ -576,6 +635,25 @@ async function envoyerReponse(bloc, e, form, choixSel) {
       "L\u2019envoi n\u2019a pas abouti. V\u00e9rifiez votre connexion puis r\u00e9essayez.");
     return;
   }
+  /* Upload des pieces APRES la reponse, une par une : un echec de piece ne
+     remet jamais en cause la reponse deja enregistree. */
+  const jointes = [];
+  const ratees = [];
+  for (let i = 0; i < fichiers.length; i++) {
+    const f = fichiers[i];
+    bouton.textContent = "Fichier " + (i + 1) + "/" + fichiers.length + "\u2026";
+    try {
+      const b64 = await lireFichierB64(f);
+      const repP = await fetch(API + "/fabstory-client-piece", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jeton: JETON, reponse_id: r.id, nom: f.name, contenu: b64 })
+      });
+      const rp = await repP.json();
+      if (rp && rp.ok) jointes.push({ id: rp.id, nom: rp.nom, taille: rp.taille });
+      else ratees.push(f.name);
+    } catch (err) { ratees.push(f.name); }
+  }
   /* Croix rouge -> coche verte, sans recharger la page. */
   bloc.classList.add("resolu");
   bloc.querySelector(".point-ico").innerHTML = svgCoche(24);
@@ -583,9 +661,13 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   const resume = (choixSel === "libre") ? commentaire
     : (choixSel === "autre") ? ("Autre \u2014 " + commentaire)
     : (choixObj ? choixObj.label : "") + (commentaire ? " \u2014 " + commentaire : "");
+  let bilanPieces = "";
+  if (jointes.length) bilanPieces += "\n" + jointes.length + (jointes.length > 1 ? " fichiers joints." : " fichier joint.");
+  if (ratees.length) bilanPieces += "\n\u26a0 Non joint : " + ratees.join(", ") + " \u2014 vous pouvez l\u2019envoyer par mail.";
   form.outerHTML = '<div class="rep-fait">' + svgCoche(20) +
-    '<span class="txt"><strong>R\u00e9ponse enregistr\u00e9e.</strong>\n' + esc(resume) +
-    "\nL\u2019atelier Proto Process en est inform\u00e9 \u2014 merci\u00a0!</span></div>";
+    '<span class="txt"><strong>R\u00e9ponse enregistr\u00e9e.</strong>\n' + esc(resume) + esc(bilanPieces) +
+    "\nL\u2019atelier Proto Process en est inform\u00e9 \u2014 merci\u00a0!</span></div>" +
+    (jointes.length ? htmlPieces(jointes) : "");
   majCompte();
 }
 
@@ -649,12 +731,14 @@ function rendreFil(r) {
       : "";
     let html = '<div class="entree-tete">' + chips.join("") +
       '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
-      comp + '<div class="entree-texte">' + esc(e.texte) + "</div>";
+      comp + '<div class="entree-texte">' + esc(e.texte) + "</div>" +
+      htmlPieces(e.pieces);
     (reponsesDe[e.id] || []).forEach(function (rep) {
       html += '<div class="reponse-bloc">' +
         '<div class="reponse-de">' + esc(rep.auteur || (rep.emetteur === "client" ? "Vous" : "Proto Process")) +
         " \u00b7 " + esc(fmtDate(rep.cree_le)) + "</div>" +
-        '<div class="entree-texte">' + esc(rep.texte) + "</div></div>";
+        '<div class="entree-texte">' + esc(rep.texte) + "</div>" +
+        htmlPieces(rep.pieces) + "</div>";
     });
     bloc.innerHTML = html;
     fil.appendChild(bloc);
