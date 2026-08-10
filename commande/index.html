@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "0.1";
+const APP_VERSION = "0.2";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -222,8 +222,19 @@ function afficher(rep) {
     if (p.piece === 'carte') {
       if (p.verdict === 'existe') d = ech(p.carte.cle_produit) + (p.carte.libelle_carte ? ' \u00b7 ' + ech(p.carte.libelle_carte) : '') +
         ' \u2014 <a href="' + ech(p.url) + '" target="_blank" rel="noopener">ouvrir la carte</a>';
-      else if (p.verdict === 'plusieurs') d = 'Plusieurs cartes candidates : ' + p.candidats.map(c => ech(c.cle_produit)).join(' / ');
-      else d = 'Aucune carte \u2014 la cr\u00e9er dans FabStory (pr\u00e9-remplissage en phase 2).';
+      else if (p.verdict === 'plusieurs') {
+        d = 'Plusieurs cartes candidates \u2014 choisir la bonne :';
+        actions = p.candidats.map(c =>
+          '<button class="btn-s" data-choisir="' + c.id + '" data-cle="' + ech(c.cle_produit) + '">' +
+          ech(c.cle_produit) + (c.libelle_carte ? ' \u00b7 ' + ech(c.libelle_carte) : '') + '</button>').join('') +
+          '<span class="choix-note" style="color:var(--text3);font-size:12px"></span>';
+      }
+      else {
+        d = 'Aucune carte pour ce produit.';
+        actions = '<a class="btn-p" style="text-decoration:none;display:inline-block" ' +
+          'href="https://protoprocess.github.io/commercial/fabstory/" target="_blank" rel="noopener">Cr\u00e9er la carte dans FabStory</a>' +
+          '<span style="color:var(--text3);font-size:12px">puis relancer le diagnostic (pr\u00e9-remplissage en phase 2)</span>';
+      }
     }
     if (p.piece === 'liens') {
       if (p.verdict === 'poses') d = 'PP Produit ID <code>' + ech(p.pp_produit_id) + '</code>' +
@@ -252,6 +263,20 @@ function afficher(rep) {
     z.appendChild(carte);
   }
   z.querySelectorAll('[data-lier]').forEach(b => b.addEventListener('click', () => relier(b)));
+  z.querySelectorAll('[data-choisir]').forEach(b => b.addEventListener('click', function () {
+    z.querySelectorAll('[data-choisir]').forEach(x => { x.style.borderColor = ''; x.style.color = ''; });
+    this.style.borderColor = 'var(--accent)'; this.style.color = 'var(--accent)';
+    const note = this.parentElement.querySelector('.choix-note');
+    const article = (DERNIER && DERNIER.rep.pieces.find(x => x.piece === 'article')) || {};
+    if (article.article) {
+      // L'article existe : le choix permet de relier tout de suite.
+      this.dataset.lier = this.dataset.choisir;
+      if (note) note.textContent = '';
+      relier(this);
+    } else if (note) {
+      note.textContent = 'Choix retenu : ' + this.dataset.cle + ' \u2014 servira \u00e0 cr\u00e9er l\u2019article (phase 2).';
+    }
+  }));
   z.querySelectorAll('.copiable').forEach(c => c.addEventListener('click', function () {
     navigator.clipboard && navigator.clipboard.writeText(this.textContent);
     this.style.borderColor = 'var(--accent)';
