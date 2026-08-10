@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -219,8 +219,11 @@ function afficher(rep) {
       else {
         d = 'Aucun article r\u00e9el.';
         if (carteP.verdict === 'existe') {
-          actions = '<button class="btn-p" data-creer-article="' + carteP.carte.id + '">Cr\u00e9er l\u2019article ' + ech(carteP.carte.cle_produit + (carteP.carte.indice ? ' ' + carteP.carte.indice : '')) + '</button>' +
-            '<span style="color:var(--text3);font-size:12px">convention CLIxxx-ref \u00b7 cat\u00e9gorie Protos \u00b7 liens pos\u00e9s d\u2019office</span>';
+          actions = '<div style="display:flex;gap:6px;width:100%;max-width:560px;flex-wrap:wrap;align-items:center">' +
+            '<input type="text" class="fa-nom" value="' + ech(carteP.carte.cle_produit + (carteP.carte.indice ? ' ' + carteP.carte.indice : '')) + '" ' +
+            'style="flex:1;min-width:260px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
+            '<button class="btn-p" data-creer-article="' + carteP.carte.id + '">Cr\u00e9er l\u2019article</button>' +
+            '<span style="color:var(--text3);font-size:12px;width:100%">nom \u00e9ditable \u2014 doit commencer par ' + ech(carteP.carte.cle_produit) + ' \u00b7 cat\u00e9gorie Protos \u00b7 liens pos\u00e9s d\u2019office</span></div>';
         } else d += ' Cr\u00e9er d\u2019abord la carte ci-dessous.';
       }
       if (p.ligne_prototype) d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis (prix ' +
@@ -300,7 +303,8 @@ function afficher(rep) {
     }, r => 'Carte ' + r.cle_produit + ' cr\u00e9\u00e9e (#' + r.produit_id + ').');
   }));
   z.querySelectorAll('[data-creer-article]').forEach(b => b.addEventListener('click', function () {
-    agir(this, 'commande-creer-article', { produit_id: parseInt(this.dataset.creerArticle, 10) },
+    const champNom = this.parentElement.querySelector('.fa-nom');
+    agir(this, 'commande-creer-article', { produit_id: parseInt(this.dataset.creerArticle, 10), nom: champNom ? champNom.value.trim() : null },
       r => 'Article \u00ab ' + r.article_nom + ' \u00bb cr\u00e9\u00e9 (#' + r.article_id + '), liens pos\u00e9s.');
   }));
   z.querySelectorAll('[data-projet-renommer]').forEach(b => b.addEventListener('click', function () {
