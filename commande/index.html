@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.2";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -450,10 +450,12 @@ async function agir(bouton, chemin, corps, messageOk) {
 async function relier(bouton) {
   bouton.disabled = true; bouton.textContent = 'Rapprochement\u2026';
   try {
+    const artV = (DERNIER && DERNIER.rep.pieces.find(x => x.piece === 'article')) || {};
     const rep = await appel('commande-lier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ produit_id: parseInt(bouton.dataset.lier, 10) })
+      body: JSON.stringify({ produit_id: parseInt(bouton.dataset.lier, 10),
+                             article_id: artV.article ? artV.article.id : null })
     });
     if (rep.ok) { el('etat').textContent = 'Li\u00e9 : ' + rep.article_nom + ' \u2192 carte ' + rep.pp_produit_id + '. Diagnostic relanc\u00e9\u2026'; el('etat').className = 'etat-msg'; diagnostiquer(); }
     else { el('etat').textContent = 'Refus\u00e9 : ' + (rep.motif || 'motif inconnu'); el('etat').className = 'etat-msg err'; bouton.disabled = false; bouton.textContent = 'Relier maintenant'; }
