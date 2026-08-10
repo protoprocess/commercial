@@ -2,14 +2,22 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=../fabstory/">
 <title>Proto Process / FabStory</title>
 <style>body{margin:0;background:#0a0c12;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}a{color:#F8952D}</style>
 </head>
 <body>
 <p>La fiche de vie est devenue <strong>FabStory</strong>.<br>
-<a href="../fabstory/">Continuer vers FabStory</a><br>
-<span style="font-size:12px;color:#64748b">(mettez \u00e0 jour vos favoris \u2014 redirection automatique)</span></p>
-<script>location.replace('../fabstory/');</script>
+<a id="lien" href="../fabstory/">Continuer vers FabStory</a><br>
+<span style="font-size:12px;color:#64748b">(mettez à jour vos favoris — redirection automatique)</span></p>
+<script>
+/* CORRECTIF 07/08/2026 : la redirection perdait le parametre ?produit=,
+   tous les liens colonne F du Planning atterrissaient sur l accueil FabStory
+   au lieu d ouvrir la carte. location.search est desormais transmis.
+   Le meta refresh statique a ete retire : il partait a 0s SANS le parametre,
+   avant meme que le script ne s execute. */
+var cible = '../fabstory/' + location.search;
+document.getElementById('lien').href = cible;
+location.replace(cible);
+</script>
 </body>
 </html>
