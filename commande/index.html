@@ -103,6 +103,8 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
     </div>
   </div>
 
+  <div id="entrantes"></div>
+
   <div class="etat-msg" id="etat"></div>
 
   <div class="rapport" id="rapport">
@@ -113,7 +115,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "2.2";
+const APP_VERSION = "3.0";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -156,6 +158,47 @@ async function appel(chemin, options) {
 }
 
 let DERNIER = null;
+let ENTRANTE = null; /* commande entrante choisie, pour pre-remplir le devis */
+
+/* ---- Commandes entrantes (mails etiquette "commande") ------------------ */
+async function chargerEntrantes() {
+  if (!code()) return;
+  try {
+    const rep = await appel('commande-entrantes');
+    const z = el('entrantes');
+    if (!rep.ok || !rep.nb) { z.innerHTML = ''; return; }
+    z.innerHTML = rep.entrantes.map(e => {
+      const cad = (e.cadences || []).map(c =>
+        [c.date, c.qte ? c.qte + ' pcs' : null, (c.prix_unitaire || c.prix_unitaire === 0) ? c.prix_unitaire + ' \u20ac' : null]
+        .filter(Boolean).join(' \u00b7 ')).join('  /  ');
+      return '<div class="piece warn" style="margin-top:14px"><div class="p-nom">Mail re\u00e7u</div><div class="p-corps">' +
+        '<span class="badge badge-warn">commande entrante</span>' +
+        '<div class="p-detail"><b>' + ech(e.client_detecte || e.expediteur || '?') + '</b> \u00b7 ' + ech(e.ref_detectee || 'r\u00e9f non lue') +
+        (e.indice_detecte ? ' <code>indice ' + ech(e.indice_detecte) + '</code>' : '') +
+        (e.num_commande_client ? ' \u00b7 PO ' + ech(e.num_commande_client) : '') +
+        (cad ? '<br>' + ech(cad) : '') +
+        (e.resume ? '<br><span style="color:var(--text3)">' + ech(e.resume) + ' (confiance ' + ech(e.confidence) + ')</span>' : '') +
+        '</div><div class="p-actions">' +
+        (e.ref_detectee ? '<button class="btn-p" data-ouvrir-entrante="' + e.id + '">Diagnostiquer</button>' : '') +
+        '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="traitee">Marquer trait\u00e9e</button>' +
+        '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="ecartee">\u00c9carter</button>' +
+        '</div></div></div>';
+    }).join('');
+    z.querySelectorAll('[data-ouvrir-entrante]').forEach(b => b.addEventListener('click', function () {
+      ENTRANTE = rep.entrantes.find(x => String(x.id) === this.dataset.ouvrirEntrante) || null;
+      if (ENTRANTE) { el('entree').value = ENTRANTE.ref_detectee; el('entree').dispatchEvent(new Event('input')); diagnostiquer(); }
+    }));
+    z.querySelectorAll('[data-entrante-etat]').forEach(b => b.addEventListener('click', async function () {
+      this.disabled = true;
+      try {
+        await appel('commande-entrante-etat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: parseInt(this.dataset.entranteEtat, 10), etat: this.dataset.etat }) });
+        chargerEntrantes();
+      } catch (e2) { this.disabled = false; }
+    }));
+  } catch (err) { /* silencieux : le bandeau est un plus, jamais un blocage */ }
+}
+chargerEntrantes();
 async function diagnostiquer() {
   const a = analyser(el('entree').value);
   if (!a) { el('etat').textContent = 'Saisir un num\u00e9ro de commande ou un produit.'; el('etat').className = 'etat-msg err'; return; }
@@ -333,7 +376,21 @@ function afficher(rep) {
         '<input type="number" class="fd-prix" min="0" step="0.01" placeholder="Prix unitaire \u20ac" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 10px;font-size:12.5px">';
       zone.appendChild(r);
     };
-    ligneCadence();
+    /* Pre-remplissage depuis la commande entrante choisie (mail) : une ligne
+       par cadence lue, valeurs A VERIFIER par l'humain avant creation. */
+    const cadEntrante = (ENTRANTE && Array.isArray(ENTRANTE.cadences)) ? ENTRANTE.cadences : [];
+    if (cadEntrante.length) {
+      for (const c of cadEntrante) {
+        ligneCadence();
+        const r = zone.lastElementChild;
+        if (c.date) r.querySelector('.fd-date').value = c.date;
+        if (c.qte) r.querySelector('.fd-qte').value = c.qte;
+        if (c.prix_unitaire || c.prix_unitaire === 0) r.querySelector('.fd-prix').value = c.prix_unitaire;
+      }
+      bloc.querySelector('.p-detail').innerHTML += '<br>\u26a0 Cadences pr\u00e9-remplies depuis le mail \u2014 v\u00e9rifiez chaque date, quantit\u00e9 et prix contre le PDF client.';
+    } else {
+      ligneCadence();
+    }
     bloc.querySelector('[data-cadence-plus]').addEventListener('click', ligneCadence);
     bloc.querySelector('[data-creer-devis]').addEventListener('click', function () {
       const cadences = Array.from(zone.children).map(r => ({
