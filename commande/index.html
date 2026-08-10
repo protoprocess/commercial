@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commande</title>
+<style>
+:root {
+  --bg:#0a0c12; --surface:#1a2030; --surface2:#161b27; --border:#262e42; --border2:#333d55;
+  --text:#e2e8f0; --text2:#94a3b8; --text3:#64748b;
+  --accent:#F07B1F; --accent-bg:#2a1f10;
+  --green:#86c564; --green-bg:#EAF3DE; --green-badge:#3B6D11;
+  --amber:#eab676; --amber-bg:#FAEEDA; --amber-badge:#854F0B;
+  --red:#f09595;   --red-bg:#FCEBEB;   --red-badge:#A32D2D;
+  --radius:6px; --radius-lg:10px;
+  --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); font-size:13.5px; line-height:1.55; }
+header { background:#0f1117; height:52px; display:flex; align-items:center; gap:10px; padding:0 16px; position:sticky; top:0; z-index:5; }
+.logo-text { display:flex; align-items:center; gap:0; font-size:13px; font-weight:500; }
+.logo-text .lt { color:#fff; } .logo-text .ls { color:#444; margin:0 3px; } .logo-text .lo { color:var(--accent); }
+.ver { color:var(--text3); font-size:11px; font-family:var(--mono); }
+.wrap { max-width:min(96vw,900px); margin:0 auto; padding:26px 16px 70px; }
+
+/* ---- Saisie ---- */
+.saisie { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; }
+.saisie label { display:block; color:var(--text2); font-size:12px; margin-bottom:7px; }
+.ligne { display:flex; gap:8px; }
+input[type=text] { flex:1; background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius);
+  color:var(--text); font-size:14px; padding:9px 12px; font-family:var(--mono); }
+input[type=text]:focus { outline:none; border-color:var(--accent); }
+.btn-p { padding:9px 16px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius);
+  font-size:13px; font-weight:500; cursor:pointer; }
+.btn-p:disabled { opacity:.5; cursor:default; }
+.btn-s { padding:5px 11px; background:transparent; color:var(--text2); border:0.5px solid var(--border);
+  border-radius:var(--radius); font-size:12px; cursor:pointer; }
+.detecte { margin-top:8px; font-size:12px; color:var(--text3); min-height:16px; }
+.detecte b { color:var(--accent); font-weight:600; }
+
+/* ---- Code d'acces ---- */
+.acces { margin-top:12px; display:none; }
+.acces.visible { display:block; }
+.acces p { margin:0 0 8px; color:var(--amber); font-size:12.5px; }
+
+/* ---- Rapport ---- */
+.rapport { margin-top:22px; display:none; }
+.rapport.visible { display:block; }
+.rapport h2 { font-size:13px; color:var(--text2); font-weight:500; margin:0 0 10px; text-transform:uppercase; letter-spacing:.05em; }
+.piece { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 15px; margin-bottom:8px; display:flex; gap:12px; align-items:flex-start; }
+.piece.ok   { box-shadow:inset 3px 0 0 var(--green-badge); }
+.piece.warn { box-shadow:inset 3px 0 0 var(--amber-badge); }
+.piece.err  { box-shadow:inset 3px 0 0 var(--red-badge); }
+.piece.mute { box-shadow:inset 3px 0 0 var(--border2); }
+.p-nom { flex:none; width:88px; color:var(--text2); font-size:12px; padding-top:2px; }
+.p-corps { flex:1; min-width:0; }
+.badge { display:inline-block; font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 9px;
+  letter-spacing:.03em; text-transform:uppercase; }
+.badge-ok   { background:var(--green-bg); color:var(--green-badge); }
+.badge-warn { background:var(--amber-bg); color:var(--amber-badge); }
+.badge-err  { background:var(--red-bg);   color:var(--red-badge); }
+.badge-mute { background:var(--surface2); color:var(--text3); border:1px solid var(--border); }
+.p-detail { margin-top:5px; color:var(--text2); font-size:12.5px; overflow-wrap:anywhere; }
+.p-detail a { color:var(--accent); text-decoration:none; }
+.p-detail a:hover { text-decoration:underline; }
+.p-detail code { font-family:var(--mono); font-size:11.5px; background:var(--surface2);
+  border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+.p-actions { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.copiable { cursor:pointer; }
+.etat-msg { margin-top:14px; font-size:12.5px; }
+.etat-msg.err { color:var(--red); }
+.etat-msg.chargement { color:var(--text2); }
+.spin { display:inline-block; width:11px; height:11px; border:2px solid var(--border2);
+  border-top-color:var(--accent); border-radius:50%; animation:r .8s linear infinite; vertical-align:-1px; margin-right:6px; }
+@keyframes r { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation:none; } }
+</style>
+</head>
+<body>
+<header>
+  <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
+       style="object-fit:contain" onerror="this.style.display='none'">
+  <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Commande</span></span>
+  <span class="ver" id="ver"></span>
+</header>
+
+<div class="wrap">
+  <div class="saisie">
+    <label for="entree">Numéro de commande (SO…) ou produit (clé, référence ou libellé)</label>
+    <div class="ligne">
+      <input type="text" id="entree" placeholder="SO2608-434 ou CLI277-1300078240" autocomplete="off">
+      <button class="btn-p" id="btn-diag">Diagnostiquer</button>
+    </div>
+    <div class="detecte" id="detecte"></div>
+    <div class="acces" id="acces">
+      <p>Code d'accès Proto Process requis (le même que FabStory).</p>
+      <div class="ligne">
+        <input type="text" id="code" placeholder="Code d'accès">
+        <button class="btn-p" id="btn-code">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="etat-msg" id="etat"></div>
+
+  <div class="rapport" id="rapport">
+    <h2>Les 5 pièces de l'affaire</h2>
+    <div id="pieces"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================ COMMANDE ==== */
+const APP_VERSION = "0.1";
+const APP_DATE = "10/08/2026";
+document.title = "Commande v" + APP_VERSION;
+document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
+
+const KEY = 'pp_access_code', HDR = 'X-PP-Auth';
+const API = 'https://protoprocess.app.n8n.cloud/webhook/';
+function code()      { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+function setCode(v)  { try { localStorage.setItem(KEY, v); } catch (e) {} }
+function delCode()   { try { localStorage.removeItem(KEY); } catch (e) {} }
+const el = id => document.getElementById(id);
+
+/* Detection SO / produit : un numero SOxxxx-xxx est une commande, le reste un produit. */
+function analyser(txt) {
+  const t = String(txt || '').trim();
+  if (!t) return null;
+  if (/^SO[\d-]+$/i.test(t)) return { mode: 'so', valeur: t.toUpperCase() };
+  return { mode: 'produit', valeur: t };
+}
+el('entree').addEventListener('input', function () {
+  const a = analyser(this.value);
+  el('detecte').innerHTML = !a ? '' :
+    (a.mode === 'so' ? 'Entr\u00e9e reconnue : <b>commande</b> \u2014 diagnostic du SO existant'
+                     : 'Entr\u00e9e reconnue : <b>produit</b> \u2014 parcours refab');
+});
+el('entree').addEventListener('keydown', e => { if (e.key === 'Enter') diagnostiquer(); });
+el('btn-diag').addEventListener('click', diagnostiquer);
+el('btn-code').addEventListener('click', function () {
+  const v = el('code').value.trim();
+  if (!v) return;
+  setCode(v); el('acces').classList.remove('visible'); diagnostiquer();
+});
+
+async function appel(chemin, options) {
+  const o = options || {};
+  o.headers = Object.assign({}, o.headers, { [HDR]: code() });
+  const r = await fetch(API + chemin, o);
+  if (r.status === 401 || r.status === 403) { delCode(); throw new Error('ACCES'); }
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+let DERNIER = null;
+async function diagnostiquer() {
+  const a = analyser(el('entree').value);
+  if (!a) { el('etat').textContent = 'Saisir un num\u00e9ro de commande ou un produit.'; el('etat').className = 'etat-msg err'; return; }
+  if (!code()) { el('acces').classList.add('visible'); el('code').focus(); return; }
+  el('btn-diag').disabled = true;
+  el('etat').innerHTML = '<span class="spin"></span>Diagnostic en cours\u2026';
+  el('etat').className = 'etat-msg chargement';
+  el('rapport').classList.remove('visible');
+  try {
+    const q = (a.mode === 'so' ? 'so=' : 'produit=') + encodeURIComponent(a.valeur);
+    const rep = await appel('commande-diagnostic?' + q);
+    DERNIER = { entree: a, rep: rep };
+    el('etat').textContent = '';
+    afficher(rep);
+  } catch (err) {
+    if (err.message === 'ACCES') {
+      el('etat').textContent = 'Code d\u2019acc\u00e8s refus\u00e9 \u2014 ressaisir.';
+      el('etat').className = 'etat-msg err';
+      el('acces').classList.add('visible'); el('code').focus();
+    } else {
+      el('etat').textContent = 'Le diagnostic n\u2019a pas r\u00e9pondu (' + err.message + '). R\u00e9essayer, et si \u00e7a persiste v\u00e9rifier n8n.';
+      el('etat').className = 'etat-msg err';
+    }
+  }
+  el('btn-diag').disabled = false;
+}
+
+/* ---- Rendu des 5 pieces ---------------------------------------------- */
+const NOMS = { so: 'Commande', article: 'Article', carte: 'Carte FabStory', liens: 'Liens', projet: 'Projet Odoo' };
+const ech = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function classeEtBadge(p) {
+  const v = p.verdict;
+  if (['trouve', 'present', 'existe', 'existe_hors_so', 'poses'].includes(v))
+    return { cl: p.alerte ? 'warn' : 'ok', badge: p.alerte ? 'badge-warn' : 'badge-ok', lib: { trouve: 'trouv\u00e9', present: 'pr\u00e9sent', existe: 'existe', existe_hors_so: 'existe', poses: 'pos\u00e9s' }[v] };
+  if (['a_poser', 'a_creer', 'introuvable', 'attend_la_carte', 'plusieurs'].includes(v))
+    return { cl: v === 'plusieurs' ? 'err' : 'warn', badge: v === 'plusieurs' ? 'badge-err' : 'badge-warn',
+             lib: { a_poser: '\u00e0 poser', a_creer: '\u00e0 cr\u00e9er', introuvable: 'introuvable', attend_la_carte: 'attend la carte', plusieurs: 'plusieurs' }[v] };
+  return { cl: 'mute', badge: 'badge-mute', lib: v === 'non_demande' ? 'sans objet' : v };
+}
+
+function afficher(rep) {
+  if (!rep || !rep.pieces) { el('etat').textContent = 'R\u00e9ponse illisible.'; el('etat').className = 'etat-msg err'; return; }
+  const z = el('pieces'); z.innerHTML = '';
+  for (const p of rep.pieces) {
+    const m = classeEtBadge(p);
+    let d = '', actions = '';
+    if (p.piece === 'so') {
+      if (p.verdict === 'trouve') {
+        d = ech(p.so) + ' \u2014 \u00e9tat <code>' + ech(p.etat) + '</code>' +
+            (p.code_client ? ' \u00b7 ' + ech(p.code_client) : '') +
+            (p.ref_projet ? ' \u00b7 ' + ech(p.ref_projet) : '');
+        if (p.alerte) d += '<br>\u26a0 ' + ech(p.alerte);
+      } else d = ech(p.detail || '');
+    }
+    if (p.piece === 'article') {
+      if (p.article) d = ech(p.article.nom) + ' <code>#' + p.article.id + '</code>' +
+        (p.verdict === 'existe_hors_so' ? ' \u2014 existe, pas encore sur ce SO' : '');
+      else if (p.verdict === 'plusieurs') d = 'Arbitrage requis : ' + p.candidats.map(c => ech(c.nom)).join(' / ');
+      else d = 'Aucun article r\u00e9el \u2014 il sera cr\u00e9\u00e9 en phase 2.';
+      if (p.ligne_prototype) d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis (prix ' +
+        p.ligne_prototype.lignes.map(l => ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte)).join(', ') + ') \u2014 remplacement en phase 3, prix conserv\u00e9.';
+    }
+    if (p.piece === 'carte') {
+      if (p.verdict === 'existe') d = ech(p.carte.cle_produit) + (p.carte.libelle_carte ? ' \u00b7 ' + ech(p.carte.libelle_carte) : '') +
+        ' \u2014 <a href="' + ech(p.url) + '" target="_blank" rel="noopener">ouvrir la carte</a>';
+      else if (p.verdict === 'plusieurs') d = 'Plusieurs cartes candidates : ' + p.candidats.map(c => ech(c.cle_produit)).join(' / ');
+      else d = 'Aucune carte \u2014 la cr\u00e9er dans FabStory (pr\u00e9-remplissage en phase 2).';
+    }
+    if (p.piece === 'liens') {
+      if (p.verdict === 'poses') d = 'PP Produit ID <code>' + ech(p.pp_produit_id) + '</code>' +
+        (p.fabstory ? ' \u00b7 <a href="' + ech(p.fabstory) + '" target="_blank" rel="noopener">lien FabStory sur l\u2019article</a>' : '');
+      else if (p.verdict === 'a_poser') {
+        d = 'L\u2019article et la carte existent mais ne sont pas reli\u00e9s.';
+        const pid = (p.action || '').match(/produit_id=(\d+)/);
+        if (pid) actions = '<button class="btn-p" data-lier="' + pid[1] + '">Relier maintenant</button>';
+      }
+      else d = ech(p.detail || 'En attente des pi\u00e8ces pr\u00e9c\u00e9dentes.');
+    }
+    if (p.piece === 'projet') {
+      if (p.verdict === 'trouve') d = ech(p.projet.name) + ' <code>#' + p.projet.id + '</code> \u2014 la colonne A du Planning pointera dessus';
+      else if (p.verdict === 'plusieurs') d = 'Plusieurs projets : ' + p.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 lier \u00e0 la main';
+      else if (p.verdict === 'introuvable') {
+        d = ech(p.detail || '') + '<br>Nom attendu : <code class="copiable" title="Cliquer pour copier">' + ech(p.nom_attendu) + '</code>';
+      }
+      else d = ech(p.detail || '');
+    }
+    const carte = document.createElement('div');
+    carte.className = 'piece ' + m.cl;
+    carte.innerHTML = '<div class="p-nom">' + NOMS[p.piece] + '</div>' +
+      '<div class="p-corps"><span class="badge ' + m.badge + '">' + ech(m.lib) + '</span>' +
+      (d ? '<div class="p-detail">' + d + '</div>' : '') +
+      (actions ? '<div class="p-actions">' + actions + '</div>' : '') + '</div>';
+    z.appendChild(carte);
+  }
+  z.querySelectorAll('[data-lier]').forEach(b => b.addEventListener('click', () => relier(b)));
+  z.querySelectorAll('.copiable').forEach(c => c.addEventListener('click', function () {
+    navigator.clipboard && navigator.clipboard.writeText(this.textContent);
+    this.style.borderColor = 'var(--accent)';
+  }));
+  el('rapport').classList.add('visible');
+}
+
+/* ---- Relier article <-> carte (endpoint commande-lier) ---------------- */
+async function relier(bouton) {
+  bouton.disabled = true; bouton.textContent = 'Rapprochement\u2026';
+  try {
+    const rep = await appel('commande-lier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ produit_id: parseInt(bouton.dataset.lier, 10) })
+    });
+    if (rep.ok) { el('etat').textContent = 'Li\u00e9 : ' + rep.article_nom + ' \u2192 carte ' + rep.pp_produit_id + '. Diagnostic relanc\u00e9\u2026'; el('etat').className = 'etat-msg'; diagnostiquer(); }
+    else { el('etat').textContent = 'Refus\u00e9 : ' + (rep.motif || 'motif inconnu'); el('etat').className = 'etat-msg err'; bouton.disabled = false; bouton.textContent = 'Relier maintenant'; }
+  } catch (err) {
+    el('etat').textContent = 'Le rapprochement n\u2019a pas r\u00e9pondu (' + err.message + ').'; el('etat').className = 'etat-msg err';
+    bouton.disabled = false; bouton.textContent = 'Relier maintenant';
+  }
+}
+</script>
+</body>
+</html>
