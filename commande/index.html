@@ -115,7 +115,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -401,8 +401,13 @@ function afficher(rep) {
       agir(this, 'commande-creer-devis', {
         produit_id: parseInt(this.dataset.creerDevis, 10),
         ref_projet: bloc.querySelector('.fd-ref').value.trim() || null,
-        cadences: cadences
-      }, r => 'Devis ' + r.so_numero + ' cr\u00e9\u00e9 (' + r.cadences + ' cadence(s), ' + r.total + ' \u20ac) \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.');
+        cadences: cadences,
+        num_commande_client: (ENTRANTE && ENTRANTE.num_commande_client) || null,
+        entrante_id: (ENTRANTE && ENTRANTE.id) || null
+      }, r => { const e = ENTRANTE; ENTRANTE = null; chargerEntrantes();
+        return 'Devis ' + r.so_numero + ' cr\u00e9\u00e9 (' + r.cadences + ' cadence(s), ' + r.total + ' \u20ac)' +
+          (e ? ', entrante trait\u00e9e et fil Gmail \u00e9tiquet\u00e9 \u00ab Commande \u00bb' : '') +
+          ' \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.'; });
     });
   }
   z.querySelectorAll('[data-remplacer-tout]').forEach(b => b.addEventListener('click', async function () {
