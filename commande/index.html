@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "0.2";
+const APP_VERSION = "1.0";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -212,10 +212,17 @@ function afficher(rep) {
       } else d = ech(p.detail || '');
     }
     if (p.piece === 'article') {
+      const carteP = rep.pieces.find(x => x.piece === 'carte') || {};
       if (p.article) d = ech(p.article.nom) + ' <code>#' + p.article.id + '</code>' +
         (p.verdict === 'existe_hors_so' ? ' \u2014 existe, pas encore sur ce SO' : '');
       else if (p.verdict === 'plusieurs') d = 'Arbitrage requis : ' + p.candidats.map(c => ech(c.nom)).join(' / ');
-      else d = 'Aucun article r\u00e9el \u2014 il sera cr\u00e9\u00e9 en phase 2.';
+      else {
+        d = 'Aucun article r\u00e9el.';
+        if (carteP.verdict === 'existe') {
+          actions = '<button class="btn-p" data-creer-article="' + carteP.carte.id + '">Cr\u00e9er l\u2019article ' + ech(carteP.carte.cle_produit) + '</button>' +
+            '<span style="color:var(--text3);font-size:12px">convention CLIxxx-ref \u00b7 cat\u00e9gorie Protos \u00b7 liens pos\u00e9s d\u2019office</span>';
+        } else d += ' Cr\u00e9er d\u2019abord la carte ci-dessous.';
+      }
       if (p.ligne_prototype) d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis (prix ' +
         p.ligne_prototype.lignes.map(l => ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte)).join(', ') + ') \u2014 remplacement en phase 3, prix conserv\u00e9.';
     }
@@ -230,10 +237,21 @@ function afficher(rep) {
           '<span class="choix-note" style="color:var(--text3);font-size:12px"></span>';
       }
       else {
-        d = 'Aucune carte pour ce produit.';
-        actions = '<a class="btn-p" style="text-decoration:none;display:inline-block" ' +
-          'href="https://protoprocess.github.io/commercial/fabstory/" target="_blank" rel="noopener">Cr\u00e9er la carte dans FabStory</a>' +
-          '<span style="color:var(--text3);font-size:12px">puis relancer le diagnostic (pr\u00e9-remplissage en phase 2)</span>';
+        if (p.proposition) {
+          const pr = p.proposition;
+          d = 'Aucune carte \u2014 proposition pr\u00e9-remplie depuis le SO, <b>\u00e0 v\u00e9rifier</b> (la carte porte la r\u00e9f FAMILLE, l\u2019indice \u00e0 part) :';
+          actions = '<div class="form-carte" data-client="' + ech(pr.nom_client || '') + '" style="display:grid;grid-template-columns:110px 1fr 90px;gap:6px;width:100%;max-width:560px">' +
+            '<input type="text" class="fc-code" value="' + ech(pr.code_client) + '" placeholder="CLIxxx" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
+            '<input type="text" class="fc-ref" value="' + ech(pr.ref_carte) + '" placeholder="R\u00e9f famille (sans indice)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
+            '<input type="text" class="fc-indice" value="' + ech(pr.indice) + '" placeholder="Indice" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
+            '<input type="text" class="fc-libelle" value="" placeholder="Libell\u00e9 (optionnel)" style="grid-column:1/3;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12.5px">' +
+            '<button class="btn-p" data-creer-carte="1">Cr\u00e9er la carte</button></div>';
+        } else {
+          d = 'Aucune carte pour ce produit.';
+          actions = '<a class="btn-p" style="text-decoration:none;display:inline-block" ' +
+            'href="https://protoprocess.github.io/commercial/fabstory/" target="_blank" rel="noopener">Cr\u00e9er la carte dans FabStory</a>' +
+            '<span style="color:var(--text3);font-size:12px">puis relancer le diagnostic</span>';
+        }
       }
     }
     if (p.piece === 'liens') {
@@ -248,9 +266,17 @@ function afficher(rep) {
     }
     if (p.piece === 'projet') {
       if (p.verdict === 'trouve') d = ech(p.projet.name) + ' <code>#' + p.projet.id + '</code> \u2014 la colonne A du Planning pointera dessus';
-      else if (p.verdict === 'plusieurs') d = 'Plusieurs projets : ' + p.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 lier \u00e0 la main';
+      else if (p.verdict === 'plusieurs') d = 'Plusieurs projets au nom attendu : ' + p.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 trancher \u00e0 la main dans Odoo';
+      else if (p.verdict === 'candidats') {
+        d = ech(p.detail || '') + '<br>Nom attendu : <code>' + ech(p.nom_attendu) + '</code>';
+        actions = p.candidats.map(c =>
+          '<button class="btn-s" data-projet-renommer="' + c.id + '" data-nom="' + ech(p.nom_attendu) + '">Renommer \u00ab ' + ech(c.name) + ' \u00bb</button>').join('') +
+          '<button class="btn-s" data-projet-creer="1" data-nom="' + ech(p.nom_attendu) + '" data-so="' + ech(p.so_numero || '') + '">Aucun : cr\u00e9er le projet</button>';
+      }
       else if (p.verdict === 'introuvable') {
         d = ech(p.detail || '') + '<br>Nom attendu : <code class="copiable" title="Cliquer pour copier">' + ech(p.nom_attendu) + '</code>';
+        actions = '<button class="btn-p" data-projet-creer="1" data-nom="' + ech(p.nom_attendu) + '" data-so="' + ech(p.so_numero || '') + '">Cr\u00e9er le projet</button>' +
+          (p.so_numero ? '<span style="color:var(--text3);font-size:12px">avec l\u2019\u00e9tape ' + ech(p.so_numero) + '</span>' : '');
       }
       else d = ech(p.detail || '');
     }
@@ -263,6 +289,29 @@ function afficher(rep) {
     z.appendChild(carte);
   }
   z.querySelectorAll('[data-lier]').forEach(b => b.addEventListener('click', () => relier(b)));
+  z.querySelectorAll('[data-creer-carte]').forEach(b => b.addEventListener('click', function () {
+    const f = this.closest('.form-carte');
+    agir(this, 'commande-creer-carte', {
+      code_client: f.querySelector('.fc-code').value.trim(),
+      ref_carte: f.querySelector('.fc-ref').value.trim(),
+      indice: f.querySelector('.fc-indice').value.trim() || null,
+      libelle: f.querySelector('.fc-libelle').value.trim() || null,
+      nom_client: f.dataset.client || null
+    }, r => 'Carte ' + r.cle_produit + ' cr\u00e9\u00e9e (#' + r.produit_id + ').');
+  }));
+  z.querySelectorAll('[data-creer-article]').forEach(b => b.addEventListener('click', function () {
+    agir(this, 'commande-creer-article', { produit_id: parseInt(this.dataset.creerArticle, 10) },
+      r => 'Article \u00ab ' + r.article_nom + ' \u00bb cr\u00e9\u00e9 (#' + r.article_id + '), liens pos\u00e9s.');
+  }));
+  z.querySelectorAll('[data-projet-renommer]').forEach(b => b.addEventListener('click', function () {
+    if (!confirm('Renommer ce projet en \u00ab ' + this.dataset.nom + ' \u00bb ?\nUne fois renomm\u00e9, la cha\u00eene le retrouvera seule \u00e0 chaque refab.')) return;
+    agir(this, 'commande-projet', { action: 'renommer', projet_id: parseInt(this.dataset.projetRenommer, 10), nom_attendu: this.dataset.nom },
+      r => 'Projet renomm\u00e9 : \u00ab ' + r.ancien_nom + ' \u00bb \u2192 \u00ab ' + r.nouveau_nom + ' \u00bb.');
+  }));
+  z.querySelectorAll('[data-projet-creer]').forEach(b => b.addEventListener('click', function () {
+    agir(this, 'commande-projet', { action: 'creer', nom_attendu: this.dataset.nom, so_numero: this.dataset.so || null },
+      r => 'Projet \u00ab ' + r.nom + ' \u00bb cr\u00e9\u00e9 (#' + r.projet_id + ')' + (r.etape_so ? ', \u00e9tape ' + r.etape_so : '') + '.');
+  }));
   z.querySelectorAll('[data-choisir]').forEach(b => b.addEventListener('click', function () {
     z.querySelectorAll('[data-choisir]').forEach(x => { x.style.borderColor = ''; x.style.color = ''; });
     this.style.borderColor = 'var(--accent)'; this.style.color = 'var(--accent)';
@@ -282,6 +331,33 @@ function afficher(rep) {
     this.style.borderColor = 'var(--accent)';
   }));
   el('rapport').classList.add('visible');
+}
+
+/* ---- Action generique : POST garde, message, re-diagnostic --------------- */
+async function agir(bouton, chemin, corps, messageOk) {
+  const texte = bouton.textContent;
+  bouton.disabled = true; bouton.textContent = 'En cours\u2026';
+  try {
+    const rep = await appel(chemin, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corps)
+    });
+    if (rep.ok) {
+      el('etat').textContent = messageOk(rep) + ' Diagnostic relanc\u00e9\u2026';
+      el('etat').className = 'etat-msg';
+      diagnostiquer();
+    } else {
+      el('etat').textContent = 'Refus\u00e9 : ' + (rep.motif || 'motif inconnu') +
+        (rep.existants ? ' (' + rep.existants.map(x => x.nom).join(', ') + ')' : '');
+      el('etat').className = 'etat-msg err';
+      bouton.disabled = false; bouton.textContent = texte;
+    }
+  } catch (err) {
+    el('etat').textContent = 'L\u2019action n\u2019a pas r\u00e9pondu (' + err.message + ').';
+    el('etat').className = 'etat-msg err';
+    bouton.disabled = false; bouton.textContent = texte;
+  }
 }
 
 /* ---- Relier article <-> carte (endpoint commande-lier) ---------------- */
