@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "1.2";
+const APP_VERSION = "2.0";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -226,8 +226,20 @@ function afficher(rep) {
             '<span style="color:var(--text3);font-size:12px;width:100%">nom \u00e9ditable \u2014 doit commencer par ' + ech(carteP.carte.cle_produit) + ' \u00b7 cat\u00e9gorie Protos \u00b7 liens pos\u00e9s d\u2019office</span></div>';
         } else d += ' Cr\u00e9er d\u2019abord la carte ci-dessous.';
       }
-      if (p.ligne_prototype) d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis (prix ' +
-        p.ligne_prototype.lignes.map(l => ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte)).join(', ') + ') \u2014 remplacement en phase 3, prix conserv\u00e9.';
+      if (p.ligne_prototype) {
+        const soP = rep.pieces.find(x => x.piece === 'so') || {};
+        d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis.';
+        if (p.article && soP.confirmable) {
+          actions = (actions || '') + p.ligne_prototype.lignes.map(l =>
+            '<button class="btn-s" data-remplacer-ligne="' + l.id + '" data-article="' + p.article.id + '">' +
+            'Remplacer la ligne ' + ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte) + '</button>').join('') +
+            '<span style="color:var(--text3);font-size:12px;width:100%">prix, quantit\u00e9 et date conserv\u00e9s \u2014 preuve avant/apr\u00e8s au retour</span>';
+        } else if (p.article && !soP.confirmable) {
+          d += ' SO confirm\u00e9 : remplacement verrouill\u00e9 (des livraisons existent derri\u00e8re) \u2014 geste manuel dans Odoo si vraiment n\u00e9cessaire.';
+        } else {
+          d += ' Cr\u00e9er l\u2019article d\u2019abord, les boutons de remplacement appara\u00eetront.';
+        }
+      }
     }
     if (p.piece === 'carte') {
       if (p.verdict === 'existe') d = ech(p.carte.cle_produit) + (p.carte.indice ? ' <code>indice ' + ech(p.carte.indice) + '</code>' : '') + (p.carte.libelle_carte ? ' \u00b7 ' + ech(p.carte.libelle_carte) : '') +
@@ -291,6 +303,51 @@ function afficher(rep) {
       (actions ? '<div class="p-actions">' + actions + '</div>' : '') + '</div>';
     z.appendChild(carte);
   }
+  // Entree par produit, tout est en place -> proposer le devis refab
+  const soP0 = rep.pieces.find(x => x.piece === 'so') || {};
+  const artP0 = rep.pieces.find(x => x.piece === 'article') || {};
+  const carteP0 = rep.pieces.find(x => x.piece === 'carte') || {};
+  if (soP0.verdict === 'non_demande' && artP0.article && carteP0.verdict === 'existe') {
+    const refDef = (carteP0.carte.ref_carte || '') + (carteP0.carte.indice ? ' ' + carteP0.carte.indice : '');
+    const bloc = document.createElement('div');
+    bloc.className = 'piece warn';
+    bloc.innerHTML = '<div class="p-nom">Devis refab</div><div class="p-corps">' +
+      '<span class="badge badge-warn">\u00e0 cr\u00e9er</span>' +
+      '<div class="p-detail">Article ' + ech(artP0.article.nom) + ' \u00b7 une ligne par cadence \u00b7 jamais de PP-0001 \u00b7 na\u00eet brouillon, envoi et confirmation dans Odoo.</div>' +
+      '<div class="p-actions" style="flex-direction:column;align-items:stretch;max-width:560px">' +
+      '<input type="text" class="fd-ref" value="' + ech(refDef) + '" placeholder="R\u00e9f projet (colonne F)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12.5px">' +
+      '<div class="fd-cadences"></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn-s" data-cadence-plus="1">+ cadence</button>' +
+      '<button class="btn-p" data-creer-devis="' + carteP0.carte.id + '">Cr\u00e9er le devis brouillon</button></div></div></div>';
+    z.appendChild(bloc);
+    const zone = bloc.querySelector('.fd-cadences');
+    const ligneCadence = () => {
+      const r = document.createElement('div');
+      r.style.cssText = 'display:grid;grid-template-columns:150px 1fr 1fr;gap:6px;margin-bottom:6px';
+      r.innerHTML = '<input type="date" class="fd-date" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 8px;font-size:12.5px;color-scheme:dark">' +
+        '<input type="number" class="fd-qte" min="1" placeholder="Quantit\u00e9" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 10px;font-size:12.5px">' +
+        '<input type="number" class="fd-prix" min="0" step="0.01" placeholder="Prix unitaire \u20ac" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 10px;font-size:12.5px">';
+      zone.appendChild(r);
+    };
+    ligneCadence();
+    bloc.querySelector('[data-cadence-plus]').addEventListener('click', ligneCadence);
+    bloc.querySelector('[data-creer-devis]').addEventListener('click', function () {
+      const cadences = Array.from(zone.children).map(r => ({
+        date: r.querySelector('.fd-date').value,
+        qte: parseFloat(r.querySelector('.fd-qte').value),
+        prix: parseFloat(r.querySelector('.fd-prix').value)
+      })).filter(c => c.date || c.qte || c.prix);
+      agir(this, 'commande-creer-devis', {
+        produit_id: parseInt(this.dataset.creerDevis, 10),
+        ref_projet: bloc.querySelector('.fd-ref').value.trim() || null,
+        cadences: cadences
+      }, r => 'Devis ' + r.so_numero + ' cr\u00e9\u00e9 (' + r.cadences + ' cadence(s), ' + r.total + ' \u20ac) \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.');
+    });
+  }
+  z.querySelectorAll('[data-remplacer-ligne]').forEach(b => b.addEventListener('click', function () {
+    agir(this, 'commande-remplacer-ligne', { ligne_id: parseInt(this.dataset.remplacerLigne, 10), article_id: parseInt(this.dataset.article, 10) },
+      r => 'Ligne remplac\u00e9e sur ' + r.so + ' : \u00ab ' + r.apres.produit + ' \u00bb, prix ' + r.apres.prix + ' \u20ac ' + (r.prix_conserve ? 'conserv\u00e9 \u2713' : 'ECART !') + ', qt\u00e9 ' + r.apres.qte + (r.qte_conservee ? ' \u2713' : ' ECART !') + '.');
+  }));
   z.querySelectorAll('[data-lier]').forEach(b => b.addEventListener('click', () => relier(b)));
   z.querySelectorAll('[data-creer-carte]').forEach(b => b.addEventListener('click', function () {
     const f = this.closest('.form-carte');
