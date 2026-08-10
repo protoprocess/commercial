@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.1";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -230,10 +230,14 @@ function afficher(rep) {
         const soP = rep.pieces.find(x => x.piece === 'so') || {};
         d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis.';
         if (p.article && soP.confirmable) {
-          actions = (actions || '') + p.ligne_prototype.lignes.map(l =>
+          const tout = p.ligne_prototype.lignes.map(l => l.id).join(',');
+          actions = (actions || '') +
+            (p.ligne_prototype.lignes.length > 1 ?
+              '<button class="btn-p" data-remplacer-tout="' + tout + '" data-article="' + p.article.id + '">Remplacer les ' + p.ligne_prototype.lignes.length + ' lignes</button>' : '') +
+            p.ligne_prototype.lignes.map(l =>
             '<button class="btn-s" data-remplacer-ligne="' + l.id + '" data-article="' + p.article.id + '">' +
             'Remplacer la ligne ' + ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte) + '</button>').join('') +
-            '<span style="color:var(--text3);font-size:12px;width:100%">prix, quantit\u00e9 et date conserv\u00e9s \u2014 preuve avant/apr\u00e8s au retour</span>';
+            '<span style="color:var(--text3);font-size:12px;width:100%">prix, quantit\u00e9 et date conserv\u00e9s \u2014 preuve avant/apr\u00e8s au retour, ligne par ligne</span>';
         } else if (p.article && !soP.confirmable) {
           d += ' SO confirm\u00e9 : remplacement verrouill\u00e9 (des livraisons existent derri\u00e8re) \u2014 geste manuel dans Odoo si vraiment n\u00e9cessaire.';
         } else {
@@ -344,6 +348,27 @@ function afficher(rep) {
       }, r => 'Devis ' + r.so_numero + ' cr\u00e9\u00e9 (' + r.cadences + ' cadence(s), ' + r.total + ' \u20ac) \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.');
     });
   }
+  z.querySelectorAll('[data-remplacer-tout]').forEach(b => b.addEventListener('click', async function () {
+    const ids = this.dataset.remplacerTout.split(',').map(x => parseInt(x, 10)).filter(x => x > 0);
+    const article = parseInt(this.dataset.article, 10);
+    const texte = this.textContent;
+    this.disabled = true;
+    const bilans = [];
+    for (let i = 0; i < ids.length; i++) {
+      this.textContent = 'Ligne ' + (i + 1) + '/' + ids.length + '\u2026';
+      try {
+        const r = await appel('commande-remplacer-ligne', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ligne_id: ids[i], article_id: article })
+        });
+        bilans.push(r.ok ? (r.apres.prix + ' \u20ac \u00d7 ' + r.apres.qte + (r.prix_conserve && r.qte_conservee ? ' \u2713' : ' ECART !')) : 'refus\u00e9e (' + (r.motif || '?') + ')');
+      } catch (err) { bilans.push('sans r\u00e9ponse (' + err.message + ')'); }
+    }
+    el('etat').textContent = ids.length + ' ligne(s) trait\u00e9e(s) : ' + bilans.join(' \u00b7 ') + ' \u2014 diagnostic relanc\u00e9\u2026';
+    el('etat').className = bilans.some(x => x.indexOf('ECART') >= 0 || x.indexOf('refus') >= 0 || x.indexOf('sans') >= 0) ? 'etat-msg err' : 'etat-msg';
+    this.textContent = texte;
+    diagnostiquer();
+  }));
   z.querySelectorAll('[data-remplacer-ligne]').forEach(b => b.addEventListener('click', function () {
     agir(this, 'commande-remplacer-ligne', { ligne_id: parseInt(this.dataset.remplacerLigne, 10), article_id: parseInt(this.dataset.article, 10) },
       r => 'Ligne remplac\u00e9e sur ' + r.so + ' : \u00ab ' + r.apres.produit + ' \u00bb, prix ' + r.apres.prix + ' \u20ac ' + (r.prix_conserve ? 'conserv\u00e9 \u2713' : 'ECART !') + ', qt\u00e9 ' + r.apres.qte + (r.qte_conservee ? ' \u2713' : ' ECART !') + '.');
