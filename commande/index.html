@@ -113,7 +113,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -219,7 +219,7 @@ function afficher(rep) {
       else {
         d = 'Aucun article r\u00e9el.';
         if (carteP.verdict === 'existe') {
-          actions = '<button class="btn-p" data-creer-article="' + carteP.carte.id + '">Cr\u00e9er l\u2019article ' + ech(carteP.carte.cle_produit) + '</button>' +
+          actions = '<button class="btn-p" data-creer-article="' + carteP.carte.id + '">Cr\u00e9er l\u2019article ' + ech(carteP.carte.cle_produit + (carteP.carte.indice ? ' ' + carteP.carte.indice : '')) + '</button>' +
             '<span style="color:var(--text3);font-size:12px">convention CLIxxx-ref \u00b7 cat\u00e9gorie Protos \u00b7 liens pos\u00e9s d\u2019office</span>';
         } else d += ' Cr\u00e9er d\u2019abord la carte ci-dessous.';
       }
@@ -227,7 +227,7 @@ function afficher(rep) {
         p.ligne_prototype.lignes.map(l => ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte)).join(', ') + ') \u2014 remplacement en phase 3, prix conserv\u00e9.';
     }
     if (p.piece === 'carte') {
-      if (p.verdict === 'existe') d = ech(p.carte.cle_produit) + (p.carte.libelle_carte ? ' \u00b7 ' + ech(p.carte.libelle_carte) : '') +
+      if (p.verdict === 'existe') d = ech(p.carte.cle_produit) + (p.carte.indice ? ' <code>indice ' + ech(p.carte.indice) + '</code>' : '') + (p.carte.libelle_carte ? ' \u00b7 ' + ech(p.carte.libelle_carte) : '') +
         ' \u2014 <a href="' + ech(p.url) + '" target="_blank" rel="noopener">ouvrir la carte</a>';
       else if (p.verdict === 'plusieurs') {
         d = 'Plusieurs cartes candidates \u2014 choisir la bonne :';
