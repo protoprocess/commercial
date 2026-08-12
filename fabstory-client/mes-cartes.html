@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Mes cartes</title>
+<style>
+  :root {
+    /* Meme palette que fabstory-client/index.html (theme clair) */
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e3e7ee;
+    --border2: #d2d9e4;
+    --text: #1c2430;
+    --text2: #5a6678;
+    --text3: #8b96a8;
+    --accent: #F8952D;
+    --accent-fonce: #d97c14;
+    --info: #5BC4D8;
+    --info-bg: #EAF7FA;
+    --info-txt: #1B7A8F;
+    --rouge: #c93b3b;
+    --rouge-bg: #fdeeee;
+    --vert: #3B6D11;
+    --vert-bg: #EAF3DE;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+
+  header {
+    background: #0f1117; height: 52px; display: flex; align-items: center;
+    padding: 0 18px; gap: 9px; position: sticky; top: 0; z-index: 10;
+  }
+  .logo-text { display: flex; align-items: center; font-size: 13px; font-weight: 500; }
+  .logo-text .lt { color: #fff; }
+  .logo-text .ls { color: #555; margin: 0 5px; }
+  .logo-text .lo { color: var(--accent); }
+  .ver { margin-left: auto; color: #6b7280; font-size: 11px; font-family: var(--mono); }
+
+  main { max-width: 860px; margin: 0 auto; padding: 22px 16px 60px; }
+
+  .carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+
+  #hero { margin-bottom: 22px; }
+  .hero-societe { color: var(--info); font-size: 23px; font-weight: 800; letter-spacing: 0.4px; margin-bottom: 7px; }
+  .hero-sous { font-size: 13.5px; color: var(--text2); }
+
+  .sec-titre { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; margin: 26px 0 12px; }
+  .sec-titre .compte { background: var(--info); color: #fff; border-radius: 20px; font-size: 12px; padding: 1px 9px; }
+
+  .liste-cartes { display: flex; flex-direction: column; gap: 10px; }
+  .carte-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    text-decoration: none; color: inherit;
+    transition: border-color 0.12s ease, transform 0.12s ease;
+  }
+  .carte-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .carte-item .infos { min-width: 0; }
+  .carte-item .ref { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  .carte-item .lib { font-size: 13px; color: var(--text2); margin-top: 2px; overflow-wrap: anywhere; }
+  .carte-item .cle { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: var(--mono); }
+  .carte-item .fleche { flex: none; color: var(--accent); font-size: 18px; }
+  .carte-item.indispo { opacity: 0.55; cursor: default; pointer-events: none; }
+  .carte-item.indispo .fleche { color: var(--text3); }
+  .chip-attente { font-size: 11px; color: var(--text3); font-style: italic; }
+
+  #chargement, #refus, #vide { text-align: center; padding: 70px 20px; color: var(--text2); }
+  #refus h1, #vide h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
+  #refus p, #vide p { font-size: 13.5px; max-width: 420px; margin: 0 auto; }
+
+  footer { text-align: center; color: var(--text3); font-size: 11px; padding: 26px 0 34px; font-family: var(--mono); }
+
+  @media (max-width: 560px) {
+    main { padding: 14px 10px 50px; }
+    .carte { padding: 15px; }
+    .carte-item { padding: 14px !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
+       style="object-fit:contain" onerror="this.style.display='none'">
+  <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Mes cartes</span></span>
+  <span class="ver" id="verBadge"></span>
+</header>
+
+<main>
+  <div id="chargement">Chargement de vos cartes&hellip;</div>
+
+  <div id="refus" style="display:none">
+    <h1>Ce lien n&rsquo;est pas ou plus valide</h1>
+    <p>Le lien que vous avez ouvert n&rsquo;est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.</p>
+  </div>
+
+  <div id="vide" style="display:none">
+    <h1>Aucune carte pour le moment</h1>
+    <p>D&egrave;s qu&rsquo;une carte sera lanc&eacute;e chez Proto Process, elle appara&icirc;tra ici.</p>
+  </div>
+
+  <div id="contenu" style="display:none">
+    <section id="hero" class="carte">
+      <div class="hero-societe" id="heroSociete"></div>
+      <div class="hero-sous" id="heroSous"></div>
+    </section>
+
+    <div class="sec-titre">
+      <span>Vos cartes</span>
+      <span class="compte" id="cartesCompte"></span>
+    </div>
+    <div class="liste-cartes" id="listeCartes"></div>
+  </div>
+</main>
+
+<footer id="pied"></footer>
+
+<script>
+"use strict";
+/* =========================================================================
+   FABSTORY — LISTE DES CARTES PAR JETON CLIENT (chantier "portail client")
+   Page publique : le jeton de l'URL est le seul secret, valide cote serveur
+   (table fabstory_jetons_client). Chaque carte de la liste porte son propre
+   jeton (fabstory_jetons) et ouvre index.html comme un lien classique.
+   ========================================================================= */
+const APP_NAME = "FabStory Mes cartes";
+const APP_VERSION = "0.1";
+const APP_DATE = "12/08/2026";
+const API = "https://protoprocess.app.n8n.cloud/webhook";
+
+document.getElementById("verBadge").textContent = "v" + APP_VERSION;
+document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
+document.title = "Mes cartes · " + APP_NAME + " v" + APP_VERSION;
+
+const params = new URLSearchParams(location.search);
+const JETON = (params.get("jeton") || "").trim();
+
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+async function charger() {
+  if (!JETON) { montrerRefus(); return; }
+  let r;
+  try {
+    const rep = await fetch(API + "/fabstory-client-liste?jeton=" + encodeURIComponent(JETON));
+    r = await rep.json();
+  } catch (e) {
+    montrerRefus("Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.");
+    return;
+  }
+  if (!r || !r.ok) { montrerRefus(); return; }
+  document.getElementById("chargement").style.display = "none";
+  const cartes = r.cartes || [];
+  if (!cartes.length) { document.getElementById("vide").style.display = "block"; return; }
+  document.getElementById("contenu").style.display = "block";
+  document.getElementById("heroSociete").textContent = r.nom_client || "";
+  document.getElementById("heroSous").textContent =
+    cartes.length > 1 ? "Retrouvez ici le suivi de chacune de vos cartes." : "Retrouvez ici le suivi de votre carte.";
+  document.getElementById("cartesCompte").textContent = String(cartes.length);
+  rendreListe(cartes);
+}
+
+function montrerRefus(message) {
+  document.getElementById("chargement").style.display = "none";
+  const refus = document.getElementById("refus");
+  refus.style.display = "block";
+  if (message) refus.querySelector("p").textContent = message;
+}
+
+function rendreListe(cartes) {
+  const zone = document.getElementById("listeCartes");
+  zone.innerHTML = "";
+  cartes.forEach(function (c) {
+    const dispo = !!c.jeton_carte;
+    const el = document.createElement(dispo ? "a" : "div");
+    el.className = "carte carte-item" + (dispo ? "" : " indispo");
+    if (dispo) {
+      el.href = "index.html?jeton=" + encodeURIComponent(c.jeton_carte);
+    }
+    el.innerHTML =
+      '<div class="infos">' +
+        '<div class="ref">' + esc(c.ref_carte || c.cle_produit || "") + "</div>" +
+        (c.libelle_carte ? '<div class="lib">' + esc(c.libelle_carte) + "</div>" : "") +
+        '<div class="cle">' + esc(c.cle_produit || "") + "</div>" +
+      "</div>" +
+      (dispo ? '<span class="fleche">&rarr;</span>' : '<span class="chip-attente">Suivi bient\u00f4t disponible</span>');
+    zone.appendChild(el);
+  });
+}
+
+charger();
+</script>
+</body>
+</html>
