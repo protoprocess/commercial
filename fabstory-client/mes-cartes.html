@@ -70,6 +70,16 @@
   .carte-item.indispo .fleche { color: var(--text3); }
   .chip-attente { font-size: 11px; color: var(--text3); font-style: italic; }
 
+  .odoo-titre { font-size: 13px; font-weight: 700; padding: 12px 14px 8px; color: var(--text2); }
+  .ligne-odoo {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px;
+  }
+  .ligne-odoo a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 12px; }
+  .ligne-odoo a:hover { text-decoration: underline; }
+  .ligne-odoo .ref { font-family: var(--mono); font-size: 12.5px; }
+  .ligne-odoo .montant { font-weight: 600; }
+
   #chargement, #refus, #vide { text-align: center; padding: 70px 20px; color: var(--text2); }
   #refus h1, #vide h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
   #refus p, #vide p { font-size: 13.5px; max-width: 420px; margin: 0 auto; }
@@ -115,6 +125,11 @@
       <span class="compte" id="cartesCompte"></span>
     </div>
     <div class="liste-cartes" id="listeCartes"></div>
+
+    <div class="sec-titre" id="odooTitre" style="display:none">
+      <span>Devis, commandes &amp; factures</span>
+    </div>
+    <div id="odooZone"></div>
   </div>
 </main>
 
@@ -166,6 +181,68 @@ async function charger() {
     cartes.length > 1 ? "Retrouvez ici le suivi de chacune de vos cartes." : "Retrouvez ici le suivi de votre carte.";
   document.getElementById("cartesCompte").textContent = String(cartes.length);
   rendreListe(cartes);
+  chargerOdoo();
+}
+
+function formatDate(v) {
+  if (!v) return "";
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3] + "/" + m[2] + "/" + m[1]) : String(v);
+}
+
+function formatMontant(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return "";
+  return n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+}
+
+async function chargerOdoo() {
+  let r;
+  try {
+    const rep = await fetch(API + "/fabstory-client-odoo?jeton=" + encodeURIComponent(JETON));
+    r = await rep.json();
+  } catch (e) {
+    return; // section optionnelle : silence en cas d'indisponibilite
+  }
+  if (!r || !r.ok) return;
+
+  const sections = [
+    { cle: "devis", titre: "Devis", montant: true },
+    { cle: "commandes", titre: "Commandes", montant: true },
+    { cle: "factures", titre: "Factures", montant: true },
+    { cle: "tracking", titre: "Suivi de livraison", montant: false }
+  ];
+  const zone = document.getElementById("odooZone");
+  let aAfficher = false;
+
+  sections.forEach(function (s) {
+    const items = r[s.cle] || [];
+    if (!items.length) return;
+    aAfficher = true;
+
+    const bloc = document.createElement("div");
+    bloc.className = "carte";
+    bloc.style.marginBottom = "10px";
+    bloc.style.padding = "0";
+
+    let html = '<div class="odoo-titre">' + esc(s.titre) + "</div>";
+    items.forEach(function (it) {
+      html += '<div class="ligne-odoo"><span class="ref">' + esc(it.ref || "") +
+        (it.date ? " — " + esc(formatDate(it.date)) : "") + "</span>";
+      if (s.cle === "tracking") {
+        html += it.tracking_url
+          ? '<a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">' + esc(it.tracking_ref || "") + " &rarr;</a>"
+          : '<span class="ref">' + esc(it.tracking_ref || "") + "</span>";
+      } else {
+        html += '<span class="montant">' + formatMontant(it.montant) + "</span>";
+      }
+      html += "</div>";
+    });
+    bloc.innerHTML = html;
+    zone.appendChild(bloc);
+  });
+
+  if (aAfficher) document.getElementById("odooTitre").style.display = "flex";
 }
 
 function montrerRefus(message) {
