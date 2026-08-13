@@ -71,10 +71,15 @@
   .chip-attente { font-size: 11px; color: var(--text3); font-style: italic; }
 
   .odoo-titre { font-size: 13px; font-weight: 700; padding: 12px 14px 8px; color: var(--text2); }
-  .ligne-odoo {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px;
+  .ligne-odoo { display: block; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+  .ligne-odoo .haut { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .ligne-odoo .produits { color: var(--text3); font-size: 12px; margin-top: 3px; }
+  .badge-etat {
+    font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px;
+    background: var(--info-bg); color: var(--info-txt); white-space: nowrap;
   }
+  .badge-etat.paye { background: var(--vert-bg); color: var(--vert); }
+  .badge-etat.impaye { background: var(--rouge-bg); color: var(--rouge); }
   .ligne-odoo a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 12px; }
   .ligne-odoo a:hover { text-decoration: underline; }
   .ligne-odoo .ref { font-family: var(--mono); font-size: 12.5px; }
@@ -227,14 +232,22 @@ async function chargerOdoo() {
 
     let html = '<div class="odoo-titre">' + esc(s.titre) + "</div>";
     items.forEach(function (it) {
-      html += '<div class="ligne-odoo"><span class="ref">' + esc(it.ref || "") +
+      const classeEtat = /pay(e|ée)e?$/i.test(it.etat || "") && !/non/i.test(it.etat || "") ? "paye"
+        : /non pay/i.test(it.etat || "") ? "impaye" : "";
+      html += '<div class="ligne-odoo"><div class="haut"><span class="ref">' + esc(it.ref || "") +
         (it.date ? " — " + esc(formatDate(it.date)) : "") + "</span>";
       if (s.cle === "tracking") {
         html += it.tracking_url
           ? '<a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">' + esc(it.tracking_ref || "") + " &rarr;</a>"
           : '<span class="ref">' + esc(it.tracking_ref || "") + "</span>";
       } else {
-        html += '<span class="montant">' + formatMontant(it.montant) + "</span>";
+        html += '<span style="display:flex;align-items:center;gap:8px">' +
+          (it.etat ? '<span class="badge-etat ' + classeEtat + '">' + esc(it.etat) + "</span>" : "") +
+          '<span class="montant">' + formatMontant(it.montant) + "</span></span>";
+      }
+      html += "</div>";
+      if (it.produits && it.produits.length) {
+        html += '<div class="produits">' + esc(it.produits.join(" · ")) + "</div>";
       }
       html += "</div>";
     });
