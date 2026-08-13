@@ -174,9 +174,10 @@
     <div class="liste-cartes" id="listeCartes"></div>
     <div id="cartesArchiveesZone"></div>
 
-    <div class="sec-titre" id="odooTitre" style="display:none">
+    <div id="odooTitre" class="sec-titre" style="display:none">
       <span>Devis, commandes &amp; factures</span>
     </div>
+    <div id="odooChargement" class="aucun-resultat" style="display:none">Chargement des documents&hellip;</div>
     <div id="odooZone"></div>
     <div id="aucunResultatOdoo" class="aucun-resultat" style="display:none">Aucun document ne correspond &agrave; la recherche.</div>
   </div>
@@ -285,8 +286,15 @@ async function charger() {
     rendreTout();
   });
 
-  await chargerOdoo();
+  // Les cartes s'affichent tout de suite : ne jamais faire dépendre leur
+  // affichage de la vitesse de la requête Odoo (HORIBA et consorts ont
+  // beaucoup de commandes, ça peut prendre plusieurs secondes).
   rendreTout();
+  document.getElementById("odooChargement").style.display = "block";
+  chargerOdoo().then(function () {
+    document.getElementById("odooChargement").style.display = "none";
+    rendreTout();
+  });
 }
 
 async function chargerOdoo() {
