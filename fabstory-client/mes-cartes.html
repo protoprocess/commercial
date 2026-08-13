@@ -69,6 +69,8 @@
   #onglets {
     display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-lg); padding: 4px; margin-bottom: 16px; overflow-x: auto;
+    position: sticky; top: 52px; z-index: 9;
+    box-shadow: 0 2px 6px rgba(15,17,23,0.05);
   }
   .onglet {
     flex: 1; text-align: center; padding: 9px 10px; border-radius: var(--radius);
@@ -214,11 +216,10 @@ const etat = {
 };
 
 const ONGLETS = [
-  { cle: "cartes", titre: "Cartes" },
+  { cle: "cartes", titre: "Projets" },
   { cle: "devis", titre: "Devis" },
   { cle: "commandes", titre: "Commandes" },
-  { cle: "factures", titre: "Factures en retard" },
-  { cle: "tracking", titre: "Suivi" }
+  { cle: "factures", titre: "Factures en retard" }
 ];
 
 function esc(v) {
@@ -481,6 +482,10 @@ function pageDocs(cle) {
     }
     html += "</div>";
     if (it.ref_projet) html += '<div class="produits">Projet ' + esc(it.ref_projet) + "</div>";
+    if (cle === "commandes" && it.tracking_url) {
+      html += '<div class="produits"><a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">Suivi UPS : ' +
+        esc(it.tracking_ref || "") + " &rarr;</a></div>";
+    }
     ligne.innerHTML = html;
     liste.appendChild(ligne);
   });
