@@ -246,8 +246,8 @@ async function chargerOdoo() {
           '<span class="montant">' + formatMontant(it.montant) + "</span></span>";
       }
       html += "</div>";
-      if (it.produits && it.produits.length) {
-        html += '<div class="produits">' + esc(it.produits.join(" · ")) + "</div>";
+      if (it.ref_projet) {
+        html += '<div class="produits">Projet ' + esc(it.ref_projet) + "</div>";
       }
       html += "</div>";
     });
