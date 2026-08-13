@@ -47,12 +47,12 @@
 
   .carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
 
-  #hero { margin-bottom: 22px; }
+  #hero { margin-bottom: 18px; }
   .hero-societe { color: var(--info); font-size: 23px; font-weight: 800; letter-spacing: 0.4px; margin-bottom: 7px; }
   .hero-sous { font-size: 13.5px; color: var(--text2); }
 
   /* Recherche */
-  #recherche-zone { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+  #recherche-zone { margin-bottom: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   #recherche {
     flex: 1; min-width: 180px; padding: 10px 14px; border: 1px solid var(--border2);
     border-radius: var(--radius); font-size: 13.5px; font-family: var(--sans); background: var(--surface);
@@ -65,7 +65,22 @@
   }
   .filtre-badge.actif { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  .sec-titre { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; margin: 26px 0 12px; }
+  /* Onglets */
+  #onglets {
+    display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 4px; margin-bottom: 16px; overflow-x: auto;
+  }
+  .onglet {
+    flex: 1; text-align: center; padding: 9px 10px; border-radius: var(--radius);
+    font-size: 12.5px; font-weight: 600; color: var(--text2); cursor: pointer;
+    white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .onglet.actif { background: var(--bg); color: var(--accent); }
+  .onglet .n { font-size: 10.5px; color: var(--text3); }
+  .onglet.actif .n { color: var(--accent); }
+  .onglet .n.attente::after { content: "\22EF"; }
+
+  .sec-titre { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; margin: 0 0 12px; }
   .sec-titre .compte { background: var(--info); color: #fff; border-radius: 20px; font-size: 12px; padding: 1px 9px; }
 
   .liste-cartes { display: flex; flex-direction: column; gap: 10px; }
@@ -83,31 +98,19 @@
   .carte-item.indispo { opacity: 0.55; cursor: default; pointer-events: none; }
   .carte-item.indispo .fleche { color: var(--text3); }
   .chip-attente { font-size: 11px; color: var(--text3); font-style: italic; }
-  .chip-archivee { font-size: 11px; color: var(--text3); }
 
-  /* Repli */
   .repli-toggle {
     display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
-    padding: 4px 0; color: var(--text2); font-size: 13px; font-weight: 500;
+    padding: 4px 0; color: var(--text2); font-size: 13px; font-weight: 500; margin-top: 10px;
   }
   .repli-toggle .chevron { transition: transform 0.15s ease; font-size: 11px; }
   .repli-toggle.ouvert .chevron { transform: rotate(90deg); }
   .repli-corps { display: none; margin-top: 8px; }
   .repli-corps.ouvert { display: block; }
 
-  .odoo-bloc { margin-bottom: 10px; }
-  .odoo-entete {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 14px 16px; cursor: pointer; user-select: none;
-  }
-  .odoo-entete .titre { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .odoo-entete .compte { background: var(--border); color: var(--text2); border-radius: 20px; font-size: 11px; padding: 1px 9px; }
-  .odoo-entete .chevron { color: var(--text3); font-size: 12px; transition: transform 0.15s ease; }
-  .odoo-entete.ouvert .chevron { transform: rotate(90deg); }
-  .odoo-corps { display: none; }
-  .odoo-corps.ouvert { display: block; }
-
-  .ligne-odoo { display: block; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+  .liste-docs { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .ligne-odoo { display: block; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+  .ligne-odoo:first-child { border-top: none; }
   .ligne-odoo .haut { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .ligne-odoo .produits { color: var(--text3); font-size: 12px; margin-top: 3px; }
   .badge-etat {
@@ -120,7 +123,8 @@
   .ligne-odoo a:hover { text-decoration: underline; }
   .ligne-odoo .ref { font-family: var(--mono); font-size: 12.5px; }
   .ligne-odoo .montant { font-weight: 600; }
-  .aucun-resultat { text-align: center; color: var(--text3); font-size: 13px; padding: 20px; }
+  .aucun-resultat { text-align: center; color: var(--text3); font-size: 13px; padding: 30px 20px; }
+  .patiente { text-align: center; color: var(--text3); font-size: 13px; padding: 40px 20px; }
 
   #chargement, #refus, #vide { text-align: center; padding: 70px 20px; color: var(--text2); }
   #refus h1, #vide h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
@@ -132,6 +136,7 @@
     main { padding: 14px 10px 50px; }
     .carte { padding: 15px; }
     .carte-item { padding: 14px !important; }
+    .onglet { font-size: 11.5px; padding: 8px 6px; }
   }
 </style>
 </head>
@@ -165,21 +170,10 @@
     <div id="recherche-zone">
       <input type="search" id="recherche" placeholder="Rechercher une r&eacute;f&eacute;rence, un projet&hellip;" autocomplete="off">
     </div>
-    <div id="filtres-zone" style="display:none; margin-bottom:6px;"></div>
 
-    <div class="sec-titre">
-      <span>Vos cartes</span>
-      <span class="compte" id="cartesCompte"></span>
-    </div>
-    <div class="liste-cartes" id="listeCartes"></div>
-    <div id="cartesArchiveesZone"></div>
-
-    <div id="odooTitre" class="sec-titre" style="display:none">
-      <span>Devis, commandes &amp; factures</span>
-    </div>
-    <div id="odooChargement" class="aucun-resultat" style="display:none">Chargement des documents&hellip;</div>
-    <div id="odooZone"></div>
-    <div id="aucunResultatOdoo" class="aucun-resultat" style="display:none">Aucun document ne correspond &agrave; la recherche.</div>
+    <div id="onglets"></div>
+    <div id="filtres-zone" style="display:none"></div>
+    <div id="pageActive"></div>
   </div>
 </main>
 
@@ -192,12 +186,13 @@
    Page publique : le jeton de l'URL est le seul secret, valide cote serveur
    (table fabstory_jetons_client). Chaque carte de la liste porte son propre
    jeton (fabstory_jetons) et ouvre index.html comme un lien classique.
-   v0.2 : sections repliables, cartes archivees (expediees +15j) repliees par
-   defaut, recherche texte + filtres par statut cote client (pas de nouvel
-   appel reseau, tout est deja charge).
+   v0.3 : onglets par type (Cartes/Devis/Commandes/Factures/Suivi) plutot
+   qu une longue page a sections repliables — le chargement Odoo (peut
+   prendre plusieurs secondes sur les gros clients) tourne en fond des le
+   debut, invisible tant qu on reste sur l onglet Cartes.
    ========================================================================= */
 const APP_NAME = "FabStory Mes cartes";
-const APP_VERSION = "0.2";
+const APP_VERSION = "0.3";
 const APP_DATE = "13/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 const JOURS_ARCHIVAGE = 15;
@@ -209,8 +204,22 @@ document.title = "Mes cartes · " + APP_NAME + " v" + APP_VERSION;
 const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
 
-// Etat en memoire : rempli au chargement, jamais re-fetche pour filtrer/chercher.
-const etat = { cartes: [], odoo: { devis: [], commandes: [], factures: [], tracking: [] }, recherche: "", filtreStatut: null };
+const etat = {
+  cartes: [],
+  odoo: { devis: [], commandes: [], factures: [], tracking: [] },
+  odooCharge: false,
+  recherche: "",
+  filtreStatut: null,
+  ongletActif: "cartes"
+};
+
+const ONGLETS = [
+  { cle: "cartes", titre: "Cartes" },
+  { cle: "devis", titre: "Devis" },
+  { cle: "commandes", titre: "Commandes" },
+  { cle: "factures", titre: "Factures en retard" },
+  { cle: "tracking", titre: "Suivi" }
+];
 
 function esc(v) {
   return String(v == null ? "" : v)
@@ -248,15 +257,12 @@ function correspond(carte, refProjet) {
   return cle.indexOf(rp) >= 0 || (ref && rp.indexOf(ref) >= 0) || rp.indexOf(cle) >= 0;
 }
 
-// Une carte est "archivee" si un tracking livre lui correspond depuis plus de
-// JOURS_ARCHIVAGE jours. Sans tracking correspondant, elle reste active : pas
-// encore expediee.
 function carteEstArchivee(carte) {
   const matches = etat.odoo.tracking.filter(function (t) { return correspond(carte, t.ref_projet); });
   if (!matches.length) return false;
-  const plusRecent = matches.reduce(function (max, t) {
+  const plusRecent = matches.reduce(function (min, t) {
     const j = joursDepuis(t.date);
-    return (j !== null && (max === null || j < max)) ? j : max;
+    return (j !== null && (min === null || j < min)) ? j : min;
   }, null);
   return plusRecent !== null && plusRecent > JOURS_ARCHIVAGE;
 }
@@ -286,13 +292,13 @@ async function charger() {
     rendreTout();
   });
 
-  // Les cartes s'affichent tout de suite : ne jamais faire dépendre leur
-  // affichage de la vitesse de la requête Odoo (HORIBA et consorts ont
-  // beaucoup de commandes, ça peut prendre plusieurs secondes).
   rendreTout();
-  document.getElementById("odooChargement").style.display = "block";
+
+  // Le chargement Odoo tourne en fond des maintenant : sur l onglet Cartes,
+  // deja affiche, on ne le voit jamais. Il ne devient visible que si on va
+  // sur un onglet document avant qu il ait fini.
   chargerOdoo().then(function () {
-    document.getElementById("odooChargement").style.display = "none";
+    etat.odooCharge = true;
     rendreTout();
   });
 }
@@ -303,7 +309,7 @@ async function chargerOdoo() {
     const rep = await fetch(API + "/fabstory-client-odoo?jeton=" + encodeURIComponent(JETON));
     r = await rep.json();
   } catch (e) {
-    return; // section optionnelle : silence en cas d'indisponibilite
+    return;
   }
   if (!r || !r.ok) return;
   etat.odoo = { devis: r.devis || [], commandes: r.commandes || [], factures: r.factures || [], tracking: r.tracking || [] };
@@ -322,33 +328,90 @@ function texteCorrespond(hay) {
 }
 
 function rendreTout() {
-  document.getElementById("cartesCompte").textContent = String(etat.cartes.length);
-  rendreListe();
+  rendreOnglets();
   rendreFiltres();
-  rendreOdoo();
+  rendrePage();
 }
 
-function rendreListe() {
+function rendreOnglets() {
+  const zone = document.getElementById("onglets");
+  zone.innerHTML = "";
+  ONGLETS.forEach(function (o) {
+    const el = document.createElement("div");
+    el.className = "onglet" + (etat.ongletActif === o.cle ? " actif" : "");
+    let n;
+    if (o.cle === "cartes") { n = String(etat.cartes.length); }
+    else if (!etat.odooCharge) { n = null; }
+    else { n = String((etat.odoo[o.cle] || []).length); }
+    el.innerHTML = esc(o.titre) + (n !== null ? ' <span class="n' + (n === null ? " attente" : "") + '">' + esc(n) + "</span>"
+      : ' <span class="n attente"></span>');
+    el.addEventListener("click", function () {
+      etat.ongletActif = o.cle;
+      rendreTout();
+    });
+    zone.appendChild(el);
+  });
+}
+
+function tousLesStatuts() {
+  if (etat.ongletActif === "cartes" || etat.ongletActif === "tracking") return [];
+  const s = new Set();
+  (etat.odoo[etat.ongletActif] || []).forEach(function (it) { if (it.etat) s.add(it.etat); });
+  return Array.from(s);
+}
+
+function rendreFiltres() {
+  const statuts = tousLesStatuts();
+  const zone = document.getElementById("filtres-zone");
+  if (!statuts.length) { zone.style.display = "none"; zone.innerHTML = ""; return; }
+  zone.style.display = "flex";
+  zone.style.flexWrap = "wrap";
+  zone.style.gap = "6px";
+  zone.style.marginBottom = "14px";
+  zone.innerHTML = "";
+  statuts.forEach(function (s) {
+    const b = document.createElement("span");
+    b.className = "filtre-badge" + (etat.filtreStatut === s ? " actif" : "");
+    b.textContent = s;
+    b.addEventListener("click", function () {
+      etat.filtreStatut = (etat.filtreStatut === s) ? null : s;
+      rendreTout();
+    });
+    zone.appendChild(b);
+  });
+}
+
+function rendrePage() {
+  const zone = document.getElementById("pageActive");
+  zone.innerHTML = "";
+  if (etat.ongletActif === "cartes") { zone.appendChild(pageCartes()); return; }
+  if (!etat.odooCharge) {
+    const p = document.createElement("div");
+    p.className = "patiente";
+    p.textContent = "Chargement des documents\u2026";
+    zone.appendChild(p);
+    return;
+  }
+  zone.appendChild(pageDocs(etat.ongletActif));
+}
+
+function pageCartes() {
+  const conteneur = document.createElement("div");
   const actives = [];
   const archivees = [];
-  etat.cartes.forEach(function (c) {
-    (carteEstArchivee(c) ? archivees : actives).push(c);
-  });
+  etat.cartes.forEach(function (c) { (carteEstArchivee(c) ? archivees : actives).push(c); });
 
   const rechercheActive = !!etat.recherche;
   function passeRecherche(c) {
     return texteCorrespond(c.ref_carte) || texteCorrespond(c.cle_produit) || texteCorrespond(c.libelle_carte);
   }
 
-  const zone = document.getElementById("listeCartes");
-  zone.innerHTML = "";
-  actives.filter(passeRecherche).forEach(function (c) { zone.appendChild(carteEl(c)); });
-  if (rechercheActive) {
-    archivees.filter(passeRecherche).forEach(function (c) { zone.appendChild(carteEl(c)); });
-  }
+  const liste = document.createElement("div");
+  liste.className = "liste-cartes";
+  actives.filter(passeRecherche).forEach(function (c) { liste.appendChild(carteEl(c)); });
+  if (rechercheActive) archivees.filter(passeRecherche).forEach(function (c) { liste.appendChild(carteEl(c)); });
+  conteneur.appendChild(liste);
 
-  const archZone = document.getElementById("cartesArchiveesZone");
-  archZone.innerHTML = "";
   if (!rechercheActive && archivees.length) {
     const toggle = document.createElement("div");
     toggle.className = "repli-toggle";
@@ -357,15 +420,15 @@ function rendreListe() {
                              : " carte archiv\u00e9e (exp\u00e9di\u00e9e depuis plus de " + JOURS_ARCHIVAGE + " jours)") + "</span>";
     const corps = document.createElement("div");
     corps.className = "liste-cartes repli-corps";
-    corps.style.marginTop = "10px";
     archivees.forEach(function (c) { corps.appendChild(carteEl(c)); });
     toggle.addEventListener("click", function () {
       toggle.classList.toggle("ouvert");
       corps.classList.toggle("ouvert");
     });
-    archZone.appendChild(toggle);
-    archZone.appendChild(corps);
+    conteneur.appendChild(toggle);
+    conteneur.appendChild(corps);
   }
+  return conteneur;
 }
 
 function carteEl(c) {
@@ -383,110 +446,45 @@ function carteEl(c) {
   return el;
 }
 
-const SECTIONS = [
-  { cle: "devis", titre: "Devis", montant: true },
-  { cle: "commandes", titre: "Commandes", montant: true },
-  { cle: "factures", titre: "Factures", montant: true },
-  { cle: "tracking", titre: "Suivi de livraison", montant: false }
-];
-
-function tousLesStatuts() {
-  const s = new Set();
-  SECTIONS.forEach(function (sec) {
-    if (sec.cle === "tracking") return;
-    (etat.odoo[sec.cle] || []).forEach(function (it) { if (it.etat) s.add(it.etat); });
-  });
-  return Array.from(s);
-}
-
-function rendreFiltres() {
-  const statuts = tousLesStatuts();
-  const zone = document.getElementById("filtres-zone");
-  if (!statuts.length) { zone.style.display = "none"; zone.innerHTML = ""; return; }
-  zone.style.display = "flex";
-  zone.style.flexWrap = "wrap";
-  zone.style.gap = "6px";
-  zone.innerHTML = "";
-  statuts.forEach(function (s) {
-    const b = document.createElement("span");
-    b.className = "filtre-badge" + (etat.filtreStatut === s ? " actif" : "");
-    b.textContent = s;
-    b.addEventListener("click", function () {
-      etat.filtreStatut = (etat.filtreStatut === s) ? null : s;
-      rendreTout();
-    });
-    zone.appendChild(b);
-  });
-}
-
 function ligneCorrespond(it) {
   if (etat.filtreStatut && it.etat !== etat.filtreStatut) return false;
   if (!etat.recherche) return true;
   return texteCorrespond(it.ref) || texteCorrespond(it.ref_projet) || texteCorrespond(it.tracking_ref);
 }
 
-function rendreOdoo() {
-  const zone = document.getElementById("odooZone");
-  zone.innerHTML = "";
-  let sectionsAvecContenu = 0;
-  let totalApresFiltre = 0;
-  const rechercheOuFiltreActifs = !!etat.recherche || !!etat.filtreStatut;
-
-  SECTIONS.forEach(function (s) {
-    const items = etat.odoo[s.cle] || [];
-    if (!items.length) return;
-    sectionsAvecContenu++;
-    const filtres = items.filter(ligneCorrespond);
-    totalApresFiltre += filtres.length;
-    if (rechercheOuFiltreActifs && !filtres.length) return;
-
-    const bloc = document.createElement("div");
-    bloc.className = "carte odoo-bloc";
-    bloc.style.padding = "0";
-
-    const entete = document.createElement("div");
-    const ouvrirParDefaut = rechercheOuFiltreActifs;
-    entete.className = "odoo-entete" + (ouvrirParDefaut ? " ouvert" : "");
-    entete.innerHTML = '<span class="titre"><span class="chevron">&#9656;</span>' + esc(s.titre) +
-      '</span><span class="compte">' + filtres.length + "</span>";
-
-    const corps = document.createElement("div");
-    corps.className = "odoo-corps" + (ouvrirParDefaut ? " ouvert" : "");
-
-    let html = "";
-    filtres.forEach(function (it) {
-      const classeEtat = /pay(e|ée)e?$/i.test(it.etat || "") && !/non/i.test(it.etat || "") ? "paye"
-        : /non pay/i.test(it.etat || "") ? "impaye" : "";
-      html += '<div class="ligne-odoo"><div class="haut"><span class="ref">' + esc(it.ref || "") +
-        (it.date ? " — " + esc(formatDate(it.date)) : "") + "</span>";
-      if (s.cle === "tracking") {
-        html += it.tracking_url
-          ? '<a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">' + esc(it.tracking_ref || "") + " &rarr;</a>"
-          : '<span class="ref">' + esc(it.tracking_ref || "") + "</span>";
-      } else {
-        html += '<span style="display:flex;align-items:center;gap:8px">' +
-          (it.etat ? '<span class="badge-etat ' + classeEtat + '">' + esc(it.etat) + "</span>" : "") +
-          '<span class="montant">' + formatMontant(it.montant) + "</span></span>";
-      }
-      html += "</div>";
-      if (it.ref_projet) html += '<div class="produits">Projet ' + esc(it.ref_projet) + "</div>";
-      html += "</div>";
-    });
-    corps.innerHTML = html;
-
-    entete.addEventListener("click", function () {
-      entete.classList.toggle("ouvert");
-      corps.classList.toggle("ouvert");
-    });
-
-    bloc.appendChild(entete);
-    bloc.appendChild(corps);
-    zone.appendChild(bloc);
+function pageDocs(cle) {
+  const items = (etat.odoo[cle] || []).filter(ligneCorrespond);
+  if (!items.length) {
+    const p = document.createElement("div");
+    p.className = "aucun-resultat";
+    p.textContent = (etat.recherche || etat.filtreStatut) ? "Aucun document ne correspond \u00e0 la recherche."
+      : (cle === "factures" ? "Aucune facture en retard \u2014 tout est \u00e0 jour." : "Rien \u00e0 afficher ici pour le moment.");
+    return p;
+  }
+  const liste = document.createElement("div");
+  liste.className = "liste-docs";
+  items.forEach(function (it) {
+    const classeEtat = /pay(e|ée)e?$/i.test(it.etat || "") && !/non/i.test(it.etat || "") ? "paye"
+      : /non pay/i.test(it.etat || "") ? "impaye" : "";
+    const ligne = document.createElement("div");
+    ligne.className = "ligne-odoo";
+    let html = '<div class="haut"><span class="ref">' + esc(it.ref || "") +
+      (it.date ? " — " + esc(formatDate(it.date)) : "") + "</span>";
+    if (cle === "tracking") {
+      html += it.tracking_url
+        ? '<a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">' + esc(it.tracking_ref || "") + " &rarr;</a>"
+        : '<span class="ref">' + esc(it.tracking_ref || "") + "</span>";
+    } else {
+      html += '<span style="display:flex;align-items:center;gap:8px">' +
+        (it.etat ? '<span class="badge-etat ' + classeEtat + '">' + esc(it.etat) + "</span>" : "") +
+        '<span class="montant">' + formatMontant(it.montant) + "</span></span>";
+    }
+    html += "</div>";
+    if (it.ref_projet) html += '<div class="produits">Projet ' + esc(it.ref_projet) + "</div>";
+    ligne.innerHTML = html;
+    liste.appendChild(ligne);
   });
-
-  document.getElementById("odooTitre").style.display = sectionsAvecContenu ? "flex" : "none";
-  document.getElementById("aucunResultatOdoo").style.display =
-    (sectionsAvecContenu && rechercheOuFiltreActifs && !totalApresFiltre) ? "block" : "none";
+  return liste;
 }
 
 charger();
