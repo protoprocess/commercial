@@ -115,7 +115,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 const APP_DATE = "10/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -158,6 +158,7 @@ async function appel(chemin, options) {
 }
 
 let DERNIER = null;
+let MSG_PERSIST = null; /* message de succes affiche APRES le re-diagnostic */
 let ENTRANTE = null; /* commande entrante choisie, pour pre-remplir le devis */
 
 /* ---- Commandes entrantes (mails etiquette "commande") ------------------ */
@@ -211,7 +212,8 @@ async function diagnostiquer() {
     const q = (a.mode === 'so' ? 'so=' : 'produit=') + encodeURIComponent(a.valeur);
     const rep = await appel('commande-diagnostic?' + q);
     DERNIER = { entree: a, rep: rep };
-    el('etat').textContent = '';
+    if (MSG_PERSIST) { el('etat').textContent = '\u2713 ' + MSG_PERSIST; el('etat').className = 'etat-msg'; el('etat').style.color = 'var(--green)'; MSG_PERSIST = null; }
+    else { el('etat').textContent = ''; el('etat').style.color = ''; }
     afficher(rep);
   } catch (err) {
     if (err.message === 'ACCES') {
@@ -492,6 +494,7 @@ async function agir(bouton, chemin, corps, messageOk) {
       body: JSON.stringify(corps)
     });
     if (rep.ok) {
+      MSG_PERSIST = messageOk(rep);
       el('etat').textContent = messageOk(rep) + ' Diagnostic relanc\u00e9\u2026';
       el('etat').className = 'etat-msg';
       diagnostiquer();
@@ -519,7 +522,7 @@ async function relier(bouton) {
       body: JSON.stringify({ produit_id: parseInt(bouton.dataset.lier, 10),
                              article_id: artV.article ? artV.article.id : null })
     });
-    if (rep.ok) { el('etat').textContent = 'Li\u00e9 : ' + rep.article_nom + ' \u2192 carte ' + rep.pp_produit_id + '. Diagnostic relanc\u00e9\u2026'; el('etat').className = 'etat-msg'; diagnostiquer(); }
+    if (rep.ok) { MSG_PERSIST = 'Li\u00e9 : ' + rep.article_nom + ' \u2192 carte ' + rep.pp_produit_id + '.'; el('etat').textContent = MSG_PERSIST + ' Diagnostic relanc\u00e9\u2026'; el('etat').className = 'etat-msg'; diagnostiquer(); }
     else { el('etat').textContent = 'Refus\u00e9 : ' + (rep.motif || 'motif inconnu'); el('etat').className = 'etat-msg err'; bouton.disabled = false; bouton.textContent = 'Relier maintenant'; }
   } catch (err) {
     el('etat').textContent = 'Le rapprochement n\u2019a pas r\u00e9pondu (' + err.message + ').'; el('etat').className = 'etat-msg err';
