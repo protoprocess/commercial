@@ -320,8 +320,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.3';
-const APP_DATE = '07/08/2026';
+const APP_VERSION = '1.4';
+const APP_DATE = '21/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1220,6 +1220,12 @@ FS.creerCarte = async function(){
     });
     el('dlg-creer').close();
     el('cr-go').disabled = false;
+    // Rapprochement automatique (chantier 110) : si un article Odoo existe deja
+    // au bon nom (ex. cree avant la carte via devis-client), le lien se pose
+    // seul. Best-effort, JAMAIS bloquant : pas d article encore, ou plusieurs
+    // candidats ambigus -> l API refuse silencieusement (garde-fous existants),
+    // l appli Commande prendra le relais plus tard.
+    try{ await postJson(BASE + '/commande-lier', { produit_id: j.produit_id }); }catch(e){}
     const lj = await getJson(BASE + '/produits');
     PRODUITS = (lj && lj.produits) || [];
     ouvrirFiche(j.produit_id);
