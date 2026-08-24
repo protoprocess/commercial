@@ -251,8 +251,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.10";
-const APP_DATE = "08/08/2026";
+const APP_VERSION = "0.11";
+const APP_DATE = "24/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
@@ -772,7 +772,7 @@ function rendreFil(r) {
     }
   });
   if (!racines.length) {
-    fil.innerHTML = '<div class="vide">Le journal de votre carte d\u00e9marre ici \u2014 les prochaines \u00e9tapes s\u2019afficheront au fil de la fabrication.</div>';
+    fil.innerHTML = '<div class="vide">Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.</div>';
     return;
   }
   racines.sort(function (a, b) { return new Date(b.cree_le) - new Date(a.cree_le); });
