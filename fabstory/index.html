@@ -320,7 +320,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.8';
+const APP_VERSION = '1.9';
 const APP_DATE = '25/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -332,6 +332,7 @@ document.getElementById('hdr-version').textContent = 'v' + APP_VERSION + ' \u201
 
 /* Metiers en avant dans la saisie et le volet (retour Olivier 06/08) */
 const METIERS_FAVORIS = ['DEVIS','BOM','PCB','APPRO','METHODES','CMS','TRAD'];
+const GROUPE_PROD = ['CMS','CTRL_CMS','TRAD','MECA','TESTS','CTRL_FINAL','EMBALLAGE','DIVERS_PROD'];
 const LISTE_SAISIE = [
   ['DEVIS', 'DEVIS / CHIFFRAGE'],
   ['BOM', 'BOM'],
@@ -364,6 +365,7 @@ let FICHE = null;
 let STATUT = null;
 let filtre = 'tous';
 let filtreMetier = '';
+let filtreConcerne = '';
 let choisieId = null;                 // entree ouverte dans le volet
 let saisie = { type:'note', etape:null, portee:null, repond_a:null, concernes:null };
 /* Chantier 136 : \u00ab Qui est concern\u00e9 ? \u00bb = destinataires de la notification.
@@ -629,7 +631,23 @@ function piecesEntree(e){
   }).join('') + '</p>';
 }
 function passeFiltre(e){
-  if(filtreMetier && e.etape_code !== filtreMetier && !((e.poles||[]).includes(filtreMetier))) return false;
+  if(filtreMetier){
+    const codes = (filtreMetier === 'DIVERS_PROD') ? GROUPE_PROD : [filtreMetier];
+    if(!codes.includes(e.etape_code) && !(e.poles||[]).some(p => codes.includes(p))) return false;
+  }
+  if(filtreConcerne){
+    /* concernes effectifs de l entree : poles normalises (un code etape glisse
+       dans poles est traduit), sinon defaut par l etape — meme regle que le
+       routage mail. QUALITE couvre les deux equipes. */
+    const brut = (e.poles && e.poles.length) ? e.poles : [poleDefaut(e.etape_code)];
+    const eff = new Set();
+    brut.forEach(v => {
+      const p = ['COMMERCIAL','PRODUCTION','QUALITE'].includes(v) ? v : poleDefaut(v);
+      if(p === 'QUALITE'){ eff.add('COMMERCIAL'); eff.add('PRODUCTION'); eff.add('QUALITE'); }
+      else eff.add(p);
+    });
+    if(!eff.has(filtreConcerne)) return false;
+  }
   if(filtre === 'tous') return true;
   if(filtre === 'attente') return e.etat === 'en_attente';
   if(filtre === 'client')  return e.visible_client === true;
@@ -688,8 +706,12 @@ function rendreFiche(){
     [['tous','Tous'],['attente','En attente'],['client','Visible client'],['interne','Interne']].map(f =>
       '<button class="filtre' + (filtre===f[0]?' on':'') + '" onclick="FS.filtrer(\'' + f[0] + '\')">' + f[1] + '</button>').join('') +
     '<select onchange="FS.filtrerMetier(this.value)" style="width:auto;padding:5px 9px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2)">' +
-    '<option value="">Tous les m\u00e9tiers</option>' +
-    (FICHE.etapes||[]).map(x => '<option value="' + x.code + '"' + (filtreMetier===x.code?' selected':'') + '>' + esc(x.libelle) + '</option>').join('') +
+    '<option value="">Toutes les \u00e9tapes</option>' +
+    LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (filtreMetier===x[0]?' selected':'') + '>' + esc(x[1]) + '</option>').join('') +
+    '</select>' +
+    '<select onchange="FS.filtrerConcerne(this.value)" style="width:auto;padding:5px 9px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2)">' +
+    '<option value="">Tous les concern\u00e9s</option>' +
+    CONCERNES_LISTE.map(c => '<option value="' + c[0] + '"' + (filtreConcerne===c[0]?' selected':'') + '>' + c[1] + '</option>').join('') +
     '</select>' +
     '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
     '</div>';
@@ -734,6 +756,7 @@ function majAside(){
   document.body.classList.toggle('volet-ouvert', !!choisieId);
 }
 FS.filtrer = function(f){ filtre = f; rendreFiche(); };
+FS.filtrerConcerne = function(v){ filtreConcerne = v || ''; rendreFiche(); };
 FS.filtrerMetier = function(m){ filtreMetier = m; rendreFiche(); };
 FS.copierClient = async function(){
   /* collecte des QUESTIONS CLIENT ouvertes, a joindre au devis (retour Olivier) */
@@ -1037,8 +1060,17 @@ function htmlSaisie(){
   '<select id="note-etape" style="font-size:12.5px;padding:4px 8px;max-width:250px">' +
   LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (saisie.etape === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>').join('') +
   '</select></div>' +
+  '<div class="grille2" style="margin-top:8px">' +
+    '<div><label class="mini">Rep\u00e8re</label><input type="text" id="note-repere" placeholder="C12, U3\u2026"></div>' +
+    '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div>' +
+  '</div>' +
   '<div class="amorces" id="zone-amorces"></div>' +
   '<textarea id="note-texte" placeholder="Qu\u2019y a-t-il \u00e0 noter sur cette carte ?"></textarea>' +
+  '<details class="replis"><summary>Photo ou fichier joint</summary>' +
+    '<div class="dropzone" id="drop-piece">Glissez un fichier ici, ou cliquez pour parcourir' +
+    '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip" style="display:none"></div>' +
+    '<div id="zone-pieces"></div>' +
+  '</details>' +
   '<label class="mini">Nature</label>' +
   '<div class="pastilles">' +
     '<button class="pastille p-info' + (saisie.type==='note'?' on':'') + '" data-type="note">Information</button>' +
@@ -1054,17 +1086,6 @@ function htmlSaisie(){
     '</div></div>' +
   '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
     '<input type="checkbox" id="note-visible"> Visible du client</label>' +
-  '<details class="replis" open><summary>Rep\u00e8re, composant</summary>' +
-    '<div class="grille2">' +
-    '<div><label class="mini">Rep\u00e8re</label><input type="text" id="note-repere" placeholder="C12, U3\u2026"></div>' +
-    '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div>' +
-    '</div>' +
-  '</details>' +
-  '<details class="replis"><summary>Photo ou fichier joint</summary>' +
-    '<div class="dropzone" id="drop-piece">Glissez un fichier ici, ou cliquez pour parcourir' +
-    '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip" style="display:none"></div>' +
-    '<div id="zone-pieces"></div>' +
-  '</details>' +
   '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
   '<div style="display:flex;gap:8px;align-items:center">' +
   '<button class="btn" id="note-go">Ajouter au fil</button>' +
