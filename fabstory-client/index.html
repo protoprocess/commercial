@@ -79,6 +79,12 @@
   .fichier-chip button:hover { color: var(--rouge); }
   .piece-lien { display: inline-flex; align-items: center; gap: 5px; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 600; text-decoration: none; margin: 5px 7px 0 0; }
   .piece-lien:hover { border-color: var(--info); }
+  .piece-tuile { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; width: 128px; padding: 10px 8px; margin: 8px 10px 0 0; border: 1px solid #cdeaf1; border-radius: 10px; background: #fff; text-decoration: none; vertical-align: top; transition: border-color .15s, box-shadow .15s; }
+  .piece-tuile:hover { border-color: var(--info); box-shadow: 0 6px 16px -10px rgba(0,0,0,.25); }
+  .piece-tuile img.mini { width: 108px; height: 82px; object-fit: cover; border-radius: 6px; background: #f2f6f8; }
+  .piece-tuile .picto-type { width: 108px; height: 82px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 15px; font-weight: 700; letter-spacing: .5px; }
+  .piece-tuile .p-nom { font-size: 11.5px; color: #24323a; max-width: 112px; overflow-wrap: break-word; text-align: center; line-height: 1.25; }
+  .piece-tuile .p-taille { font-size: 10.5px; color: #7b8a92; }
 
   /* Barre de jalons */
   .jalons { display: flex; align-items: center; margin-top: 18px; }
@@ -251,8 +257,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.11";
-const APP_DATE = "24/08/2026";
+const APP_VERSION = "0.12";
+const APP_DATE = "25/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
@@ -341,11 +347,27 @@ function lienPiece(id) {
   return API + "/fabstory-client-piece?jeton=" + encodeURIComponent(JETON) + "&id=" + encodeURIComponent(id);
 }
 function htmlPieces(pieces) {
+  /* v0.12 : pieces bien visibles (demande Olivier 25/08). Images = vraie
+     miniature chargee depuis le proxy (le lien porte le jeton, une balise img
+     suffit) ; autres types = grosse icone typee. Tout ouvre le fichier. */
   if (!pieces || !pieces.length) return "";
+  const IMAGES = ["png", "jpg", "jpeg", "webp", "gif"];
+  const TYPES = { pdf: ["PDF", "#FCEBEB", "#A32D2D"], xlsx: ["XLSX", "#EAF3DE", "#3B6D11"],
+                  xls: ["XLS", "#EAF3DE", "#3B6D11"], csv: ["CSV", "#EAF3DE", "#3B6D11"] };
   let h = "<div>";
   pieces.forEach(function (p) {
-    h += '<a class="piece-lien" href="' + esc(lienPiece(p.id)) + '" target="_blank" rel="noopener">' +
-      svgTrombone() + esc(p.nom) + ' <span style="font-weight:400">(' + esc(fmtTaille(p.taille)) + ")</span></a>";
+    const ext = String(p.nom || "").split(".").pop().toLowerCase();
+    const url = lienPiece(p.id);
+    let visuel;
+    if (IMAGES.indexOf(ext) >= 0) {
+      visuel = '<img class="mini" src="' + esc(url) + '" alt="" loading="lazy">';
+    } else {
+      const t = TYPES[ext] || [ext.toUpperCase().slice(0, 5) || "DOC", "#eef2f5", "#4a5a64"];
+      visuel = '<span class="picto-type" style="background:' + t[1] + ';color:' + t[2] + '">' + t[0] + "</span>";
+    }
+    h += '<a class="piece-tuile" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      visuel + '<span class="p-nom">' + esc(p.nom) + '</span>' +
+      '<span class="p-taille">' + esc(fmtTaille(p.taille)) + "</span></a>";
   });
   return h + "</div>";
 }
