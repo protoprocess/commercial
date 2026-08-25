@@ -320,8 +320,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.4';
-const APP_DATE = '21/08/2026';
+const APP_VERSION = '1.5';
+const APP_DATE = '25/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -356,7 +356,31 @@ let STATUT = null;
 let filtre = 'tous';
 let filtreMetier = '';
 let choisieId = null;                 // entree ouverte dans le volet
-let saisie = { type:'note', etape:null, portee:null, repond_a:null };
+let saisie = { type:'note', etape:null, portee:null, repond_a:null, concernes:null };
+/* Chantier 136 : \u00ab Qui est concern\u00e9 ? \u00bb = destinataires de la notification.
+   concernes null = suit automatiquement le m\u00e9tier choisi (mapping identique a
+   ref_etapes.pole_defaut en base) ; tableau = choix manuel de l utilisateur. */
+const CONCERNES_LISTE = [['COMMERCIAL','Commercial / Achats'],['PRODUCTION','Production / M\u00e9thodes'],['QUALITE','Qualit\u00e9 (les deux)']];
+function poleDefaut(c){
+  if(['DEVIS','BOM','PCB','APPRO'].includes(c)) return 'COMMERCIAL';
+  if(c === 'RECLAMATION') return 'QUALITE';
+  return c ? 'PRODUCTION' : 'COMMERCIAL';
+}
+function concernesEffectifs(){ return saisie.concernes || [poleDefaut(saisie.etape)]; }
+function rendreConcernes(){
+  const z = document.getElementById('zone-concernes'); if(!z) return;
+  const on = concernesEffectifs();
+  z.innerHTML = CONCERNES_LISTE.map(c =>
+    '<button class="pastille concerne' + (on.includes(c[0])?' on':'') + '" data-concerne="' + c[0] + '">' + c[1] + '</button>').join('') +
+    (saisie.concernes ? '' : '<span class="hint" style="align-self:center">propos\u00e9 selon le m\u00e9tier</span>');
+  z.querySelectorAll('.pastille.concerne').forEach(b => b.onclick = () => {
+    let cs = (saisie.concernes || concernesEffectifs()).slice();
+    const v = b.dataset.concerne;
+    if(cs.includes(v)) cs = cs.filter(x => x !== v); else cs.push(v);
+    saisie.concernes = cs;
+    rendreConcernes();
+  });
+}
 let piecesSaisie = [];                // pieces deposees pour la nouvelle note
 let envoiPiece = false;
 
@@ -988,6 +1012,8 @@ function htmlSaisie(){
   '<div class="pastilles" id="metiers-fav">' + chipsMetier(favoris) + '</div>' +
   (autres.length ? '<details class="replis"><summary>Autres m\u00e9tiers</summary>' +
     '<div class="pastilles">' + chipsMetier(autres) + '</div></details>' : '') +
+  '<label class="lbl">Qui est concern\u00e9 ? <span class="mini" style="font-weight:400">(recevra la notification \u2014 au moins 1)</span></label>' +
+  '<div class="pastilles" id="zone-concernes"></div>' +
   '<div class="amorces" id="zone-amorces"></div>' +
   '<textarea id="note-texte" placeholder="Qu\u2019y a-t-il \u00e0 noter sur cette carte ?"></textarea>' +
   '<label class="mini">Nature</label>' +
@@ -1023,6 +1049,7 @@ function htmlSaisie(){
   '</div>';
 }
 function brancherSaisie(){
+  rendreConcernes();
   document.querySelectorAll('.pastille.metier').forEach(b => b.onclick = () => {
     saisie.etape = (saisie.etape === b.dataset.etape) ? null : b.dataset.etape;
     /* re-rendu CIBLE : uniquement chips + amorces, jamais le formulaire
@@ -1030,6 +1057,7 @@ function brancherSaisie(){
     document.querySelectorAll('.pastille.metier').forEach(x =>
       x.classList.toggle('on', x.dataset.etape === saisie.etape));
     rendreAmorces();
+    rendreConcernes(); /* le defaut suit le metier tant que rien n est choisi a la main */
   });
   document.querySelectorAll('.pastille[data-type]').forEach(b => b.onclick = () => {
     saisie.type = b.dataset.type;
@@ -1147,8 +1175,11 @@ async function envoyerNote(){
   if(envoiPiece){ msg.innerHTML = '<span class="err-msg">Une pi\u00e8ce est en cours d\u2019envoi, un instant.</span>'; return; }
   const auteur = auteurOuStop();
   if(!auteur) return;
+  const cs = concernesEffectifs();
+  if(!cs.length){ msg.innerHTML = '<span class="err-msg">Choisir au moins un concern\u00e9 (destinataire de la notification).</span>'; return; }
   const corps = {
     produit_id: P.id, type: saisie.type, texte_brut: texte, auteur,
+    poles: cs,
     etape_code: saisie.etape || null,
     repere: el('note-repere').value.trim() || null,
     mpn: el('note-mpn').value.trim() || null,
