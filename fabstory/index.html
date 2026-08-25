@@ -320,7 +320,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.5';
+const APP_VERSION = '1.6';
 const APP_DATE = '25/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -372,7 +372,12 @@ function rendreConcernes(){
   const on = concernesEffectifs();
   z.innerHTML = CONCERNES_LISTE.map(c =>
     '<button class="pastille concerne' + (on.includes(c[0])?' on':'') + '" data-concerne="' + c[0] + '">' + c[1] + '</button>').join('') +
-    (saisie.concernes ? '' : '<span class="hint" style="align-self:center">propos\u00e9 selon le m\u00e9tier</span>');
+    (saisie.concernes ? '<span class="hint" style="align-self:center">choix manuel</span>' : '<span class="hint" style="align-self:center">propos\u00e9 selon l\u2019\u00e9tape</span>');
+  const et = document.getElementById('etape-choisie');
+  if(et){
+    const l = (FICHE.etapes || []).find(x => x.code === saisie.etape);
+    et.textContent = l ? ' \u2014 ' + l.libelle : '';
+  }
   z.querySelectorAll('.pastille.concerne').forEach(b => b.onclick = () => {
     let cs = (saisie.concernes || concernesEffectifs()).slice();
     const v = b.dataset.concerne;
@@ -1008,12 +1013,10 @@ function htmlSaisie(){
     esc(e.libelle) + '</button>').join('');
   return '' +
   '<div class="card"><h2><i class="ti ti-pencil-plus"></i> Nouvelle note</h2>' +
-  '<label class="lbl" style="margin-top:0">M\u00e9tier concern\u00e9</label>' +
-  '<div class="pastilles" id="metiers-fav">' + chipsMetier(favoris) + '</div>' +
-  (autres.length ? '<details class="replis"><summary>Autres m\u00e9tiers</summary>' +
-    '<div class="pastilles">' + chipsMetier(autres) + '</div></details>' : '') +
-  '<label class="lbl">Qui est concern\u00e9 ? <span class="mini" style="font-weight:400">(recevra la notification \u2014 au moins 1)</span></label>' +
+  '<label class="lbl" style="margin-top:0">Qui est concern\u00e9 ? <span class="mini" style="font-weight:400">(recevra la notification \u2014 au moins 1)</span></label>' +
   '<div class="pastilles" id="zone-concernes"></div>' +
+  '<details class="replis" id="repli-etape"><summary>\u00c9tape <span class="mini">(classement, facultatif)</span><span id="etape-choisie" class="mini" style="color:var(--blue)"></span></summary>' +
+  '<div class="pastilles" style="margin-top:6px">' + chipsMetier(favoris) + chipsMetier(autres) + '</div></details>' +
   '<div class="amorces" id="zone-amorces"></div>' +
   '<textarea id="note-texte" placeholder="Qu\u2019y a-t-il \u00e0 noter sur cette carte ?"></textarea>' +
   '<label class="mini">Nature</label>' +
