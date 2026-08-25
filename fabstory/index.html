@@ -320,7 +320,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.6';
+const APP_VERSION = '1.7';
 const APP_DATE = '25/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1012,11 +1012,19 @@ function htmlSaisie(){
     '<button class="pastille metier' + (saisie.etape===e.code?' on':'') + '" data-etape="' + e.code + '">' +
     esc(e.libelle) + '</button>').join('');
   return '' +
-  '<div class="card"><h2><i class="ti ti-pencil-plus"></i> Nouvelle note</h2>' +
+  '<div class="card" id="carte-saisie">' +
+  '<button class="btn-s" id="note-deplier" style="display:flex;align-items:center;gap:7px"><i class="ti ti-pencil-plus"></i> Nouvelle note</button>' +
+  '<div id="note-form" style="display:none">' +
+  '<h2 style="margin-top:0"><i class="ti ti-pencil-plus"></i> Nouvelle note</h2>' +
   '<label class="lbl" style="margin-top:0">Qui est concern\u00e9 ? <span class="mini" style="font-weight:400">(recevra la notification \u2014 au moins 1)</span></label>' +
   '<div class="pastilles" id="zone-concernes"></div>' +
-  '<details class="replis" id="repli-etape"><summary>\u00c9tape <span class="mini">(classement, facultatif)</span><span id="etape-choisie" class="mini" style="color:var(--blue)"></span></summary>' +
-  '<div class="pastilles" style="margin-top:6px">' + chipsMetier(favoris) + chipsMetier(autres) + '</div></details>' +
+  '<div style="display:flex;align-items:center;gap:8px;margin-top:10px">' +
+  '<label class="mini" for="note-etape" style="margin:0">\u00c9tape</label>' +
+  '<select id="note-etape" style="font-size:12.5px;padding:4px 8px;max-width:250px">' +
+  '<option value="">\u2014 classement facultatif \u2014</option>' +
+  '<optgroup label="Courantes">' + favoris.map(e => '<option value="' + e.code + '">' + esc(e.libelle) + '</option>').join('') + '</optgroup>' +
+  '<optgroup label="Autres">' + autres.map(e => '<option value="' + e.code + '">' + esc(e.libelle) + '</option>').join('') + '</optgroup>' +
+  '</select></div>' +
   '<div class="amorces" id="zone-amorces"></div>' +
   '<textarea id="note-texte" placeholder="Qu\u2019y a-t-il \u00e0 noter sur cette carte ?"></textarea>' +
   '<label class="mini">Nature</label>' +
@@ -1049,19 +1057,19 @@ function htmlSaisie(){
   '<div style="display:flex;gap:8px;align-items:center">' +
   '<button class="btn" id="note-go">Ajouter au fil</button>' +
   '<span class="hint" id="note-repond" style="display:none"></span></div>' +
-  '</div>';
+  '</div></div>';
 }
 function brancherSaisie(){
   rendreConcernes();
-  document.querySelectorAll('.pastille.metier').forEach(b => b.onclick = () => {
-    saisie.etape = (saisie.etape === b.dataset.etape) ? null : b.dataset.etape;
-    /* re-rendu CIBLE : uniquement chips + amorces, jamais le formulaire
-       (le bug historique du clic metier qui vidait repere/MPN) */
-    document.querySelectorAll('.pastille.metier').forEach(x =>
-      x.classList.toggle('on', x.dataset.etape === saisie.etape));
+  const bd = document.getElementById('note-deplier');
+  const nf = document.getElementById('note-form');
+  if(bd && nf) bd.onclick = () => { bd.style.display = 'none'; nf.style.display = ''; };
+  const se = document.getElementById('note-etape');
+  if(se) se.onchange = () => {
+    saisie.etape = se.value || null;
     rendreAmorces();
-    rendreConcernes(); /* le defaut suit le metier tant que rien n est choisi a la main */
-  });
+    rendreConcernes(); /* le defaut suit l etape tant que rien n est choisi a la main */
+  };
   document.querySelectorAll('.pastille[data-type]').forEach(b => b.onclick = () => {
     saisie.type = b.dataset.type;
     document.querySelectorAll('.pastille[data-type]').forEach(x =>
