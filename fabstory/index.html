@@ -320,7 +320,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.7';
+const APP_VERSION = '1.8';
 const APP_DATE = '25/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -332,6 +332,15 @@ document.getElementById('hdr-version').textContent = 'v' + APP_VERSION + ' \u201
 
 /* Metiers en avant dans la saisie et le volet (retour Olivier 06/08) */
 const METIERS_FAVORIS = ['DEVIS','BOM','PCB','APPRO','METHODES','CMS','TRAD'];
+const LISTE_SAISIE = [
+  ['DEVIS', 'DEVIS / CHIFFRAGE'],
+  ['BOM', 'BOM'],
+  ['PCB', 'PCB / CIRCUIT IMPRIM\u00c9'],
+  ['APPRO', 'APPRO / R\u00c9CEPTION'],
+  ['METHODES', 'M\u00c9THODES ET DOSSIER FAB'],
+  ['DIVERS_PROD', 'PRODUCTION'],
+  ['RECLAMATION', 'R\u00c9CLAMATION CLIENT']
+];
 const STATUTS = [
   { code:'devis',       libelle:'Devis' },
   { code:'preparation', libelle:'Pr\u00e9paration' },
@@ -1005,6 +1014,11 @@ FS.voletRetirer = async function(){
 
 /* ---------------------------------------------------------------- saisie -- */
 function htmlSaisie(){
+  /* v1.8 : liste de saisie COURTE (retour Olivier 25/08 — trop de precision tue
+     la visibilite). \u00ab Production \u00bb = code DIVERS_PROD en base ; les etapes
+     fines restent valables en base (historique, rangement), juste plus
+     proposees a la saisie. Defaut = DEVIS pour inciter a choisir. */
+  if(!saisie.etape) saisie.etape = 'DEVIS';
   const etapes = FICHE.etapes || [];
   const favoris = etapes.filter(e => METIERS_FAVORIS.includes(e.code));
   const autres = etapes.filter(e => !METIERS_FAVORIS.includes(e.code));
@@ -1021,9 +1035,7 @@ function htmlSaisie(){
   '<div style="display:flex;align-items:center;gap:8px;margin-top:10px">' +
   '<label class="mini" for="note-etape" style="margin:0">\u00c9tape</label>' +
   '<select id="note-etape" style="font-size:12.5px;padding:4px 8px;max-width:250px">' +
-  '<option value="">\u2014 classement facultatif \u2014</option>' +
-  '<optgroup label="Courantes">' + favoris.map(e => '<option value="' + e.code + '">' + esc(e.libelle) + '</option>').join('') + '</optgroup>' +
-  '<optgroup label="Autres">' + autres.map(e => '<option value="' + e.code + '">' + esc(e.libelle) + '</option>').join('') + '</optgroup>' +
+  LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (saisie.etape === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>').join('') +
   '</select></div>' +
   '<div class="amorces" id="zone-amorces"></div>' +
   '<textarea id="note-texte" placeholder="Qu\u2019y a-t-il \u00e0 noter sur cette carte ?"></textarea>' +
@@ -1063,7 +1075,7 @@ function brancherSaisie(){
   rendreConcernes();
   const bd = document.getElementById('note-deplier');
   const nf = document.getElementById('note-form');
-  if(bd && nf) bd.onclick = () => { bd.style.display = 'none'; nf.style.display = ''; };
+  if(bd && nf) bd.onclick = () => { bd.style.display = 'none'; nf.style.display = ''; rendreAmorces(); };
   const se = document.getElementById('note-etape');
   if(se) se.onchange = () => {
     saisie.etape = se.value || null;
