@@ -164,6 +164,13 @@ body.avec-attente .volet,body.volet-ouvert .volet{display:block}
 label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 /* v2.0 chantier 136 : bandeau de notification. N apparait QUE s il reste des
    entrees non notifiees — rien ne part par une horloge, l envoi est un geste. */
+.inter-groupe{display:inline-flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:6px 14px 6px 8px;font-size:12.5px;color:var(--text2);cursor:pointer;font-family:inherit}
+.inter-groupe:hover{border-color:var(--border2)}
+.inter-groupe .ig-piste{width:30px;height:17px;border-radius:999px;background:var(--border2);position:relative;flex:none;transition:background .15s}
+.inter-groupe .ig-bille{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .15s}
+.inter-groupe.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-fonce);font-weight:600}
+.inter-groupe.on .ig-piste{background:var(--accent)}
+.inter-groupe.on .ig-bille{left:15px}
 .bandeau-notif{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:14px}
 .bandeau-notif .bn-txt{flex:1;min-width:200px;font-size:13px;color:var(--amber-badge)}
 .bandeau-notif .bn-nb{font-weight:700}
@@ -341,7 +348,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 const APP_DATE = '27/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -708,11 +715,18 @@ FS.basculerGroupage = function(){
   rendreFiche();
 };
 function htmlInterrupteurGroupage(){
-  return '<button class="btn-s" onclick="FS.basculerGroupage()" ' +
-    'style="' + (GROUPAGE ? 'border-color:var(--accent);color:var(--accent-fonce)' : '') + '" ' +
-    'title="Enregistrer plusieurs entr\u00e9es puis les envoyer en un seul mail">' +
-    '<i class="ti ti-' + (GROUPAGE ? 'stack-2' : 'stack') + '"></i> ' +
-    (GROUPAGE ? 'Groupage actif' : 'Grouper') + '</button>';
+  /* Un bouton secondaire ordinaire ne dit pas qu il porte un ETAT : le premier
+     retour utilisateur ne l a pas vu du tout, noye parmi « Cartes » et
+     « Nouvelle note ». On lui donne donc une forme d interrupteur explicite,
+     avec un temoin visible et un libelle qui annonce la consequence.        */
+  return '<button class="inter-groupe' + (GROUPAGE ? ' on' : '') + '" ' +
+    'onclick="FS.basculerGroupage()" ' +
+    'title="Enregistrer plusieurs entr\u00e9es, puis les transmettre en un seul mail">' +
+    '<span class="ig-piste"><span class="ig-bille"></span></span>' +
+    '<span>' + (GROUPAGE
+      ? 'Groupage actif \u00b7 les envois attendent'
+      : 'Grouper les envois') + '</span>' +
+    '</button>';
 }
 function htmlBandeauNotifier(){
   const dif = Number((FICHE && FICHE.nb_differes) || 0);
