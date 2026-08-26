@@ -161,6 +161,15 @@ body.avec-attente .volet,body.volet-ouvert .volet{display:block}
 .replis[open] summary::before{content:'\2212 '}
 .grille2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
+/* v2.0 chantier 136 : bandeau de notification. N apparait QUE s il reste des
+   entrees non notifiees — rien ne part par une horloge, l envoi est un geste. */
+.bandeau-notif{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:14px}
+.bandeau-notif .bn-txt{flex:1;min-width:200px;font-size:13px;color:var(--amber-badge)}
+.bandeau-notif .bn-nb{font-weight:700}
+.notif-recap{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px}
+.notif-recap .nr-pole{font-size:12.5px;font-weight:600;color:var(--accent-fonce)}
+.notif-recap .nr-mails{font-size:11.5px;color:var(--text3);font-family:var(--mono);word-break:break-all}
+.notif-recap .nr-item{font-size:12.5px;color:var(--text2);border-left:3px solid var(--border2);padding:2px 0 2px 8px;margin-top:6px}
 .piece-ligne{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:var(--radius);padding:6px 9px;margin-top:6px;font-size:12px}
 .piece-ligne .ti{color:var(--text2)}
 .ok-msg{color:var(--green);font-size:12.5px}
@@ -317,11 +326,22 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </dialog>
 
+<dialog id="dlg-notifier">
+  <h2><i class="ti ti-mail-forward"></i> Notifier les concernés</h2>
+  <p class="mini" style="margin:0 0 8px">Voici exactement ce qui partira. Rien n'a encore été envoyé.</p>
+  <div id="nt-corps"></div>
+  <div id="nt-msg" style="min-height:18px;margin-top:6px"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+    <button class="btn-s" onclick="document.getElementById('dlg-notifier').close()">Annuler</button>
+    <button class="btn" id="nt-go" onclick="FS.envoyerNotif()">Envoyer</button>
+  </div>
+</dialog>
+
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '1.9';
-const APP_DATE = '25/08/2026';
+const APP_VERSION = '2.0';
+const APP_DATE = '26/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -663,6 +683,66 @@ function htmlEntree(e, cls){
     '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
     detEntree(e) + piecesEntree(e) + '</div>';
 }
+/* ============================================ NOTIFIER (chantier 136) ==== *
+ * L envoi est un GESTE, jamais une horloge : rien ne part tant que personne
+ * ne clique. Ne pas cliquer est donc un choix valide — et il eteint aussi
+ * l escalade, qui compte les jours a partir de l envoi.
+ * Le bandeau ne s affiche que s il reste quelque chose a notifier.          */
+function htmlBandeauNotifier(){
+  const n = Number((FICHE && FICHE.nb_a_notifier) || 0);
+  if(!n) return '';
+  return '<div class="bandeau-notif">' +
+    '<i class="ti ti-bell" style="font-size:18px;color:var(--amber-badge)"></i>' +
+    '<span class="bn-txt"><span class="bn-nb">' + n + '</span> ' +
+    (n > 1 ? 'entr\u00e9es n\u2019ont pas encore \u00e9t\u00e9 transmises' : 'entr\u00e9e n\u2019a pas encore \u00e9t\u00e9 transmise') +
+    ' aux concern\u00e9s.</span>' +
+    '<button class="btn" onclick="FS.previsualiserNotif()">' +
+    '<i class="ti ti-mail-forward"></i> Notifier</button>' +
+    '</div>';
+}
+FS.previsualiserNotif = async function(){
+  const d = el('dlg-notifier');
+  el('nt-corps').innerHTML = '<p class="mini">Calcul en cours\u2026</p>';
+  el('nt-msg').textContent = '';
+  el('nt-go').disabled = true;
+  d.showModal();
+  try{
+    /* dry_run : la fonction Supabase calcule tout mais n ecrit rien et
+       n envoie rien. Le meme appel servira ensuite pour de vrai.          */
+    const r = await postJson(BASE + '/fabstory-notifier', { produit_id: P.id, dry_run: true });
+    if(!r.envois){
+      el('nt-corps').innerHTML = '<p class="mini">Rien \u00e0 notifier sur cette carte.</p>';
+      return;
+    }
+    el('nt-corps').innerHTML = (r.detail || []).map(g =>
+      '<div class="notif-recap">' +
+      '<div class="nr-pole">' + esc(g.pole) + ' \u2014 ' + g.nb + (g.nb > 1 ? ' entr\u00e9es' : ' entr\u00e9e') + '</div>' +
+      '<div class="nr-mails">' + esc(g.destinataires) + '</div>' +
+      (g.entrees || []).map(e =>
+        '<div class="nr-item">' + esc(e.texte || '') + '</div>').join('') +
+      '</div>').join('');
+    el('nt-go').disabled = false;
+  }catch(e){
+    el('nt-corps').innerHTML = '';
+    el('nt-msg').innerHTML = '<span style="color:var(--red-badge)">' + esc(e.message) + '</span>';
+  }
+};
+FS.envoyerNotif = async function(){
+  el('nt-go').disabled = true;
+  el('nt-msg').textContent = 'Envoi\u2026';
+  try{
+    const r = await postJson(BASE + '/fabstory-notifier', { produit_id: P.id });
+    el('nt-msg').innerHTML = '<span style="color:var(--green-badge)">' +
+      r.envois + (r.envois > 1 ? ' mails envoy\u00e9s' : ' mail envoy\u00e9') +
+      ' \u00b7 ' + r.entrees + (r.entrees > 1 ? ' entr\u00e9es' : ' entr\u00e9e') + '</span>';
+    await recharger(true);
+    setTimeout(function(){ el('dlg-notifier').close(); }, 1200);
+  }catch(e){
+    el('nt-go').disabled = false;
+    el('nt-msg').innerHTML = '<span style="color:var(--red-badge)">' + esc(e.message) + '</span>';
+  }
+};
+
 function rendreFiche(){
   const z = el('colonne-fil');
   const entrees = FICHE.entrees || [];
@@ -686,6 +766,8 @@ function rendreFiche(){
     '<span class="hero-cli">' + esc(P.nom_client || P.code_client || '') + '</span>' +
     (P.libelle_carte ? '<span class="hero-lib">' + esc(P.libelle_carte) + '</span>' : '') +
     '</div>' + htmlStatut() + '</div>';
+
+  html += htmlBandeauNotifier();
 
   if(regles.length){
     html += '<div class="card"><details class="regles-resume"><summary><i class="ti ti-gavel" style="color:var(--info-txt)"></i> ' +
