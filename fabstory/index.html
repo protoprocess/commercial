@@ -327,8 +327,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 </dialog>
 
 <dialog id="dlg-notifier">
-  <h2><i class="ti ti-mail-forward"></i> Notifier les concernés</h2>
-  <p class="mini" style="margin:0 0 8px">Voici exactement ce qui partira. Rien n'a encore été envoyé.</p>
+  <h2><i class="ti ti-mail-exclamation"></i> Renvoyer aux concernés</h2>
+  <p class="mini" style="margin:0 0 8px">Ces entrées ne sont pas parties. Voici exactement ce qui sera renvoyé.</p>
   <div id="nt-corps"></div>
   <div id="nt-msg" style="min-height:18px;margin-top:6px"></div>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
@@ -340,7 +340,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 const APP_DATE = '26/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -684,20 +684,22 @@ function htmlEntree(e, cls){
     detEntree(e) + piecesEntree(e) + '</div>';
 }
 /* ============================================ NOTIFIER (chantier 136) ==== *
- * L envoi est un GESTE, jamais une horloge : rien ne part tant que personne
- * ne clique. Ne pas cliquer est donc un choix valide — et il eteint aussi
- * l escalade, qui compte les jours a partir de l envoi.
- * Le bandeau ne s affiche que s il reste quelque chose a notifier.          */
+ * L envoi aux poles concernes est AUTOMATIQUE a la saisie (v2.1) : la mesure
+ * sur 39 entrees reelles a montre que le groupement n economisait que 0,75
+ * mail par jour, pour le risque de laisser dormir une action a regler.
+ * notifie_le n est pose qu APRES confirmation de Gmail. Ce bandeau ne
+ * s affiche donc JAMAIS en fonctionnement normal : s il apparait, c est
+ * qu un envoi n est pas parti.                                             */
 function htmlBandeauNotifier(){
   const n = Number((FICHE && FICHE.nb_a_notifier) || 0);
   if(!n) return '';
   return '<div class="bandeau-notif">' +
-    '<i class="ti ti-bell" style="font-size:18px;color:var(--amber-badge)"></i>' +
+    '<i class="ti ti-mail-exclamation" style="font-size:18px;color:var(--amber-badge)"></i>' +
     '<span class="bn-txt"><span class="bn-nb">' + n + '</span> ' +
-    (n > 1 ? 'entr\u00e9es n\u2019ont pas encore \u00e9t\u00e9 transmises' : 'entr\u00e9e n\u2019a pas encore \u00e9t\u00e9 transmise') +
-    ' aux concern\u00e9s.</span>' +
+    (n > 1 ? 'entr\u00e9es ne sont pas parties' : 'entr\u00e9e n\u2019est pas partie') +
+    ' aux concern\u00e9s. L\u2019envoi automatique a \u00e9chou\u00e9.</span>' +
     '<button class="btn" onclick="FS.previsualiserNotif()">' +
-    '<i class="ti ti-mail-forward"></i> Notifier</button>' +
+    '<i class="ti ti-refresh"></i> Renvoyer</button>' +
     '</div>';
 }
 FS.previsualiserNotif = async function(){
