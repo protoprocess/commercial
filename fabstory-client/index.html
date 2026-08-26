@@ -199,9 +199,12 @@
 </head>
 <body>
 <header>
-  <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
-       style="object-fit:contain" onerror="this.style.display='none'">
-  <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi de votre Projet</span></span>
+  <!-- v0.13 : picto = retour a l espace client, titre = retour a la liste des cartes -->
+  <a href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Votre espace client Proto Process" style="display:flex;align-items:center;text-decoration:none">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
+         style="object-fit:contain" onerror="this.style.display='none'"></a>
+  <a href="https://protoprocess-main-16873066.dev.odoo.com/my/fabrication" title="Toutes vos cartes en fabrication" style="text-decoration:none">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi de votre Projet</span></span></a>
   <span class="ver" id="verBadge"></span>
 </header>
 
@@ -257,7 +260,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.12";
+const APP_VERSION = "0.13";
 const APP_DATE = "25/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
