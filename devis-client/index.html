@@ -586,8 +586,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "10.0";
-const APP_DATE = "04/08/2026";
+const APP_VERSION = "11.0";
+const APP_DATE = "26/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -1228,6 +1228,12 @@ async function odooCreer(forcer){
       body: JSON.stringify({ produit_id: fdvProduitId(), reference: ref,
                              quantites: qtes.length ? qtes : [1], essai: !!ODOO.essai,
                              luminovo: (document.getElementById('odoo-luminovo') || {}).value || '',
+                             /* v11.0 — le job_id de l'analyse part avec la creation : le
+                                workflow s'en sert pour rattacher le mail client d'origine
+                                au devis (contexte_mail, message allege, threading).
+                                Meme source que dossier_job_id plus bas : fiche ouverte
+                                via ?fiche=, sinon l'analyse courante. Null = silencieux. */
+                             job_id: (FICHE_LIEN && FICHE_LIEN.job_id) || (DATA && DATA.job_id) || null,
                              confirme_existant: !!forcer })
     });
     const brut = await r.text();
