@@ -171,6 +171,7 @@ label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 .inter-groupe.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-fonce);font-weight:600}
 .inter-groupe.on .ig-piste{background:var(--accent)}
 .inter-groupe.on .ig-bille{left:15px}
+.pastille-attente{display:inline-flex;align-items:center;gap:4px;margin-left:8px;background:var(--amber-bg);color:var(--amber-badge);border:1px solid var(--amber);border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:600}
 .bandeau-notif{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:14px}
 .bandeau-notif .bn-txt{flex:1;min-width:200px;font-size:13px;color:var(--amber-badge)}
 .bandeau-notif .bn-nb{font-weight:700}
@@ -348,7 +349,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '2.5';
+const APP_VERSION = '3.0';
 const APP_DATE = '27/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -388,6 +389,7 @@ const SVG_OEIL = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" st
 const SVG_OEIL_BARRE = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>';
 const FS = {};
 let PRODUITS = [];
+let ATTENTE = {};   // produit_id -> nb d entrees enregistrees non transmises
 let P = null;
 let FICHE = null;
 let STATUT = null;
@@ -474,6 +476,12 @@ async function chargerCartes(){
     const j = await getJson(BASE + '/produits');
     PRODUITS = (j && j.produits) || [];
     rendreCartes('');
+    /* Le badge est un confort : s il echoue, la liste reste utilisable. */
+    try{
+      const a = await getJson(BASE + '/fabstory-attente');
+      ATTENTE = (a && a.attente) || {};
+      rendreCartes(filtreTxt);
+    }catch(err){ /* silencieux */ }
   }catch(e){
     z.innerHTML = '<div class="card"><h2><i class="ti ti-cpu"></i> Quelle carte ?</h2>' +
       '<p class="err-msg" style="margin:0 0 9px">Liste indisponible : ' + esc(e.message) + '</p>' +
@@ -498,7 +506,10 @@ function rendreCartes(filtreTxt){
       '<div class="carte-item" onclick="ouvrirFiche(' + p.id + ')">' +
       '<div><div class="ref">' + esc(p.cle_produit || p.ref_carte) + '</div>' +
       '<div class="lib">' + esc(p.libelle_carte || '') + '</div></div>' +
-      '<div class="cli">' + esc(p.nom_client || p.code_client || '') + '</div></div>').join('');
+      '<div class="cli">' + esc(p.nom_client || p.code_client || '') +
+      (ATTENTE[p.id] ? '<span class="pastille-attente" title="Entr\u00e9es enregistr\u00e9es non transmises">' +
+        '<i class="ti ti-send"></i> ' + ATTENTE[p.id] + '</span>' : '') +
+      '</div></div>').join('');
   }
   html += '</div>';
   z.innerHTML = html;
@@ -511,7 +522,6 @@ function rendreCartesDiff(v){ clearTimeout(_t); _t = setTimeout(()=>rendreCartes
 /* ========================================================= ECRAN FICHE ==== */
 async function ouvrirFiche(id){
   P = PRODUITS.find(p => p.id === id) || { id: id };
-  GROUPAGE = false;   // le groupage ne survit jamais a un changement de carte
   el('ecran-cartes').style.display = 'none';
   el('ecran-fiche').style.display = '';
   document.body.classList.add('fiche-ouverte');
@@ -531,6 +541,12 @@ async function ouvrirFiche(id){
   }
 }
 function retourCartes(){
+  const n = nbEnAttente();
+  if(n && !confirm(n + (n > 1 ? ' entr\u00e9es enregistr\u00e9es n\u2019ont pas \u00e9t\u00e9 transmises'
+                             : ' entr\u00e9e enregistr\u00e9e n\u2019a pas \u00e9t\u00e9 transmise') +
+      ' aux concern\u00e9s.\n\nQuitter la carte quand m\u00eame ?')){
+    return;
+  }
   el('ecran-fiche').style.display = 'none';
   el('ecran-cartes').style.display = '';
   document.body.classList.remove('fiche-ouverte');
@@ -693,66 +709,27 @@ function htmlEntree(e, cls){
     detEntree(e) + piecesEntree(e) + '</div>';
 }
 /* ============================================ NOTIFIER (chantier 136) ==== *
- * L envoi aux poles concernes est AUTOMATIQUE a la saisie (v2.1) : la mesure
- * sur 39 entrees reelles a montre que le groupement systematique n economisait
- * que 0,75 mail par jour, pour le risque de laisser dormir une action a regler.
- *
- * v2.2 : GROUPAGE VOLONTAIRE. Quand le client repond d un coup a 4 questions,
- * on les reporte une par une et 4 mails orphelins partent. L interrupteur
- * « Grouper » suspend l envoi (drapeau differer_notif) ; les entrees
- * s empilent, visibles dans le bandeau, et partent en UN mail par pole ou
- * chaque reponse est placee sous sa question.
- *
- * Le bandeau sert donc a deux choses, distinguees par GROUPAGE :
- *   - groupage actif   -> « X entrees en attente d envoi » (voulu)
- *   - groupage inactif -> « X entrees ne sont pas parties » (panne Gmail),
- *     puisque notifie_le n est pose qu APRES confirmation de Gmail.
- * L interrupteur est par carte et par session : changer de carte le remet a
- * zero, pour ne pas grouper sans s en apercevoir trois jours plus tard.      */
-let GROUPAGE = false;
-FS.basculerGroupage = function(){
-  GROUPAGE = !GROUPAGE;
-  rendreFiche();
-  /* L interrupteur existe aux deux endroits (carte et volet) : basculer d un
-     cote doit se voir de l autre, et le libelle du bouton d envoi change. */
-  if(choisieId && entree(choisieId)) ouvrirVolet(choisieId);
-};
-function htmlInterrupteurGroupage(){
-  /* Un bouton secondaire ordinaire ne dit pas qu il porte un ETAT : le premier
-     retour utilisateur ne l a pas vu du tout, noye parmi « Cartes » et
-     « Nouvelle note ». On lui donne donc une forme d interrupteur explicite,
-     avec un temoin visible et un libelle qui annonce la consequence.        */
-  return '<button class="inter-groupe' + (GROUPAGE ? ' on' : '') + '" ' +
-    'onclick="FS.basculerGroupage()" ' +
-    'title="Enregistrer plusieurs entr\u00e9es, puis les transmettre en un seul mail">' +
-    '<span class="ig-piste"><span class="ig-bille"></span></span>' +
-    '<span>' + (GROUPAGE
-      ? 'Groupage actif \u00b7 les envois attendent'
-      : 'Grouper les envois') + '</span>' +
-    '</button>';
+/* v3.0 : PLUS DE MODE. Demander de decider « je vais grouper » AVANT de
+   repondre ne marche pas — et cote client ce serait absurde. On inverse donc :
+   enregistrer n envoie JAMAIS, et transmettre est un geste de fin, quand on a
+   fini de traiter la carte. Un seul bouton, en haut de la carte.
+   Contrepartie assumee : l oubli devient possible. Trois garde-fous, aucun
+   automatique — bandeau permanent, avertissement en quittant la carte, badge
+   sur la carte dans la liste.                                              */
+function nbEnAttente(){
+  return Number((FICHE && FICHE.nb_differes) || 0) + Number((FICHE && FICHE.nb_echecs) || 0);
 }
 function htmlBandeauNotifier(){
-  const dif = Number((FICHE && FICHE.nb_differes) || 0);
-  const ech = Number((FICHE && FICHE.nb_echecs) || 0);
-  if(!dif && !ech) return '';
-  /* Un echec prime sur un differe : c est le seul des deux qui appelle une
-     action immediate. Les deux compteurs viennent de la base, jamais de
-     l etat de l interrupteur — recharger la page ne fausse donc plus rien. */
-  const panne = ech > 0;
-  const n = panne ? ech : dif;
-  const txt = panne
-    ? '<span class="bn-nb">' + n + '</span> ' +
-      (n > 1 ? 'entr\u00e9es ne sont pas parties' : 'entr\u00e9e n\u2019est pas partie') +
-      ' aux concern\u00e9s. L\u2019envoi automatique a \u00e9chou\u00e9.'
-    : '<span class="bn-nb">' + n + '</span> ' +
-      (n > 1 ? 'entr\u00e9es en attente d\u2019envoi' : 'entr\u00e9e en attente d\u2019envoi') + '.';
+  const n = nbEnAttente();
+  if(!n) return '';
   return '<div class="bandeau-notif">' +
-    '<i class="ti ti-' + (panne ? 'mail-exclamation' : 'stack-2') +
-    '" style="font-size:18px;color:var(--amber-badge)"></i>' +
-    '<span class="bn-txt">' + txt + '</span>' +
+    '<i class="ti ti-send" style="font-size:18px;color:var(--amber-badge)"></i>' +
+    '<span class="bn-txt"><span class="bn-nb">' + n + '</span> ' +
+    (n > 1 ? 'entr\u00e9es enregistr\u00e9es n\u2019ont pas encore \u00e9t\u00e9 transmises'
+           : 'entr\u00e9e enregistr\u00e9e n\u2019a pas encore \u00e9t\u00e9 transmise') +
+    ' aux concern\u00e9s.</span>' +
     '<button class="btn" onclick="FS.previsualiserNotif()">' +
-    '<i class="ti ti-' + (panne ? 'refresh' : 'send') + '"></i> ' +
-    (panne ? 'Renvoyer le lot' : 'Transmettre le lot') + '</button>' +
+    '<i class="ti ti-send"></i> Envoyer les notifications (' + n + ')</button>' +
     '</div>';
 }
 FS.previsualiserNotif = async function(){
@@ -791,6 +768,10 @@ FS.envoyerNotif = async function(){
       r.envois + (r.envois > 1 ? ' mails envoy\u00e9s' : ' mail envoy\u00e9') +
       ' \u00b7 ' + r.entrees + (r.entrees > 1 ? ' entr\u00e9es' : ' entr\u00e9e') + '</span>';
     await recharger(true);
+    try{
+      const a = await getJson(BASE + '/fabstory-attente');
+      ATTENTE = (a && a.attente) || {};
+    }catch(err){ /* silencieux */ }
     setTimeout(function(){ el('dlg-notifier').close(); }, 1200);
   }catch(e){
     el('nt-go').disabled = false;
@@ -822,8 +803,6 @@ function rendreFiche(){
     (P.libelle_carte ? '<span class="hero-lib">' + esc(P.libelle_carte) + '</span>' : '') +
     '</div>' + htmlStatut() + '</div>';
 
-  html += '<div style="display:flex;justify-content:flex-start;margin-bottom:8px">'
-       + htmlInterrupteurGroupage() + '</div>';
   html += htmlBandeauNotifier();
 
   if(regles.length){
@@ -956,10 +935,10 @@ function ouvrirVolet(id){
           PORTEES_LIBELLES[p] + '</button>').join('') + '</div>';
     }
     h += '<div id="v-rep-msg" style="min-height:16px"></div>' +
-      '<div style="margin:0 0 9px">' + htmlInterrupteurGroupage() + '</div>' +
-      '<button class="btn" onclick="FS.voletRepondre()">' +
-      (GROUPAGE ? 'Enregistrer sans envoyer' : 'Envoyer la r\u00e9ponse') +
-      '</button></details>';
+      '<button class="btn" onclick="FS.voletRepondre()">Enregistrer la r\u00e9ponse</button>' +
+      '<p class="mini" style="margin:7px 0 0">Rien n\u2019est envoy\u00e9 tout de suite. Cliquez ' +
+      '<strong>Envoyer les notifications</strong> en haut de la carte quand vous avez fini.</p>' +
+      '</details>';
   }
 
   if(e.type !== 'indice'){
@@ -1082,7 +1061,7 @@ FS.voletRepondre = async function(){
       etape_code: e.etape_code || null,
       portee_validation: (e.type === 'question_client' && porteeBtn) ? porteeBtn.dataset.portee : null,
       source: 'fabstory',
-      differer_notif: GROUPAGE
+      differer_notif: true
     });
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
@@ -1375,7 +1354,7 @@ async function envoyerNote(){
     visible_client: el('note-visible').checked,
     portee_validation: (saisie.type === 'question_client') ? saisie.portee : null,
     source: 'fabstory',
-    differer_notif: GROUPAGE
+    differer_notif: true
   };
   const btn = el('note-go');
   btn.disabled = true;
