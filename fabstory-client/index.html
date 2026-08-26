@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>Suivi de votre Projet</title>
+<title>Suivi des projets</title>
 <style>
   :root {
     /* Palette FabStory theme clair (v0.9 : l'orange agit, le bleu informe) */
@@ -204,7 +204,7 @@
     <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
          style="object-fit:contain" onerror="this.style.display='none'"></a>
   <a href="https://protoprocess-main-16873066.dev.odoo.com/my/fabrication" title="Toutes vos cartes en fabrication" style="text-decoration:none">
-    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi de votre Projet</span></span></a>
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi des projets</span></span></a>
   <span class="ver" id="verBadge"></span>
 </header>
 
@@ -260,13 +260,13 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.13";
+const APP_VERSION = "0.14";
 const APP_DATE = "25/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
 document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
-document.title = "Suivi de votre Projet · " + APP_NAME + " v" + APP_VERSION;
+document.title = "Suivi des projets · " + APP_NAME + " v" + APP_VERSION;
 
 const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
