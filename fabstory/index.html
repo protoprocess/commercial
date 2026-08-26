@@ -340,7 +340,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 const APP_DATE = '26/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -503,6 +503,7 @@ function rendreCartesDiff(v){ clearTimeout(_t); _t = setTimeout(()=>rendreCartes
 /* ========================================================= ECRAN FICHE ==== */
 async function ouvrirFiche(id){
   P = PRODUITS.find(p => p.id === id) || { id: id };
+  GROUPAGE = false;   // le groupage ne survit jamais a un changement de carte
   el('ecran-cartes').style.display = 'none';
   el('ecran-fiche').style.display = '';
   document.body.classList.add('fiche-ouverte');
@@ -685,21 +686,49 @@ function htmlEntree(e, cls){
 }
 /* ============================================ NOTIFIER (chantier 136) ==== *
  * L envoi aux poles concernes est AUTOMATIQUE a la saisie (v2.1) : la mesure
- * sur 39 entrees reelles a montre que le groupement n economisait que 0,75
- * mail par jour, pour le risque de laisser dormir une action a regler.
- * notifie_le n est pose qu APRES confirmation de Gmail. Ce bandeau ne
- * s affiche donc JAMAIS en fonctionnement normal : s il apparait, c est
- * qu un envoi n est pas parti.                                             */
+ * sur 39 entrees reelles a montre que le groupement systematique n economisait
+ * que 0,75 mail par jour, pour le risque de laisser dormir une action a regler.
+ *
+ * v2.2 : GROUPAGE VOLONTAIRE. Quand le client repond d un coup a 4 questions,
+ * on les reporte une par une et 4 mails orphelins partent. L interrupteur
+ * « Grouper » suspend l envoi (drapeau differer_notif) ; les entrees
+ * s empilent, visibles dans le bandeau, et partent en UN mail par pole ou
+ * chaque reponse est placee sous sa question.
+ *
+ * Le bandeau sert donc a deux choses, distinguees par GROUPAGE :
+ *   - groupage actif   -> « X entrees en attente d envoi » (voulu)
+ *   - groupage inactif -> « X entrees ne sont pas parties » (panne Gmail),
+ *     puisque notifie_le n est pose qu APRES confirmation de Gmail.
+ * L interrupteur est par carte et par session : changer de carte le remet a
+ * zero, pour ne pas grouper sans s en apercevoir trois jours plus tard.      */
+let GROUPAGE = false;
+FS.basculerGroupage = function(){
+  GROUPAGE = !GROUPAGE;
+  rendreFiche();
+};
+function htmlInterrupteurGroupage(){
+  return '<button class="btn-s" onclick="FS.basculerGroupage()" ' +
+    'style="' + (GROUPAGE ? 'border-color:var(--accent);color:var(--accent-fonce)' : '') + '" ' +
+    'title="Enregistrer plusieurs entr\u00e9es puis les envoyer en un seul mail">' +
+    '<i class="ti ti-' + (GROUPAGE ? 'stack-2' : 'stack') + '"></i> ' +
+    (GROUPAGE ? 'Groupage actif' : 'Grouper') + '</button>';
+}
 function htmlBandeauNotifier(){
   const n = Number((FICHE && FICHE.nb_a_notifier) || 0);
   if(!n) return '';
+  const txt = GROUPAGE
+    ? '<span class="bn-nb">' + n + '</span> ' +
+      (n > 1 ? 'entr\u00e9es en attente d\u2019envoi' : 'entr\u00e9e en attente d\u2019envoi') + '.'
+    : '<span class="bn-nb">' + n + '</span> ' +
+      (n > 1 ? 'entr\u00e9es ne sont pas parties' : 'entr\u00e9e n\u2019est pas partie') +
+      ' aux concern\u00e9s. L\u2019envoi automatique a \u00e9chou\u00e9.';
   return '<div class="bandeau-notif">' +
-    '<i class="ti ti-mail-exclamation" style="font-size:18px;color:var(--amber-badge)"></i>' +
-    '<span class="bn-txt"><span class="bn-nb">' + n + '</span> ' +
-    (n > 1 ? 'entr\u00e9es ne sont pas parties' : 'entr\u00e9e n\u2019est pas partie') +
-    ' aux concern\u00e9s. L\u2019envoi automatique a \u00e9chou\u00e9.</span>' +
+    '<i class="ti ti-' + (GROUPAGE ? 'stack-2' : 'mail-exclamation') +
+    '" style="font-size:18px;color:var(--amber-badge)"></i>' +
+    '<span class="bn-txt">' + txt + '</span>' +
     '<button class="btn" onclick="FS.previsualiserNotif()">' +
-    '<i class="ti ti-refresh"></i> Renvoyer</button>' +
+    '<i class="ti ti-' + (GROUPAGE ? 'send' : 'refresh') + '"></i> ' +
+    (GROUPAGE ? 'Envoyer' : 'Renvoyer') + '</button>' +
     '</div>';
 }
 FS.previsualiserNotif = async function(){
@@ -769,6 +798,8 @@ function rendreFiche(){
     (P.libelle_carte ? '<span class="hero-lib">' + esc(P.libelle_carte) + '</span>' : '') +
     '</div>' + htmlStatut() + '</div>';
 
+  html += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px">'
+       + htmlInterrupteurGroupage() + '</div>';
   html += htmlBandeauNotifier();
 
   if(regles.length){
@@ -1023,7 +1054,8 @@ FS.voletRepondre = async function(){
       type: e.type === 'question_client' ? 'reponse_client' : 'reponse_interne',
       etape_code: e.etape_code || null,
       portee_validation: (e.type === 'question_client' && porteeBtn) ? porteeBtn.dataset.portee : null,
-      source: 'fabstory'
+      source: 'fabstory',
+      differer_notif: GROUPAGE
     });
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
@@ -1315,7 +1347,8 @@ async function envoyerNote(){
     photos: piecesSaisie.map(p => p.chemin),
     visible_client: el('note-visible').checked,
     portee_validation: (saisie.type === 'question_client') ? saisie.portee : null,
-    source: 'fabstory'
+    source: 'fabstory',
+    differer_notif: GROUPAGE
   };
   const btn = el('note-go');
   btn.disabled = true;
