@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.11";
+const APP_VERSION = "12.12";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1298,6 +1298,21 @@ let ODOO = { etat: 'ferme', data: null, msg: null, essai: false };
 function blocOdoo(){
   if(!(FICHE_LIEN && FICHE_LIEN.produit_id)) return '';
   if(ODOO.etat === 'ferme'){
+    /* v12.12 — un devis deja cree pour ce dossier doit se VOIR. Le n de SO est
+       desormais reecrit dans la fiche a la creation : quand il est la, le bouton
+       ne ment plus (il proposait « Creer le devis » alors que le devis existait,
+       et seul le garde anti-doublon sur l ARTICLE freinait, avec un message qui
+       parlait d autre chose). Creer un second devis reste possible, explicitement. */
+    const so = FICHE_LIEN.odoo_so_id;
+    if(so){
+      return `<div style="padding:10px 13px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--green-badge)">
+        <p style="margin:0 0 8px;font-size:12.5px"><i class="ti ti-check" style="color:var(--green)"></i>
+        <b>Devis déjà créé pour ce dossier</b> — n° ${esc(String(so))}.</p>
+        <a class="btn-p" style="font-size:11.5px;text-decoration:none" target="_blank"
+           href="${ODOO_URL}/odoo/sales/${encodeURIComponent(String(so))}"><i class="ti ti-external-link"></i> Ouvrir dans Odoo</a>
+        <button class="btn-s" style="margin-left:6px;font-size:11.5px" onclick="odooVerifier()">Créer un autre devis</button>
+      </div>`;
+    }
     return `<button class="btn-s" onclick="odooVerifier()">
       <i class="ti ti-file-invoice"></i> Créer le devis Odoo</button>`;
   }
@@ -1502,6 +1517,8 @@ async function odooCreer(forcer){
       return;
     }
     if(j.mode !== 'ajout' && j.devis_id) soMemNoter(midCourant(), j.devis_id);
+    // la fiche en memoire porte desormais son devis : le bloc s affichera a jour
+    if(j.devis_id && FICHE_LIEN && !FICHE_LIEN.odoo_so_id) FICHE_LIEN.odoo_so_id = j.devis_id;
     msg.innerHTML = j.mode === 'ajout'
       ? `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Carte ajoutée au devis n° ${esc(String(j.devis_id))} — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`
       : `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`;
