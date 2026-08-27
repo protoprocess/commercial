@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.9";
+const APP_VERSION = "12.10";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1034,6 +1034,7 @@ async function analyserParCarte(modeSO){
     afficher();
     if((DATA.bom_rows || []).length) traiterBom();
     poserLibellesGmail();
+    rtOuvrirApresAnalyse();   // v12.10 : idem pour la carte 1 d'un lot multi
     const liens = faites.slice(1).map((l, i) =>
       `<a href="?fiche=${encodeURIComponent((l.fiche && l.fiche.job_id) || '')}" target="_blank" style="color:var(--accent)">carte ${i + 2} \u2014 ${esc(l.nom)}</a>`).join(' &nbsp;\u00b7&nbsp; ');
     st.innerHTML = `<div style="padding:9px 14px;background:var(--surface2);border-radius:var(--radius)">
@@ -1095,6 +1096,7 @@ async function analyser(){
     // depasser le temps de reponse d'un webhook sur une grosse BOM
     if(!modeBom && (DATA.bom_rows||[]).length) traiterBom();
     if(!modeBom) poserLibellesGmail();
+    if(!modeBom) rtOuvrirApresAnalyse();   // v12.10 : rattacher sans quitter l'écran
   }catch(e){
     const m = /load failed|failed to fetch|networkerror/i.test(e.message)
       ? "Appel bloqué par le navigateur ou workflow non démarré. Vérifiez que le workflow tourne dans n8n (bouton « Test workflow ») ou publiez-le."
@@ -2887,6 +2889,30 @@ function rtDeviner(libelle){
   }
   const s = RT.societes.find(y => y.nom_normalise === n);
   return s ? Object.assign({}, s, { _via: 'nom' }) : null;
+}
+
+/* v12.10 — LE RATTACHEMENT DIRECTEMENT APRES L ANALYSE (retour Olivier : il
+   fallait sortir de la fiche et y revenir par ?fiche= pour voir le bloc).
+   Le bloc dependait de FICHE_LIEN, pose uniquement a l ouverture par lien.
+   On le pose donc aussi a la fin d une analyse, a partir du job qui vient de
+   naitre : meme forme d objet, memes champs — la suite du code ne voit pas la
+   difference et le devis peut s enchainer sans quitter l ecran. */
+function rtOuvrirApresAnalyse(){
+  const d = DATA || {};
+  if(!d.job_id) return;                 // rien a rattacher (mode BOM seule)
+  if(FICHE_LIEN && FICHE_LIEN.job_id === d.job_id) { rtAfficher(); return; }
+  FICHE_LIEN = {
+    trouve: true,
+    job_id: d.job_id,
+    client: d.client || null,
+    ref_projet: d.ref_projet || null,
+    produit_id: d.produit_id || null,
+    statut: 'a_relire',
+    mail_message_id: (MAIL_CTX && MAIL_CTX.message_id) || null,
+    nb_zip: (MAIL_CTX && (MAIL_CTX.pieces || []).filter(p => /\.zip$/i.test(p.nom || '')).length) || 0,
+    meta: { client: d.client || null }
+  };
+  rtAfficher();
 }
 
 async function rtAfficher(){
