@@ -349,7 +349,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '3.0';
+const APP_VERSION = '3.1';
 const APP_DATE = '27/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -936,8 +936,7 @@ function ouvrirVolet(id){
     }
     h += '<div id="v-rep-msg" style="min-height:16px"></div>' +
       '<button class="btn" onclick="FS.voletRepondre()">Enregistrer la r\u00e9ponse</button>' +
-      '<p class="mini" style="margin:7px 0 0">Rien n\u2019est envoy\u00e9 tout de suite. Cliquez ' +
-      '<strong>Envoyer les notifications</strong> en haut de la carte quand vous avez fini.</p>' +
+      '<p class="mini" style="margin:7px 0 0">Enregistrez vos r\u00e9ponses et validez le tout quand vous \u00eates pr\u00eat.</p>' +
       '</details>';
   }
 
@@ -1210,8 +1209,9 @@ function htmlSaisie(){
     '<input type="checkbox" id="note-visible"> Visible du client</label>' +
   '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
   '<div style="display:flex;gap:8px;align-items:center">' +
-  '<button class="btn" id="note-go">Ajouter au fil</button>' +
+  '<button class="btn" id="note-go">Enregistrer la note</button>' +
   '<span class="hint" id="note-repond" style="display:none"></span></div>' +
+  '<p class="mini" style="margin:7px 0 0">Enregistrez vos notes et validez le tout quand vous \u00eates pr\u00eat.</p>' +
   '</div></div>';
 }
 function brancherSaisie(){
