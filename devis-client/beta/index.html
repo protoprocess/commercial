@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.0-beta";
+const APP_VERSION = "12.2-beta";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -864,25 +864,25 @@ async function enregistrerFiche(){
 }
 
 /* ---------- envoi ---------- */
-async function analyser(){
-  ANALYSE_ID++;              // toute boucle d'une analyse precedente devient caduque
-  const c = cfg();
-  const modeBom = MODE === 'bom';
-  const chemin = modeBom ? 'bom-client-ingestion' : 'dossier-triage-pcb';
-  const url = `${c.base}/${c.mode}/${chemin}`;
+/* v12.2 — MULTI-CARTES A LA SOURCE (idee Olivier 27/08 : « repartir du mail
+   retraite »). Un mail portant plusieurs ZIP = plusieurs cartes : plutot que
+   d analyser le tout en une fiche (puis dupliquer des clones), on propose au
+   clic Analyser de lancer UNE ANALYSE COMPLETE PAR ZIP — chaque fiche porte
+   alors SES specs, SA BOM, et le meme contexte mail : tous les devis
+   repondront dans le meme fil client. Le choix reste a l humain. */
+let ANALYSE_MULTI_CHOIX = null;   // null = pas encore choisi ; 'tout' = une seule fiche
 
+function zipsRetenus(){
+  return (EML_ARCHIVES || []).map((p, i) => ({ p, i }))
+    .filter(x => x.p.retenue && /\.zip$/i.test(x.p.nom || ''));
+}
+
+function construireFdDossier(refProjet){
   const nomClient = document.getElementById('f-client').value || '';
   const info = infoClient(nomClient);
-
-  if(modeBom){
-    // nomenclature seule : le fichier est lu par le workflow BOM lui-meme,
-    // puis le resultat est recupere par interrogation reguliere
-    return analyserBomSeule(url, nomClient);
-  }
-
   const fd = new FormData();
   fd.append('client', nomClient);
-  fd.append('ref_projet', document.getElementById('f-ref').value || '');
+  fd.append('ref_projet', refProjet !== undefined ? refProjet : (document.getElementById('f-ref').value || ''));
   const commentaire = document.getElementById('f-mail').value || '';
   fd.append('mail_objet', (MAIL_CTX && MAIL_CTX.objet) || document.getElementById('f-ref').value || '');
   fd.append('mail_corps', MAIL_CTX
@@ -895,6 +895,100 @@ async function analyser(){
   }));
   if(info) fd.append('client_fiche', JSON.stringify(info));
   FILES.forEach((f,i)=>fd.append('fichier'+i, f, f.name));
+  return fd;
+}
+
+function choixMultiAfficher(){
+  const st = document.getElementById('status');
+  const zips = zipsRetenus();
+  st.innerHTML = `<div style="padding:12px 14px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
+    <p style="margin:0 0 6px;font-weight:600;font-size:13px">Multi-cartes détecté — ${zips.length} ZIP dans le mail</p>
+    <p class="hint" style="margin:0 0 10px">Un devis se chiffre par carte (BOM + PCB). Recommandé : une analyse complète par ZIP —
+    chaque fiche portera ses caractéristiques et sa nomenclature, et tous les devis répondront dans le même fil mail.</p>
+    <button class="btn-p" onclick="analyserParCarte()"><i class="ti ti-stack-2"></i> 1 analyse par carte (${zips.length})</button>
+    <button class="btn-s" style="margin-left:8px" onclick="ANALYSE_MULTI_CHOIX='tout';analyser()">Tout en une seule fiche</button>
+  </div>`;
+}
+
+async function analyserParCarte(){
+  /* Le triage dossier repond la FICHE COMPLETE (synchrone, ~1 min par carte) :
+     la boucle est donc sequentielle et affiche sa progression. A la fin, la
+     fiche de la carte 1 s ouvre a l ecran (flux habituel, codification BOM
+     comprise) et les autres cartes se rejoignent par leurs liens ?fiche= —
+     leur codification BOM se lance a l ouverture de chaque fiche. */
+  ANALYSE_ID++;
+  const c = cfg();
+  const url = `${c.base}/${c.mode}/dossier-triage-pcb`;
+  const st = document.getElementById('status');
+  const zips = zipsRetenus();
+  const objet = (MAIL_CTX && MAIL_CTX.objet) || document.getElementById('f-ref').value || '';
+  document.getElementById('go').disabled = true;
+  const faites = [];
+  try{
+    for(let n = 0; n < zips.length; n++){
+      st.innerHTML = `<span class="spin"></span> Analyse ${n + 1} sur ${zips.length} — ${esc(zips[n].p.nom)} (une à deux minutes chacune)\u2026`;
+      // Une seule carte a la fois : le ZIP courant est retenu, les autres ZIP non.
+      // Les pieces retenues NON-zip (specs communes eventuelles) accompagnent chaque analyse.
+      for(const z of zips) z.p.retenue = (z === zips[n]);
+      emlSync();
+      const refProjet = objet + ' \u2014 carte ' + (n + 1) + ' : ' + zips[n].p.nom;
+      const fd = construireFdDossier(refProjet);
+      const r = await fetch(url, { method:'POST', body: fd });
+      const t = await r.text();
+      if(r.status===404) throw new Error("Workflow non démarré : publiez le workflow ou cliquez « Test workflow » dans n8n.");
+      if(!r.ok) throw new Error('Analyse ' + (n + 1) + ' refusée : HTTP ' + r.status + ' \u2014 ' + t.slice(0, 150));
+      let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0, 150)); }
+      const fiche = Array.isArray(j) ? (j[0] || {}) : j;
+      faites.push({ fiche: fiche, nom: zips[n].p.nom });
+    }
+    // Toutes les cartes re-cochees : l ecran reste coherent avec le mail depose.
+    for(const z of zips) z.p.retenue = true;
+    emlSync();
+    // La carte 1 s affiche selon le flux habituel ; les autres par leurs liens.
+    DATA = faites[0].fiche;
+    appliquerDetections();
+    replier();
+    afficher();
+    if((DATA.bom_rows || []).length) traiterBom();
+    poserLibellesGmail();
+    const liens = faites.slice(1).map((l, i) =>
+      `<a href="?fiche=${encodeURIComponent((l.fiche && l.fiche.job_id) || '')}" target="_blank" style="color:var(--accent)">carte ${i + 2} \u2014 ${esc(l.nom)}</a>`).join(' &nbsp;\u00b7&nbsp; ');
+    st.innerHTML = `<div style="padding:9px 14px;background:var(--surface2);border-radius:var(--radius)">
+      <i class="ti ti-check" style="color:var(--green)"></i> ${faites.length} fiches créées — carte 1 affichée ci-dessous.
+      Ouvrez les autres (nouvel onglet) : ${liens}</div>`;
+  }catch(e){
+    for(const z of zips) z.p.retenue = true;
+    emlSync();
+    st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(e.message)}
+      ${faites.length ? ' \u2014 ' + faites.length + ' fiche(s) déjà créée(s) avant l\'échec (voir Mes analyses).' : ''}</span>`;
+  }finally{
+    majBouton();
+  }
+}
+
+async function analyser(){
+  ANALYSE_ID++;              // toute boucle d'une analyse precedente devient caduque
+  const c = cfg();
+  const modeBom = MODE === 'bom';
+  const chemin = modeBom ? 'bom-client-ingestion' : 'dossier-triage-pcb';
+  const url = `${c.base}/${c.mode}/${chemin}`;
+
+  const nomClient = document.getElementById('f-client').value || '';
+
+  if(modeBom){
+    // nomenclature seule : le fichier est lu par le workflow BOM lui-meme,
+    // puis le resultat est recupere par interrogation reguliere
+    return analyserBomSeule(url, nomClient);
+  }
+
+  // v12.2 : plusieurs ZIP retenus depuis un mail = choix explicite avant de lancer.
+  if(ANALYSE_MULTI_CHOIX !== 'tout' && MAIL_CTX && zipsRetenus().length >= 2){
+    choixMultiAfficher();
+    return;
+  }
+  ANALYSE_MULTI_CHOIX = null;   // le choix ne vaut que pour ce lancement
+
+  const fd = construireFdDossier();
 
   const st = document.getElementById('status');
   document.getElementById('go').disabled = true;
@@ -1134,10 +1228,18 @@ function blocOdoo(){
     à la création du premier devis de la série.</p>
 
     <label class="odoo-f" style="margin-top:11px">Quantités — une ligne de devis par quantité remplie</label>
-    <div class="odoo-r">
-      <input id="odoo-q1" value="1" placeholder="qté 1" style="width:90px">
-      <input id="odoo-q2" placeholder="qté 2" style="width:90px">
-      <input id="odoo-q3" placeholder="qté 3" style="width:90px">
+    ${(function(){
+      /* v12.1 — les quantites detectees par l analyse (demande du client) sont
+         proposees d office ; elles restent modifiables. Constat Maura 27/08 :
+         le champ restait fige a 1 quelle que soit la demande. */
+      const qd = ((DATA && DATA.demande && DATA.demande.quantites) || [])
+        .map(Number).filter(q => q > 0).slice(0, 3);
+      const v1 = qd[0] || 1, v2 = qd[1] || '', v3 = qd[2] || '';
+      return `<div class="odoo-r">
+      <input id="odoo-q1" value="${v1}" placeholder="qté 1" style="width:90px">
+      <input id="odoo-q2" value="${v2}" placeholder="qté 2" style="width:90px">
+      <input id="odoo-q3" value="${v3}" placeholder="qté 3" style="width:90px">`;
+    })()}
       <label class="odoo-ck"><input type="checkbox" ${ODOO.essai?'checked':''}
         onchange="ODOO.essai=this.checked;odooRefChange()"> Essai <span class="hint">— préfixe ZZ ESSAI</span></label>
     </div>
@@ -2602,7 +2704,19 @@ function mcAfficher(m){
   const el = document.getElementById('multi-cartes');
   if(!el) return;
   el.classList.add('hidden');
-  if(!m || mcEstCopie(m)) return;
+  if(!m) return;
+  if(mcEstCopie(m)){
+    /* v12.1 — une copie est un VEHICULE : fil mail + rattachement + devis.
+       Son contenu technique (specs PCB, BOM affichee) est celui de la carte 1,
+       clone a la duplication. Le dire en clair evite d exporter une BOM qui
+       n est pas celle de cette carte (risque Luminovo, alerte Olivier 27/08). */
+    el.innerHTML = `<h3><i class="ti ti-alert-triangle" style="color:var(--amber)"></i> Fiche copie — à lire avec précaution</h3>
+      <p style="margin:0" class="hint">Les caractéristiques et la BOM affichées sont celles de la <b>carte 1</b> (analyse clonée).
+      Cette fiche sert uniquement à <b>rattacher sa carte</b> (voir le nom du ZIP dans le bandeau) et à <b>créer son devis</b>,
+      qui répondra dans le fil mail du client. Pour une analyse technique propre à cette carte, relancer une analyse sur son ZIP.</p>`;
+    el.classList.remove('hidden');
+    return;
+  }
   const nb = Number(m.nb_zip || 0);
   if(nb < 2) return;
   const pieces = (m.pieces_mail || []).filter(n => /\.zip$/i.test(n));
@@ -3165,6 +3279,7 @@ async function lireEml(file, avecDautresFichiers){
        nettoyage, l'écran mélange deux dossiers — client d'un côté, mail de
        l'autre. */
     MAIL_CTX = r;
+    ANALYSE_MULTI_CHOIX = null;   // nouveau mail = nouveau choix multi
     try{
       DETECTION_INCONNUE = null;
       const hint = document.getElementById('client-hint');
