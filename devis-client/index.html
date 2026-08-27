@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.5";
+const APP_VERSION = "12.6";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -950,22 +950,40 @@ function construireFdDossier(refProjet){
   return fd;
 }
 
+function choixMultiPoser(mode, btn){
+  ANALYSE_MULTI_CHOIX = mode;
+  const parent = btn.parentElement;
+  for(const b of parent.querySelectorAll('button')){
+    b.style.background = 'var(--surface)';
+    b.style.borderColor = 'var(--border)';
+  }
+  btn.style.background = 'var(--blue)';
+  btn.style.borderColor = 'transparent';
+  const conf = document.getElementById('choix-multi-conf');
+  if(conf) conf.innerHTML = '<i class="ti ti-check" style="color:var(--green)"></i> Choix enregistré — cliquez <b>Analyser</b> pour lancer.';
+}
+
 function choixMultiAfficher(){
   const st = document.getElementById('status');
   const zips = zipsRetenus();
+  /* v12.6 — SELECTION PUIS LANCEMENT (retour Olivier : un clic accidentel
+     lancait les analyses sans confirmation). Les trois options se SELECTIONNENT
+     seulement ; seul le bouton Analyser declenche. Meme format pour les trois. */
+  const opt = 'text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);font-size:12.5px;cursor:pointer';
   st.innerHTML = `<div style="padding:14px 16px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
     <p style="margin:0 0 4px;font-weight:600;font-size:13.5px">Multi-cartes détecté — ${zips.length} ZIP dans le mail. Que veut le client ?</p>
-    <p class="hint" style="margin:0 0 12px">Ce choix pilote toute la suite : les analyses, puis les devis.
-    Un ZIP à écarter (mesures, photos, doublon) ? Décochez-le ci-dessus avant de choisir.</p>
+    <p class="hint" style="margin:0 0 12px">Choisissez, puis cliquez <b>Analyser</b>. Ce choix pilote toute la suite : les analyses, puis les devis.
+    Un ZIP à écarter (mesures, photos, doublon) ? Décochez-le ci-dessus avant.</p>
     <div style="display:flex;flex-direction:column;gap:8px;max-width:640px">
-      <button class="btn-p" style="text-align:left;padding:9px 14px" onclick="analyserParCarte('n_so')">
+      <button style="${opt}" onclick="choixMultiPoser('n_so', this)">
         <b>Un devis par carte</b> — ${zips.length} analyses complètes, ${zips.length} devis séparés dans le même fil mail</button>
-      <button class="btn-p" style="text-align:left;padding:9px 14px;background:var(--surface);border:1px solid var(--blue);color:var(--text)" onclick="analyserParCarte('un_so')">
+      <button style="${opt}" onclick="choixMultiPoser('un_so', this)">
         <b>Un seul devis groupé</b> (kit mère/fille) — ${zips.length} analyses complètes, les cartes s'ajoutent au même devis</button>
-      <button class="btn-s" style="text-align:left;padding:9px 14px" onclick="ANALYSE_MULTI_CHOIX='tout';analyser()"
+      <button style="${opt}" onclick="choixMultiPoser('tout', this)"
         title="Ex. : un ZIP gerbers + un ZIP docs + un ZIP nomenclature pour la même carte">
-        <b>Ces fichiers forment un seul dossier</b> — une seule carte, une seule analyse</button>
+        <b>Cela ne concerne qu'un seul dossier</b> — une seule carte, une seule analyse</button>
     </div>
+    <p id="choix-multi-conf" class="hint" style="margin:10px 0 0"></p>
   </div>`;
 }
 
@@ -1041,12 +1059,15 @@ async function analyser(){
     return analyserBomSeule(url, nomClient);
   }
 
-  // v12.2 : plusieurs ZIP retenus depuis un mail = choix explicite avant de lancer.
-  if(ANALYSE_MULTI_CHOIX !== 'tout' && MAIL_CTX && zipsRetenus().length >= 2){
-    choixMultiAfficher();
-    return;
+  // v12.6 : plusieurs ZIP retenus depuis un mail = choix explicite obligatoire,
+  // et c'est TOUJOURS le bouton Analyser qui declenche (jamais le choix seul).
+  if(MAIL_CTX && zipsRetenus().length >= 2){
+    if(!ANALYSE_MULTI_CHOIX){ choixMultiAfficher(); return; }
+    const choixMulti = ANALYSE_MULTI_CHOIX;
+    ANALYSE_MULTI_CHOIX = null;   // le choix ne vaut que pour ce lancement
+    if(choixMulti === 'n_so' || choixMulti === 'un_so') return analyserParCarte(choixMulti);
+    // 'tout' : une seule analyse, flux classique ci-dessous.
   }
-  ANALYSE_MULTI_CHOIX = null;   // le choix ne vaut que pour ce lancement
 
   const fd = construireFdDossier();
 
