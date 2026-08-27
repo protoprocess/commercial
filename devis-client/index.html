@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.4";
+const APP_VERSION = "12.5";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -879,6 +879,23 @@ let ANALYSE_MULTI_CHOIX = null;   // null = pas encore choisi ; 'tout' = une seu
    navigateur uniquement — la serie de devis d un dossier se fait d un trait,
    c est l usage reel. */
 function soMemCle(mid){ return 'pp-so-' + String(mid || '').trim(); }
+/* v12.5 — LE CHOIX D ABORD (demande Olivier) : au depot du mail, le popup
+   multi-cartes fixe la STRATEGIE (un devis par carte / un seul devis groupe /
+   dossier unique) et ce choix pilote ensuite tout : les analyses, puis le
+   comportement a la creation des devis (regroupement automatique ou non). */
+function soModePoser(mid, mode){
+  if(!mid) return;
+  try{ localStorage.setItem('pp-mode-' + String(mid).trim(), JSON.stringify({ mode: mode, quand: Date.now() })); }catch(e){}
+}
+function soModeLire(mid){
+  if(!mid) return null;
+  try{
+    const v = JSON.parse(localStorage.getItem('pp-mode-' + String(mid).trim()) || 'null');
+    if(!v || !v.mode) return null;
+    if(Date.now() - (v.quand || 0) > 7 * 24 * 3600 * 1000) return null;
+    return v.mode;   // 'n_so' (un devis par carte) | 'un_so' (devis groupe)
+  }catch(e){ return null; }
+}
 function soMemNoter(mid, devisId){
   if(!mid || !devisId) return;
   try{ localStorage.setItem(soMemCle(mid), JSON.stringify({ devis: devisId, quand: Date.now() })); }catch(e){}
@@ -936,19 +953,24 @@ function construireFdDossier(refProjet){
 function choixMultiAfficher(){
   const st = document.getElementById('status');
   const zips = zipsRetenus();
-  st.innerHTML = `<div style="padding:12px 14px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
-    <p style="margin:0 0 6px;font-weight:600;font-size:13px">Multi-cartes détecté — ${zips.length} ZIP dans le mail</p>
-    <p class="hint" style="margin:0 0 6px">Un devis se chiffre par carte (BOM + PCB). Recommandé : une analyse complète par ZIP —
-    chaque fiche portera ses caractéristiques et sa nomenclature, et tous les devis répondront dans le même fil mail.
-    <b>Kit mère/fille :</b> analysez aussi par carte — le regroupement en un seul devis se proposera à la création.</p>
-    <p class="hint" style="margin:0 0 10px">Un ZIP à écarter (mesures, photos, doublon) ? Décochez-le dans les pièces jointes ci-dessus avant de choisir.</p>
-    <button class="btn-p" onclick="analyserParCarte()"><i class="ti ti-stack-2"></i> 1 analyse par carte (${zips.length})</button>
-    <button class="btn-s" style="margin-left:8px" onclick="ANALYSE_MULTI_CHOIX='tout';analyser()"
-      title="Ex. : un ZIP gerbers + un ZIP docs + un ZIP nomenclature pour la même carte">Ces fichiers forment un seul dossier — une seule analyse</button>
+  st.innerHTML = `<div style="padding:14px 16px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
+    <p style="margin:0 0 4px;font-weight:600;font-size:13.5px">Multi-cartes détecté — ${zips.length} ZIP dans le mail. Que veut le client ?</p>
+    <p class="hint" style="margin:0 0 12px">Ce choix pilote toute la suite : les analyses, puis les devis.
+    Un ZIP à écarter (mesures, photos, doublon) ? Décochez-le ci-dessus avant de choisir.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;max-width:640px">
+      <button class="btn-p" style="text-align:left;padding:9px 14px" onclick="analyserParCarte('n_so')">
+        <b>Un devis par carte</b> — ${zips.length} analyses complètes, ${zips.length} devis séparés dans le même fil mail</button>
+      <button class="btn-p" style="text-align:left;padding:9px 14px;background:var(--surface);border:1px solid var(--blue);color:var(--text)" onclick="analyserParCarte('un_so')">
+        <b>Un seul devis groupé</b> (kit mère/fille) — ${zips.length} analyses complètes, les cartes s'ajoutent au même devis</button>
+      <button class="btn-s" style="text-align:left;padding:9px 14px" onclick="ANALYSE_MULTI_CHOIX='tout';analyser()"
+        title="Ex. : un ZIP gerbers + un ZIP docs + un ZIP nomenclature pour la même carte">
+        <b>Ces fichiers forment un seul dossier</b> — une seule carte, une seule analyse</button>
+    </div>
   </div>`;
 }
 
-async function analyserParCarte(){
+async function analyserParCarte(modeSO){
+  if(modeSO && MAIL_CTX && MAIL_CTX.message_id) soModePoser(MAIL_CTX.message_id, modeSO);
   /* Le triage dossier repond la FICHE COMPLETE (synchrone, ~1 min par carte) :
      la boucle est donc sequentielle et affiche sa progression. A la fin, la
      fiche de la carte 1 s ouvre a l ecran (flux habituel, codification BOM
@@ -1262,7 +1284,18 @@ function blocOdoo(){
     ${(function(){
       const mid = midCourant();
       const dejaSO = mid ? soMemLire(mid) : null;
+      const mode = mid ? soModeLire(mid) : null;
       if(!dejaSO) return '';
+      if(mode === 'un_so'){
+        // Choix « devis groupé » posé au dépôt : application automatique.
+        return `<div id="so-mem-enc"><div style="margin-top:11px;padding:9px 13px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--green-badge)">
+          <p style="margin:0;font-size:12.5px"><i class="ti ti-check" style="color:var(--green)"></i>
+          <b>Devis groupé</b> (choix posé au dépôt du mail) : cette carte s'ajoutera au devis n° ${esc(String(dejaSO))}.
+          <a href="#" onclick="soMemSepare();document.getElementById('odoo-soid').value='';return false" style="color:var(--text3)">Faire un devis séparé quand même</a></p>
+        </div></div>`;
+      }
+      if(mode === 'n_so') return '';   // « un devis par carte » : rien à proposer, chacun le sien
+      // Pas de choix connu sur ce poste (autre navigateur, vieux dossier) : on demande.
       return `<div id="so-mem-enc"><div style="margin-top:11px;padding:10px 13px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
         <p style="margin:0 0 8px;font-size:12.5px"><b>Un devis de ce même mail existe déjà</b> — n° ${esc(String(dejaSO))} (créé sur ce poste).
         Une carte de plus du même dossier : même devis, ou devis séparé ?</p>
@@ -1271,7 +1304,8 @@ function blocOdoo(){
       </div></div>`;
     })()}
     <label class="odoo-f" style="margin-top:11px">Ajouter au devis existant n° <span class="hint">— facultatif, multi-cartes groupé</span></label>
-    <input id="odoo-soid" placeholder="ex. 1117" style="width:140px;font-family:var(--mono)">
+    <input id="odoo-soid" placeholder="ex. 1117" style="width:140px;font-family:var(--mono)"
+      value="${(function(){ const m = midCourant(); return (m && soModeLire(m) === 'un_so' && soMemLire(m)) || ''; })()}">
     <p class="hint" style="margin:5px 0 0">Laisser vide pour créer un devis. Rempli : les lignes de cette carte
     s'ajoutent au devis indiqué (une section à son nom, sans nouveaux frais initiaux) — le n° s'affiche
     à la création du premier devis de la série.</p>
