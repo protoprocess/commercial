@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.2";
+const APP_VERSION = "12.3";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -872,6 +872,41 @@ async function enregistrerFiche(){
    repondront dans le meme fil client. Le choix reste a l humain. */
 let ANALYSE_MULTI_CHOIX = null;   // null = pas encore choisi ; 'tout' = une seule fiche
 
+/* v12.3 — MEMOIRE LOCALE DES DEVIS PAR MAIL. Les N fiches issues du meme .eml
+   partagent le Message-ID du mail : quand l une d elles cree le PREMIER devis,
+   ce poste le retient (localStorage, 7 jours) et les fiches soeurs proposent
+   alors le choix promis : ajouter au meme SO, ou devis separe. Portee : ce
+   navigateur uniquement — la serie de devis d un dossier se fait d un trait,
+   c est l usage reel. */
+function soMemCle(mid){ return 'pp-so-' + String(mid || '').trim(); }
+function soMemNoter(mid, devisId){
+  if(!mid || !devisId) return;
+  try{ localStorage.setItem(soMemCle(mid), JSON.stringify({ devis: devisId, quand: Date.now() })); }catch(e){}
+}
+function soMemLire(mid){
+  if(!mid) return null;
+  try{
+    const v = JSON.parse(localStorage.getItem(soMemCle(mid)) || 'null');
+    if(!v || !v.devis) return null;
+    if(Date.now() - (v.quand || 0) > 7 * 24 * 3600 * 1000) return null;
+    return v.devis;
+  }catch(e){ return null; }
+}
+function midCourant(){
+  return (FICHE_LIEN && FICHE_LIEN.mail_message_id) || (MAIL_CTX && MAIL_CTX.message_id) || null;
+}
+function soMemChoisir(devisId){
+  const el = document.getElementById('odoo-soid');
+  if(el) el.value = devisId;
+  const enc = document.getElementById('so-mem-enc');
+  if(enc) enc.innerHTML = `<p class="hint" style="margin:0 0 11px"><i class="ti ti-check" style="color:var(--green)"></i>
+    Cette carte s'ajoutera au devis n° ${esc(String(devisId))}.</p>`;
+}
+function soMemSepare(){
+  const enc = document.getElementById('so-mem-enc');
+  if(enc) enc.innerHTML = '';
+}
+
 function zipsRetenus(){
   return (EML_ARCHIVES || []).map((p, i) => ({ p, i }))
     .filter(x => x.p.retenue && /\.zip$/i.test(x.p.nom || ''));
@@ -903,10 +938,13 @@ function choixMultiAfficher(){
   const zips = zipsRetenus();
   st.innerHTML = `<div style="padding:12px 14px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
     <p style="margin:0 0 6px;font-weight:600;font-size:13px">Multi-cartes détecté — ${zips.length} ZIP dans le mail</p>
-    <p class="hint" style="margin:0 0 10px">Un devis se chiffre par carte (BOM + PCB). Recommandé : une analyse complète par ZIP —
-    chaque fiche portera ses caractéristiques et sa nomenclature, et tous les devis répondront dans le même fil mail.</p>
+    <p class="hint" style="margin:0 0 6px">Un devis se chiffre par carte (BOM + PCB). Recommandé : une analyse complète par ZIP —
+    chaque fiche portera ses caractéristiques et sa nomenclature, et tous les devis répondront dans le même fil mail.
+    <b>Kit mère/fille :</b> analysez aussi par carte — le regroupement en un seul devis se proposera à la création.</p>
+    <p class="hint" style="margin:0 0 10px">Un ZIP à écarter (mesures, photos, doublon) ? Décochez-le dans les pièces jointes ci-dessus avant de choisir.</p>
     <button class="btn-p" onclick="analyserParCarte()"><i class="ti ti-stack-2"></i> 1 analyse par carte (${zips.length})</button>
-    <button class="btn-s" style="margin-left:8px" onclick="ANALYSE_MULTI_CHOIX='tout';analyser()">Tout en une seule fiche</button>
+    <button class="btn-s" style="margin-left:8px" onclick="ANALYSE_MULTI_CHOIX='tout';analyser()"
+      title="Ex. : un ZIP gerbers + un ZIP docs + un ZIP nomenclature pour la même carte">Ces fichiers forment un seul dossier — une seule analyse</button>
   </div>`;
 }
 
@@ -1221,6 +1259,17 @@ function blocOdoo(){
       style="width:100%;font-family:var(--mono);font-size:12px">
     <p class="hint" style="margin:5px 0 0">Posé sur l'article Odoo. Se colle depuis l'onglet du projet Luminovo.</p>
 
+    ${(function(){
+      const mid = midCourant();
+      const dejaSO = mid ? soMemLire(mid) : null;
+      if(!dejaSO) return '';
+      return `<div id="so-mem-enc"><div style="margin-top:11px;padding:10px 13px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">
+        <p style="margin:0 0 8px;font-size:12.5px"><b>Un devis de ce même mail existe déjà</b> — n° ${esc(String(dejaSO))} (créé sur ce poste).
+        Une carte de plus du même dossier : même devis, ou devis séparé ?</p>
+        <button class="btn-p" onclick="soMemChoisir(${JSON.stringify(String(dejaSO))})" style="font-size:11.5px">Ajouter au devis n° ${esc(String(dejaSO))}</button>
+        <button class="btn-s" onclick="soMemSepare()" style="margin-left:6px;font-size:11.5px">Devis séparé</button>
+      </div></div>`;
+    })()}
     <label class="odoo-f" style="margin-top:11px">Ajouter au devis existant n° <span class="hint">— facultatif, multi-cartes groupé</span></label>
     <input id="odoo-soid" placeholder="ex. 1117" style="width:140px;font-family:var(--mono)">
     <p class="hint" style="margin:5px 0 0">Laisser vide pour créer un devis. Rempli : les lignes de cette carte
@@ -1372,6 +1421,7 @@ async function odooCreer(forcer){
         <button class="btn-s" style="margin-top:9px" onclick="odooCreer(true)">Créer quand même</button>`;
       return;
     }
+    if(j.mode !== 'ajout' && j.devis_id) soMemNoter(midCourant(), j.devis_id);
     msg.innerHTML = j.mode === 'ajout'
       ? `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Carte ajoutée au devis n° ${esc(String(j.devis_id))} — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`
       : `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`;
