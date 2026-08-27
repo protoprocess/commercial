@@ -1127,6 +1127,12 @@ function blocOdoo(){
       style="width:100%;font-family:var(--mono);font-size:12px">
     <p class="hint" style="margin:5px 0 0">Posé sur l'article Odoo. Se colle depuis l'onglet du projet Luminovo.</p>
 
+    <label class="odoo-f" style="margin-top:11px">Ajouter au devis existant n° <span class="hint">— facultatif, multi-cartes groupé</span></label>
+    <input id="odoo-soid" placeholder="ex. 1117" style="width:140px;font-family:var(--mono)">
+    <p class="hint" style="margin:5px 0 0">Laisser vide pour créer un devis. Rempli : les lignes de cette carte
+    s'ajoutent au devis indiqué (une section à son nom, sans nouveaux frais initiaux) — le n° s'affiche
+    à la création du premier devis de la série.</p>
+
     <label class="odoo-f" style="margin-top:11px">Quantités — une ligne de devis par quantité remplie</label>
     <div class="odoo-r">
       <input id="odoo-q1" value="1" placeholder="qté 1" style="width:90px">
@@ -1241,6 +1247,11 @@ async function odooCreer(forcer){
                                 Meme source que dossier_job_id plus bas : fiche ouverte
                                 via ?fiche=, sinon l'analyse courante. Null = silencieux. */
                              job_id: (FICHE_LIEN && FICHE_LIEN.job_id) || (DATA && DATA.job_id) || null,
+                             /* v12.0 — multi-cartes cas 2 : un n° de devis existant route la
+                                creation en MODE AJOUT (section + lignes carte sur ce SO,
+                                sans nouveau devis, sans frais initiaux, sans re-rattacher
+                                le mail). Vide = comportement inchange. */
+                             so_id: ((document.getElementById('odoo-soid') || {}).value || '').trim() || null,
                              confirme_existant: !!forcer })
     });
     const brut = await r.text();
@@ -1259,7 +1270,9 @@ async function odooCreer(forcer){
         <button class="btn-s" style="margin-top:9px" onclick="odooCreer(true)">Créer quand même</button>`;
       return;
     }
-    msg.innerHTML = `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`;
+    msg.innerHTML = j.mode === 'ajout'
+      ? `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Carte ajoutée au devis n° ${esc(String(j.devis_id))} — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`
+      : `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`;
     btn.disabled = true;
   }catch(e){
     btn.disabled = false;
