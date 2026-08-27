@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.0";
+const APP_VERSION = "12.1";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1134,10 +1134,18 @@ function blocOdoo(){
     à la création du premier devis de la série.</p>
 
     <label class="odoo-f" style="margin-top:11px">Quantités — une ligne de devis par quantité remplie</label>
-    <div class="odoo-r">
-      <input id="odoo-q1" value="1" placeholder="qté 1" style="width:90px">
-      <input id="odoo-q2" placeholder="qté 2" style="width:90px">
-      <input id="odoo-q3" placeholder="qté 3" style="width:90px">
+    ${(function(){
+      /* v12.1 — les quantites detectees par l analyse (demande du client) sont
+         proposees d office ; elles restent modifiables. Constat Maura 27/08 :
+         le champ restait fige a 1 quelle que soit la demande. */
+      const qd = ((DATA && DATA.demande && DATA.demande.quantites) || [])
+        .map(Number).filter(q => q > 0).slice(0, 3);
+      const v1 = qd[0] || 1, v2 = qd[1] || '', v3 = qd[2] || '';
+      return `<div class="odoo-r">
+      <input id="odoo-q1" value="${v1}" placeholder="qté 1" style="width:90px">
+      <input id="odoo-q2" value="${v2}" placeholder="qté 2" style="width:90px">
+      <input id="odoo-q3" value="${v3}" placeholder="qté 3" style="width:90px">`;
+    })()}
       <label class="odoo-ck"><input type="checkbox" ${ODOO.essai?'checked':''}
         onchange="ODOO.essai=this.checked;odooRefChange()"> Essai <span class="hint">— préfixe ZZ ESSAI</span></label>
     </div>
@@ -2602,7 +2610,19 @@ function mcAfficher(m){
   const el = document.getElementById('multi-cartes');
   if(!el) return;
   el.classList.add('hidden');
-  if(!m || mcEstCopie(m)) return;
+  if(!m) return;
+  if(mcEstCopie(m)){
+    /* v12.1 — une copie est un VEHICULE : fil mail + rattachement + devis.
+       Son contenu technique (specs PCB, BOM affichee) est celui de la carte 1,
+       clone a la duplication. Le dire en clair evite d exporter une BOM qui
+       n est pas celle de cette carte (risque Luminovo, alerte Olivier 27/08). */
+    el.innerHTML = `<h3><i class="ti ti-alert-triangle" style="color:var(--amber)"></i> Fiche copie — à lire avec précaution</h3>
+      <p style="margin:0" class="hint">Les caractéristiques et la BOM affichées sont celles de la <b>carte 1</b> (analyse clonée).
+      Cette fiche sert uniquement à <b>rattacher sa carte</b> (voir le nom du ZIP dans le bandeau) et à <b>créer son devis</b>,
+      qui répondra dans le fil mail du client. Pour une analyse technique propre à cette carte, relancer une analyse sur son ZIP.</p>`;
+    el.classList.remove('hidden');
+    return;
+  }
   const nb = Number(m.nb_zip || 0);
   if(nb < 2) return;
   const pieces = (m.pieces_mail || []).filter(n => /\.zip$/i.test(n));
