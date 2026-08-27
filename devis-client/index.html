@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.10";
+const APP_VERSION = "12.11";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -1027,6 +1027,24 @@ async function analyserParCarte(modeSO){
     // Toutes les cartes re-cochees : l ecran reste coherent avec le mail depose.
     for(const z of zips) z.p.retenue = true;
     emlSync();
+    /* v12.11 — la codification BOM des cartes 2..N part ici, en tache de fond :
+       sans cela seule la carte 1 (celle qui s affiche) passait par traiterBom,
+       et les autres fiches restaient sans IPN jusqu a ce qu un humain pense a
+       cliquer « Lancer le traitement » a l ouverture. Le workflow range son
+       resultat dans la bonne fiche grace a dossier_job_id ; on n attend pas. */
+    for(const l of faites.slice(1)){
+      const f = l.fiche || {};
+      if(!f.job_id || !(f.bom_rows || []).length) continue;
+      fetch(`${c.base}/${c.mode}/bom-client-ingestion`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client: f.client || '', rows: f.bom_rows,
+          nom_fichier_bom: f.bom_fichier_source || null,
+          entetes: f.bom_entetes || [],
+          dossier_job_id: f.job_id
+        })
+      }).catch(() => {});   // silencieux : le bouton de la fiche reste le recours
+    }
     // La carte 1 s affiche selon le flux habituel ; les autres par leurs liens.
     DATA = faites[0].fiche;
     appliquerDetections();
