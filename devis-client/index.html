@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.7";
+const APP_VERSION = "12.8";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -3409,6 +3409,19 @@ function emlDecocherTout(){
   emlSync(); emlAfficher(true);
 }
 
+/* v12.8 — bascule explicite : les fichiers deposes a cote sont retires, toutes
+   les pieces utiles du mail sont retenues. Rend le mail maitre du dossier. */
+function emlPrendreLesPieces(){
+  for(let i = FILES.length - 1; i >= 0; i--) if(!FILES[i]._eml) FILES.splice(i, 1);
+  for(const p of EML_ARCHIVES){ if(!p.joint) p.retenue = emlEstUtile(p); }
+  ANALYSE_MULTI_CHOIX = null;   // le dossier change : le choix multi repart de zero
+  emlSync();
+  emlAfficher(false);
+  const st = document.getElementById('status');
+  if(st) st.innerHTML = '<span class="hint"><i class="ti ti-check" style="color:var(--green)"></i> '
+    + 'Pièces du mail retenues. Cliquez <b>Analyser</b>.</span>';
+}
+
 function emlBasculer(i){
   if(!EML_ARCHIVES[i]) return;
   EML_ARCHIVES[i].retenue = !EML_ARCHIVES[i].retenue;
@@ -3466,8 +3479,25 @@ function emlAfficher(corpsSeul){
   }
 
   if(corpsSeul){
-    L.push('<p class="hint" style="margin-top:9px">Des fichiers étaient déjà déposés : '
-      + 'seul le texte du mail est repris. Cochez une pièce pour l\'ajouter quand même.</p>');
+    /* v12.8 — cet avertissement etait un hint gris, invisible : on a analyse un
+       mauvais dossier sans s en apercevoir (constat Olivier 27/08). Il devient
+       un bloc ambre avec un bouton qui BASCULE en un clic sur les pieces du mail,
+       en retirant les fichiers deposes a cote. La regle d origine est conservee
+       (deposer un dossier + le mail pour le contexte), mais elle se voit et se
+       defait. */
+    const autres = FILES.filter(f => !f._eml).map(f => f.name);
+    const nbZip = (EML_ARCHIVES || []).filter(p => !p.joint && /\.zip$/i.test(p.nom || '')).length;
+    L.push('<div style="margin-top:11px;padding:10px 13px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--amber-badge)">');
+    L.push('<p style="margin:0 0 8px;font-size:12.5px"><i class="ti ti-alert-triangle" style="color:var(--amber)"></i> '
+      + '<b>Les pièces jointes du mail sont ignorées.</b> Des fichiers avaient été déposés avant le mail'
+      + (autres.length ? ' (' + esc(autres.slice(0,3).join(', ')) + (autres.length > 3 ? '…' : '') + ')' : '')
+      + ' : c\'est ce dossier qui sera analysé, le mail n\'apportant que son texte.</p>');
+    if(nbZip){
+      L.push('<button class="btn-p" style="font-size:11.5px" onclick="emlPrendreLesPieces()">'
+        + '<i class="ti ti-mail-forward"></i> Analyser plutôt les ' + nbZip + ' pièce' + (nbZip > 1 ? 's' : '') + ' du mail</button>');
+      L.push('<span class="hint" style="margin-left:8px">retire les fichiers déposés à côté</span>');
+    }
+    L.push('</div>');
   }
   for(const a of (r.anomalies||[])){
     L.push('<p class="hint" style="margin-top:7px;color:var(--amber)">'
