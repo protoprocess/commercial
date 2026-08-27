@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.8";
+const APP_VERSION = "12.9";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -3524,10 +3524,18 @@ function emlPreremplir(r){
   ajoute(r.de); ajoute(r.a); ajoute(r.texte);
 
   const NOUS = 'proto-process.fr';
+  /* v12.9 — la comparaison etait STRICTE : plusieurs fiches clients portent un
+     domaine saisi avec l arobase (« @tecsup.fr »), qui ne pouvait donc jamais
+     correspondre, et un mail parti d un sous-domaine (« mail.nidec.com ») etait
+     ignore de meme. On normalise des deux cotes et on accepte le sous-domaine. */
+  const norm = d => String(d || '').toLowerCase().trim().replace(/^@/, '');
   for(const mail of vus){
-    const dom = mail.split('@').pop();
-    if(dom === NOUS) continue;
-    const c = CLIENTS.find(x => x.domaine && String(x.domaine).toLowerCase() === dom);
+    const dom = norm(mail.split('@').pop());
+    if(!dom || dom === NOUS) continue;
+    const c = CLIENTS.find(x => {
+      const d = norm(x.domaine);
+      return d && (d === dom || dom.endsWith('.' + d) || d.endsWith('.' + dom));
+    });
     if(c){ sel.value = c.nom; onClientChange(); return; }
   }
 }
