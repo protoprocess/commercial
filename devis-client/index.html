@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.3";
+const APP_VERSION = "12.4";
 const APP_DATE = "27/08/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -2756,56 +2756,30 @@ function mcAfficher(m){
   el.classList.add('hidden');
   if(!m) return;
   if(mcEstCopie(m)){
-    /* v12.1 — une copie est un VEHICULE : fil mail + rattachement + devis.
-       Son contenu technique (specs PCB, BOM affichee) est celui de la carte 1,
-       clone a la duplication. Le dire en clair evite d exporter une BOM qui
-       n est pas celle de cette carte (risque Luminovo, alerte Olivier 27/08). */
+    /* Copie issue de l ancienne voie duplication : avertissement conserve. */
     el.innerHTML = `<h3><i class="ti ti-alert-triangle" style="color:var(--amber)"></i> Fiche copie — à lire avec précaution</h3>
       <p style="margin:0" class="hint">Les caractéristiques et la BOM affichées sont celles de la <b>carte 1</b> (analyse clonée).
-      Cette fiche sert uniquement à <b>rattacher sa carte</b> (voir le nom du ZIP dans le bandeau) et à <b>créer son devis</b>,
-      qui répondra dans le fil mail du client. Pour une analyse technique propre à cette carte, relancer une analyse sur son ZIP.</p>`;
+      Cette fiche sert uniquement à <b>rattacher sa carte</b> et à <b>créer son devis</b>.</p>`;
     el.classList.remove('hidden');
     return;
   }
+  /* v12.4 — la duplication n est PLUS proposee ici : elle creait des clones sans
+     valeur technique (BOM/specs de la carte 1) et faisait DOUBLE VOIE avec le
+     panneau du depot .eml, source de confusion (constat Olivier 27/08). La voie
+     multi-cartes est desormais UNIQUE : deposer le .eml dans Nouvelle analyse et
+     choisir « 1 analyse par carte ». Ici, on ne fait qu indiquer le chemin. */
   const nb = Number(m.nb_zip || 0);
-  if(nb < 2) return;
-  const pieces = (m.pieces_mail || []).filter(n => /\.zip$/i.test(n));
-  el.innerHTML = `<h3><i class="ti ti-copy"></i> Dossier multi-cartes détecté</h3>
-    <p style="margin:0 0 8px">${nb} fichiers ZIP dans le mail d'origine :</p>
-    <ul style="margin:0 0 10px 18px;color:var(--text2);font-size:12px">${pieces.map(p => '<li>' + esc(p) + '</li>').join('')}</ul>
-    <p style="margin:0 0 10px" class="hint">Le flux traite une carte par fiche. Pour deviser chaque carte séparément,
-    dupliquez cette fiche : chaque copie se rattache à sa carte et crée son devis —
-    tous les devis répondront dans le même fil mail du client.</p>
-    <button class="btn-p" id="mc-go" onclick="mcDupliquer(${nb - 1})">
-      <i class="ti ti-copy"></i> Dupliquer pour ${nb - 1} carte${nb > 2 ? 's' : ''} de plus</button>
-    <span id="mc-msg" class="hint" style="display:inline;margin-left:8px"></span>`;
+  if(nb < 2 || m.statut === 'traite' || m.statut === 'ignore') return;
+  el.innerHTML = `<h3><i class="ti ti-stack-2"></i> Mail multi-cartes (${nb} ZIP)</h3>
+    <p style="margin:0" class="hint">Cette fiche ne couvre qu'une carte. Pour deviser les autres :
+    <b>Nouvelle analyse</b> → déposez le <b>.eml</b> du mail → <b>« 1 analyse par carte »</b>.
+    Chaque fiche portera ses caractéristiques et sa BOM, et tous les devis répondront dans le même fil client.</p>`;
   el.classList.remove('hidden');
 }
-async function mcDupliquer(nombre){
-  const btn = document.getElementById('mc-go');
-  const msg = document.getElementById('mc-msg');
-  btn.disabled = true;
-  msg.innerHTML = '<span class="spin"></span> Duplication\u2026';
-  try{
-    const r = await fetch(`${cfg().base}/webhook/analyse-dupliquer`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ job_id: FICHE_LIEN && FICHE_LIEN.job_id, nombre: nombre })
-    });
-    const t = await r.text();
-    let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0,150)); }
-    if(!j.ok) throw new Error(j.motif || 'Duplication refusée.');
-    const liens = (j.copies || []).map((id,i) =>
-      `<a href="?fiche=${encodeURIComponent(id)}" style="color:var(--accent)">Fiche carte ${i + 2}</a>`).join(' &nbsp;·&nbsp; ');
-    document.getElementById('multi-cartes').innerHTML =
-      `<h3><i class="ti ti-check" style="color:var(--green)"></i> ${j.nb} fiche${j.nb > 1 ? 's' : ''} créée${j.nb > 1 ? 's' : ''}</h3>
-       <p style="margin:0 0 8px">Traitez cette fiche pour la première carte, puis ouvrez chaque copie
-       (nouvel onglet conseillé) pour rattacher et deviser les autres :</p>
-       <p style="margin:0">${liens}</p>`;
-  }catch(e){
-    btn.disabled = false;
-    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
-  }
-}
+
+/* mcDupliquer retiree en v12.4 : la duplication (clones sans analyse propre)
+   n est plus proposee — voie unique = panneau multi au depot du .eml. Le webhook
+   analyse-dupliquer reste en place cote n8n, appelable a la main en secours. */
 
 // ===================== RATTACHEMENT PRODUIT (v7.1) =====================
 // Se joue au moment ou un humain REPREND le dossier pour traiter le devis :
