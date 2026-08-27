@@ -523,6 +523,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
   <div id="gmail-libelles" style="margin:0 0 9px"></div>
   <div id="res" class="hidden">
     <div id="bandeau-fiche" class="hidden"></div>
+<div id="multi-cartes" class="card hidden" style="border-left:3px solid var(--amber-badge);margin-top:10px"></div>
     <div id="rattachement" class="hidden"></div>
     <div class="tabs">
       <button class="tab active" data-p="synthese" onclick="tab('synthese')">Synthèse</button>
@@ -2563,8 +2564,70 @@ function bandeauFiche(m){
     `<i class="ti ti-link" style="color:var(--accent)"></i>
      <span class="bf-t">Fiche rouverte</span>
      <span class="bf-sep">·</span> ${bouts.join(' <span class="bf-sep">·</span> ')}
-     <span class="bf-sep">·</span> ${esc(etat)}`;
+     <span class="bf-sep">·</span> ${esc(etat)}${mcBadgeCopie(m)}`;
   el.classList.remove('hidden');
+  mcAfficher(m);
+}
+
+/* ===================== MULTI-CARTES (v12.0-beta, 27/08/2026) =====================
+   Un mail de devis peut porter PLUSIEURS cartes (N fichiers ZIP joints) alors que
+   tout le pipeline — fiche, rattachement, devis — est mono-carte par construction.
+   Plutot que de tordre ce modele, on DUPLIQUE la fiche : une copie par carte
+   supplementaire (job_id suffixe -c2, -c3...), chacune heritant du contexte_mail.
+   Chaque copie suit ensuite le flux normal : rattachement a SA carte, creation de
+   SON devis — et tous les devis se rattachent au MEME fil mail du client.
+   La detection repose sur nb_zip (>= 2 ZIP joints au mail d origine), fourni par
+   le webhook devis-fiche. Les copies (-cN) n affichent jamais la proposition :
+   on ne duplique pas une copie. */
+function mcEstCopie(m){ return /-c\d+$/.test((m && m.job_id) || ''); }
+function mcBadgeCopie(m){
+  if(!mcEstCopie(m)) return '';
+  const n = (m.job_id.match(/-c(\d+)$/) || [])[1];
+  return ` <span style="background:var(--amber-bg);color:var(--amber-badge);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:10px">copie carte ${esc(n)}</span>`;
+}
+function mcAfficher(m){
+  const el = document.getElementById('multi-cartes');
+  if(!el) return;
+  el.classList.add('hidden');
+  if(!m || mcEstCopie(m)) return;
+  const nb = Number(m.nb_zip || 0);
+  if(nb < 2) return;
+  const pieces = (m.pieces_mail || []).filter(n => /\.zip$/i.test(n));
+  el.innerHTML = `<h3><i class="ti ti-copy"></i> Dossier multi-cartes détecté</h3>
+    <p style="margin:0 0 8px">${nb} fichiers ZIP dans le mail d'origine :</p>
+    <ul style="margin:0 0 10px 18px;color:var(--text2);font-size:12px">${pieces.map(p => '<li>' + esc(p) + '</li>').join('')}</ul>
+    <p style="margin:0 0 10px" class="hint">Le flux traite une carte par fiche. Pour deviser chaque carte séparément,
+    dupliquez cette fiche : chaque copie se rattache à sa carte et crée son devis —
+    tous les devis répondront dans le même fil mail du client.</p>
+    <button class="btn-p" id="mc-go" onclick="mcDupliquer(${nb - 1})">
+      <i class="ti ti-copy"></i> Dupliquer pour ${nb - 1} carte${nb > 2 ? 's' : ''} de plus</button>
+    <span id="mc-msg" class="hint" style="display:inline;margin-left:8px"></span>`;
+  el.classList.remove('hidden');
+}
+async function mcDupliquer(nombre){
+  const btn = document.getElementById('mc-go');
+  const msg = document.getElementById('mc-msg');
+  btn.disabled = true;
+  msg.innerHTML = '<span class="spin"></span> Duplication\u2026';
+  try{
+    const r = await fetch(`${cfg().base}/webhook/analyse-dupliquer`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ job_id: FICHE_LIEN && FICHE_LIEN.job_id, nombre: nombre })
+    });
+    const t = await r.text();
+    let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('Réponse illisible : ' + t.slice(0,150)); }
+    if(!j.ok) throw new Error(j.motif || 'Duplication refusée.');
+    const liens = (j.copies || []).map((id,i) =>
+      `<a href="?fiche=${encodeURIComponent(id)}" style="color:var(--accent)">Fiche carte ${i + 2}</a>`).join(' &nbsp;·&nbsp; ');
+    document.getElementById('multi-cartes').innerHTML =
+      `<h3><i class="ti ti-check" style="color:var(--green)"></i> ${j.nb} fiche${j.nb > 1 ? 's' : ''} créée${j.nb > 1 ? 's' : ''}</h3>
+       <p style="margin:0 0 8px">Traitez cette fiche pour la première carte, puis ouvrez chaque copie
+       (nouvel onglet conseillé) pour rattacher et deviser les autres :</p>
+       <p style="margin:0">${liens}</p>`;
+  }catch(e){
+    btn.disabled = false;
+    msg.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+  }
 }
 
 // ===================== RATTACHEMENT PRODUIT (v7.1) =====================
