@@ -134,7 +134,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "4.4";
+const APP_VERSION = "4.5";
 const APP_DATE = "28/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -429,7 +429,8 @@ function afficher(rep) {
     let d = '', actions = '';
     if (p.piece === 'so') {
       if (p.verdict === 'trouve') {
-        d = ech(p.so) + ' \u2014 \u00e9tat <code>' + ech(p.etat) + '</code>' +
+        d = '<a href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + ech(p.so_id || '') + '" target="_blank" rel="noopener">' + ech(p.so) + '</a>' +
+            ' \u2014 \u00e9tat <code>' + ech(p.etat) + '</code>' +
             (p.code_client ? ' \u00b7 ' + ech(p.code_client) : '') +
             (p.ref_projet ? ' \u00b7 ' + ech(p.ref_projet) : '');
         if (p.alerte) d += '<br>\u26a0 ' + ech(p.alerte);
