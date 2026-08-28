@@ -122,6 +122,8 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
   <div id="entrantes"></div>
 
+  <div id="confrontation"></div>
+
   <div class="etat-msg" id="etat"></div>
 
   <div class="rapport" id="rapport">
@@ -132,7 +134,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "4.1";
+const APP_VERSION = "4.2";
 const APP_DATE = "28/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -221,6 +223,7 @@ async function chargerEntrantes() {
         (e.resume ? '<br><span style="color:var(--text3)">' + ech(e.resume) + ' (confiance ' + ech(e.confidence) + ')</span>' : '') +
         '</div><div class="p-actions">' +
         (e.ref_detectee ? '<button class="btn-p" data-ouvrir-entrante="' + e.id + '">Diagnostiquer</button>' : '') +
+        '<button class="btn-s" data-confronter="' + e.id + '">Confronter \u00e0 un devis</button>' +
         '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="traitee">Marquer trait\u00e9e</button>' +
         '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="ecartee">\u00c9carter</button>' +
         '</div></div></div>';
@@ -228,6 +231,10 @@ async function chargerEntrantes() {
     z.querySelectorAll('[data-ouvrir-entrante]').forEach(b => b.addEventListener('click', function () {
       ENTRANTE = rep.entrantes.find(x => String(x.id) === this.dataset.ouvrirEntrante) || null;
       if (ENTRANTE) { el('entree').value = ENTRANTE.ref_detectee; el('entree').dispatchEvent(new Event('input')); diagnostiquer(); }
+    }));
+    z.querySelectorAll('[data-confronter]').forEach(b => b.addEventListener('click', function () {
+      const ent = rep.entrantes.find(x => String(x.id) === this.dataset.confronter) || null;
+      demanderDevis(ent);
     }));
     z.querySelectorAll('[data-entrante-etat]').forEach(b => b.addEventListener('click', async function () {
       this.disabled = true;
@@ -240,6 +247,101 @@ async function chargerEntrantes() {
   } catch (err) { /* silencieux : le bandeau est un plus, jamais un blocage */ }
 }
 chargerEntrantes();
+/* ---- CONFRONTATION du bon de commande au devis (chantier 146) ----------
+   L humain designe le devis : aucun rapprochement automatique sur le nom de
+   carte, regle posee le 28/08 — trop aleatoire, ca produirait de faux
+   rapprochements silencieux. L ecran ne fait que MONTRER les ecarts ; les
+   corrections restent des gestes humains dans Odoo. */
+function demanderDevis(ent) {
+  if (!ent) return;
+  const z = el('confrontation');
+  const suggestion = ent.num_commande_client ? ' (PO ' + ech(ent.num_commande_client) + ')' : '';
+  z.innerHTML = '<div class="rapport visible" style="margin-top:16px"><h2>Confronter au devis' + suggestion + '</h2>' +
+    '<div class="piece"><div class="p-nom">Devis</div><div class="p-corps">' +
+    '<div class="p-detail">Num\u00e9ro du devis Odoo \u00e0 confronter (l humain choisit, jamais l appli) :</div>' +
+    '<div class="p-actions" style="align-items:center">' +
+    '<input type="text" id="conf-so" placeholder="SO2608-436" style="min-width:220px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
+    '<button class="btn-p" id="conf-go">Confronter</button>' +
+    '</div></div></div></div>';
+  const champ = el('conf-so');
+  champ.focus();
+  champ.addEventListener('keydown', e => { if (e.key === 'Enter') lancerConfrontation(ent); });
+  el('conf-go').addEventListener('click', () => lancerConfrontation(ent));
+}
+
+async function lancerConfrontation(ent) {
+  const so = (el('conf-so').value || '').trim();
+  if (!so) { el('conf-so').focus(); return; }
+  const btn = el('conf-go');
+  btn.disabled = true; btn.textContent = 'Lecture\u2026';
+  try {
+    const rep = await appel('commande-confronter?entrante=' + encodeURIComponent(ent.id) + '&so=' + encodeURIComponent(so));
+    afficherConfrontation(rep, ent);
+  } catch (err) {
+    el('confrontation').innerHTML = '<div class="etat-msg err">La confrontation n a pas r\u00e9pondu (' + ech(err.message) + ').</div>';
+  }
+  btn.disabled = false; btn.textContent = 'Confronter';
+}
+
+function afficherConfrontation(rep, ent) {
+  const z = el('confrontation');
+  if (!rep || !rep.ok) {
+    z.innerHTML = '<div class="etat-msg err">' + ech((rep && rep.motif) || 'R\u00e9ponse illisible.') + '</div>';
+    return;
+  }
+  const d = rep.devis, t = rep.totaux;
+  const memeTotal = Math.abs(Number(t.po) - Number(t.devis)) < 0.01;
+
+  let h = '<div class="rapport visible" style="margin-top:16px">';
+  h += '<h2>' + ech(d.nom) + ' \u00b7 ' + ech(d.client) + ' \u2014 ' +
+       (rep.nb_graves ? '<span style="color:var(--red)">' + rep.nb_graves + ' \u00e9cart(s) grave(s)</span>' : '<span style="color:var(--green)">aucun \u00e9cart grave</span>') +
+       (rep.nb_ecarts > rep.nb_graves ? ' \u00b7 ' + (rep.nb_ecarts - rep.nb_graves) + ' \u00e0 regarder' : '') + '</h2>';
+
+  h += '<div class="piece ' + (memeTotal ? 'ok' : 'err') + '"><div class="p-nom">Total HT</div><div class="p-corps">' +
+       '<span class="badge ' + (memeTotal ? 'badge-ok' : 'badge-err') + '">' + (memeTotal ? 'identique' : '\u00e9cart') + '</span>' +
+       '<div class="p-detail">Bon de commande <b>' + ech(t.po) + ' \u20ac</b> \u00b7 devis <b>' + ech(t.devis) + ' \u20ac</b></div></div></div>';
+
+  for (const e of rep.ecarts) {
+    h += '<div class="piece ' + (e.grave ? 'err' : 'warn') + '"><div class="p-nom">' + ech(e.nom) + '</div><div class="p-corps">' +
+      '<span class="badge ' + (e.grave ? 'badge-err' : 'badge-warn') + '">' + (e.grave ? 'grave' : '\u00e0 regarder') + '</span>' +
+      '<div class="p-detail">' +
+      (e.po ? '<b>PO</b> ' + ech(e.po) : '') +
+      (e.devis ? '<br><b>Devis</b> ' + ech(e.devis) : '') +
+      (e.note ? '<br><span style="color:var(--text3)">' + ech(e.note) + '</span>' : '') +
+      '</div></div></div>';
+  }
+
+  if (rep.exigences && rep.exigences.length) {
+    h += '<div class="piece warn"><div class="p-nom">Exigences du PO</div><div class="p-corps">' +
+      '<span class="badge badge-warn">' + rep.exigences.length + '</span><div class="p-detail">' +
+      rep.exigences.map(x => '\u2022 ' + ech(x)).join('<br>') + '</div></div></div>';
+  }
+
+  if (rep.conformes && rep.conformes.length) {
+    h += '<div class="piece ok"><div class="p-nom">Conformes</div><div class="p-corps">' +
+      '<span class="badge badge-ok">' + rep.conformes.length + '</span><div class="p-detail">' +
+      rep.conformes.map(x => '\u2713 ' + ech(x)).join('<br>') + '</div></div></div>';
+  }
+
+  /* Les actions restent SEPAREES et volontaires : rien n est jamais applique
+     en lot. La validation elle-meme se fait dans Odoo, jamais ici. */
+  h += '<div class="piece"><div class="p-nom">Suite</div><div class="p-corps"><div class="p-actions">' +
+    (d.po_pose ? '<span style="color:var(--text3);font-size:12px">N\u00b0 de commande client d\u00e9j\u00e0 pos\u00e9 : ' + ech(d.po_pose) + '</span>'
+               : '<button class="btn-p" data-poser-po="' + d.id + '" data-po="' + ech(ent.num_commande_client || '') + '" data-ent="' + ent.id + '">Poser le n\u00b0 de commande client sur le devis</button>') +
+    '<a class="btn-s" style="text-decoration:none;display:inline-block" target="_blank" rel="noopener" href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + d.id + '">Ouvrir le devis dans Odoo</a>' +
+    '<span style="color:var(--text3);font-size:12px;width:100%">Les corrections et la confirmation se font dans Odoo. L appli ne fait que montrer.</span>' +
+    '</div></div></div>';
+
+  h += '</div>';
+  z.innerHTML = h;
+
+  const bp = z.querySelector('[data-poser-po]');
+  if (bp) bp.addEventListener('click', function () {
+    agir(this, 'commande-poser-po', { so_id: parseInt(this.dataset.poserPo, 10), num_commande_client: this.dataset.po, entrante_id: parseInt(this.dataset.ent, 10) },
+      r => 'N\u00b0 ' + r.num_commande_client + ' pos\u00e9 sur ' + r.so + '.');
+  });
+}
+
 async function diagnostiquer() {
   const a = analyser(el('entree').value);
   if (!a) { el('etat').textContent = 'Saisir un num\u00e9ro de commande ou un produit.'; el('etat').className = 'etat-msg err'; return; }
