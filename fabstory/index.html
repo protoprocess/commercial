@@ -171,6 +171,18 @@ label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 .inter-groupe.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-fonce);font-weight:600}
 .inter-groupe.on .ig-piste{background:var(--accent)}
 .inter-groupe.on .ig-bille{left:15px}
+.ligne-modele{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 2px}
+.badge-modele{display:inline-flex;align-items:center;gap:5px;background:var(--info-bg);color:var(--info-txt);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600}
+.choix-edit{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-top:6px}
+.choix-edit .ce-item{display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px dashed var(--border)}
+.choix-edit .ce-item:last-of-type{border-bottom:none}
+.choix-edit .ce-lib{font-size:12.5px;font-weight:600;color:var(--text)}
+.choix-edit .ce-aide{font-size:11.5px;color:var(--text3)}
+.choix-edit .ce-x{margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px}
+.liste-modeles .lm-item{border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;margin-bottom:7px;cursor:pointer}
+.liste-modeles .lm-item:hover{border-color:var(--accent)}
+.liste-modeles .lm-titre{font-size:13px;font-weight:600;color:var(--text)}
+.liste-modeles .lm-apercu{font-size:11.5px;color:var(--text3);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pastille-attente{display:inline-flex;align-items:center;gap:4px;margin-left:8px;background:var(--amber-bg);color:var(--amber-badge);border:1px solid var(--amber);border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:600}
 .bandeau-notif{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:14px}
 .bandeau-notif .bn-txt{flex:1;min-width:200px;font-size:13px;color:var(--amber-badge)}
@@ -335,6 +347,18 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </dialog>
 
+<dialog id="dlg-modeles">
+  <h2><i class="ti ti-template"></i> Mod\u00e8les de questions</h2>
+  <div class="pastilles" style="margin:0 0 9px">
+    <button class="pastille" id="mdl-ctx-devis" onclick="FS.ctxModele('devis')">Contexte devis</button>
+    <button class="pastille" id="mdl-ctx-commande" onclick="FS.ctxModele('commande')">Contexte commande</button>
+  </div>
+  <div class="liste-modeles" id="mdl-liste"><p class="mini">Chargement\u2026</p></div>
+  <div style="display:flex;justify-content:flex-end;margin-top:8px">
+    <button class="btn-s" onclick="document.getElementById('dlg-modeles').close()">Fermer</button>
+  </div>
+</dialog>
+
 <dialog id="dlg-notifier">
   <h2><i class="ti ti-mail-forward"></i> Transmettre aux concernés</h2>
   <p class="mini" style="margin:0 0 8px">Voici exactement ce qui sera transmis, et à qui. Rien n’est encore parti.</p>
@@ -349,7 +373,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '3.1';
+const APP_VERSION = '3.2';
 const APP_DATE = '27/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -527,6 +551,7 @@ async function ouvrirFiche(id){
   document.body.classList.add('fiche-ouverte');
   el('colonne-fil').innerHTML = '<div class="card"><p class="hint" style="margin:0"><span class="spin"></span> Lecture de la fiche\u2026</p></div>';
   saisie = { type:'note', etape:null, portee:null, repond_a:null };
+  modeleChoisi = null; choixEdit = [];
   piecesSaisie = []; filtre = 'tous'; filtreMetier = ''; STATUT = null;
   fermerVolet();
   try{
@@ -1198,6 +1223,14 @@ function htmlSaisie(){
     '<button class="pastille' + (saisie.type==='question_interne'?' on':'') + '" data-type="question_interne">\u00c0 traiter</button>' +
     '<button class="pastille' + (saisie.type==='question_client'?' on':'') + '" data-type="question_client">Question client</button>' +
   '</div>' +
+  '<div id="zone-modele" style="display:none">' +
+    '<div class="ligne-modele">' +
+      '<button class="btn-s" type="button" onclick="FS.ouvrirModeles()"><i class="ti ti-template"></i> Mod\u00e8le\u2026</button>' +
+      '<span id="badge-modele"></span>' +
+      '<button class="btn-s" type="button" onclick="FS.enregistrerModele()" title="La question et ses choix deviennent un mod\u00e8le r\u00e9utilisable"><i class="ti ti-bookmark-plus"></i> Enregistrer comme mod\u00e8le</button>' +
+    '</div>' +
+    '<div class="choix-edit" id="zone-choix"></div>' +
+  '</div>' +
   '<div id="zone-portee" style="display:none">' +
     '<label class="mini">Cette validation vaudra\u2026</label>' +
     '<div class="pastilles">' +
@@ -1230,6 +1263,7 @@ function brancherSaisie(){
     document.querySelectorAll('.pastille[data-type]').forEach(x =>
       x.classList.toggle('on', x.dataset.type === saisie.type));
     majVisibilite();
+    rendreZoneModele();
   });
   document.querySelectorAll('#zone-portee .pastille[data-portee]').forEach(b => b.onclick = () => {
     saisie.portee = (saisie.portee === b.dataset.portee) ? null : b.dataset.portee;
@@ -1334,6 +1368,117 @@ FS.ouvrirPiece = function(chemin){
     })
     .catch(e => { if(w) w.close(); alert('Pi\u00e8ce jointe indisponible : ' + e.message); });
 };
+/* ---------------------------------------------- modeles Pb->Soluce (111) --- */
+let MODELES = null;          // bibliotheque chargee une fois par session
+let modeleChoisi = null;     // code du modele applique a la saisie en cours
+let ctxModele = 'commande';  // resout [pas|plus] et les aides contextuelles
+let choixEdit = [];          // choix de reponse de CETTE question (copie editable)
+
+FS.ctxModele = function(c){
+  ctxModele = c;
+  ['devis','commande'].forEach(x =>
+    el('mdl-ctx-' + x).classList.toggle('on', x === ctxModele));
+  rendreListeModeles();
+};
+async function chargerModeles(){
+  if(MODELES) return MODELES;
+  const j = await getJson(BASE + '/fabstory-modeles');
+  MODELES = (j && j.modeles) || [];
+  return MODELES;
+}
+FS.ouvrirModeles = async function(){
+  const d = el('dlg-modeles');
+  d.showModal();
+  FS.ctxModele(ctxModele);
+  try{ await chargerModeles(); }catch(e){
+    el('mdl-liste').innerHTML = '<p class="err-msg">' + esc(e.message) + '</p>'; return;
+  }
+  rendreListeModeles();
+};
+function rendreListeModeles(){
+  if(!MODELES) return;
+  const visibles = MODELES.filter(m => m.contexte === 'les_deux' || m.contexte === ctxModele);
+  el('mdl-liste').innerHTML = visibles.length ? visibles.map(m =>
+    '<div class="lm-item" onclick="FS.choisirModele(\'' + m.code + '\')">' +
+    '<div class="lm-titre">' + esc(m.titre) + '</div>' +
+    '<div class="lm-apercu">' + esc((m.texte_client || '').slice(0, 160)) + '</div>' +
+    '</div>').join('') : '<p class="mini">Aucun mod\u00e8le pour ce contexte.</p>';
+}
+const SPECS_STANDARD = 'Mat\u00e9riau : FR4 TG150\nFinition : ENIG\nMasque de soudure : vert, deux faces\nS\u00e9rigraphie : blanche, deux faces\nClasse : IPC-A-600 classe 2\n\u00c9paisseur : 1,6 mm\nCuivre ext\u00e9rieur : 35 \u00b5m\nCuivre interne : 35 \u00b5m\nStack-up : libre';
+function resoudreTexteModele(m){
+  let t = m.texte_client || '';
+  /* segments [pas|plus] : premier = devis, second = commande */
+  t = t.replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (x, a, b) => ctxModele === 'devis' ? a : b);
+  t = t.replace('{SPECS}', SPECS_STANDARD);
+  return t;
+}
+FS.choisirModele = function(code){
+  const m = (MODELES || []).find(x => x.code === code);
+  if(!m) return;
+  modeleChoisi = code;
+  el('note-texte').value = resoudreTexteModele(m);
+  choixEdit = (m.choix || []).map(c => ({
+    ordre: c.ordre,
+    libelle: c.libelle,
+    aide: (ctxModele === 'devis' ? (c.aide_devis || c.aide) : (c.aide_commande || c.aide)) || null,
+    commentaire_obligatoire: !!c.commentaire_obligatoire
+  }));
+  el('dlg-modeles').close();
+  rendreZoneModele();
+  const reste = (el('note-texte').value.match(/\{[A-Z_\u00c0-\u00dc]+\}/g) || []);
+  el('note-msg').innerHTML = reste.length
+    ? '<span style="color:var(--amber-badge)">\u00c0 compl\u00e9ter avant envoi : ' + esc(reste.join(' ')) + '</span>' : '';
+};
+function rendreZoneModele(){
+  const z = el('zone-modele');
+  if(!z) return;
+  z.style.display = (saisie.type === 'question_client') ? '' : 'none';
+  const b = el('badge-modele');
+  b.innerHTML = modeleChoisi
+    ? '<span class="badge-modele"><i class="ti ti-template"></i> ' + esc(modeleChoisi) + '</span>' : '';
+  const zc = el('zone-choix');
+  if(!choixEdit.length){
+    zc.innerHTML = '<p class="mini" style="margin:0">Aucun choix ferm\u00e9 : le client r\u00e9pondra librement. ' +
+      '<a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
+    return;
+  }
+  zc.innerHTML = '<label class="mini" style="margin:0 0 4px">Choix propos\u00e9s au client</label>' +
+    choixEdit.map((c, i) =>
+      '<div class="ce-item"><div><div class="ce-lib">' + esc(c.libelle) +
+      (c.commentaire_obligatoire ? ' <span class="mini">(commentaire obligatoire)</span>' : '') + '</div>' +
+      (c.aide ? '<div class="ce-aide">' + esc(c.aide) + '</div>' : '') + '</div>' +
+      '<button class="ce-x" type="button" title="Retirer" onclick="FS.retirerChoix(' + i + ')">\u2715</button></div>'
+    ).join('') +
+    '<p class="mini" style="margin:6px 0 0"><a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
+}
+FS.retirerChoix = function(i){ choixEdit.splice(i, 1); rendreZoneModele(); };
+FS.ajouterChoix = function(){
+  const lib = (prompt('Libell\u00e9 du choix (court) :') || '').trim();
+  if(!lib) return;
+  const aide = (prompt('Aide affich\u00e9e sous le choix (facultatif) :') || '').trim();
+  const oblig = confirm('Commentaire obligatoire quand le client choisit cette r\u00e9ponse ?\nOK = oui, Annuler = non');
+  choixEdit.push({ ordre: choixEdit.length + 1, libelle: lib, aide: aide || null, commentaire_obligatoire: oblig });
+  rendreZoneModele();
+};
+FS.enregistrerModele = async function(){
+  const texte = el('note-texte').value.trim();
+  if(!texte){ el('note-msg').innerHTML = '<span class="err-msg">Composez d\u2019abord la question.</span>'; return; }
+  const titre = (prompt('Titre du mod\u00e8le (visible dans le menu) :') || '').trim();
+  if(!titre) return;
+  try{
+    const r = await postJson(BASE + '/fabstory-modele-creer', {
+      titre: titre, texte_client: texte, choix: choixEdit,
+      contexte: ctxModele, domaine: 'transverse', auteur: qui() || ''
+    });
+    MODELES = null;   /* la bibliotheque a change : on rechargera */
+    modeleChoisi = r.code;
+    rendreZoneModele();
+    el('note-msg').innerHTML = '<span style="color:var(--green-badge)">Mod\u00e8le ' + esc(r.code) + ' cr\u00e9\u00e9.</span>';
+  }catch(e){
+    el('note-msg').innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
+  }
+};
+
 async function envoyerNote(){
   const texte = el('note-texte').value.trim();
   const msg = el('note-msg');
@@ -1354,14 +1499,22 @@ async function envoyerNote(){
     visible_client: el('note-visible').checked,
     portee_validation: (saisie.type === 'question_client') ? saisie.portee : null,
     source: 'fabstory',
-    differer_notif: true
+    differer_notif: true,
+    choix_reponse: (saisie.type === 'question_client' && choixEdit.length) ? choixEdit : null,
+    modele_code: (saisie.type === 'question_client') ? modeleChoisi : null
   };
+  const restes = (texte.match(/\{[A-Z_\u00c0-\u00dc]+\}/g) || []);
+  if(restes.length && !confirm('Le texte contient encore des variables non compl\u00e9t\u00e9es : ' +
+      restes.join(' ') + '\n\nEnregistrer quand m\u00eame ?')){
+    return;
+  }
   const btn = el('note-go');
   btn.disabled = true;
   msg.innerHTML = '<span class="spin"></span>';
   try{
     await postJson(BASE + '/fabstory-note', corps);
     piecesSaisie = [];
+    modeleChoisi = null; choixEdit = [];
     await recharger(false);
   }catch(e){
     msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
