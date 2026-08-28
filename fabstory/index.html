@@ -8,6 +8,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
 /* ================================================================== FabStory
+   v4.0 — chantier 111 (28/08) : SAISIE GUIDEE en 3 ecrans pilotee par la
+   bibliotheque pb_soluce ; contexte deduit du statut Odoo ; photocopie
+   enveloppe {choix, portee} ; initiales en liste memorisees ; Abandonner.
    v0.3 — retours 07/08 : volet toujours visible (tiroir), œil/œil barré,
    composant en tête d entrée, portee des regles (SO / carte / client), labels bleus.
    v0.2 — retours du contre-test Olivier 06/08 : volet lateral type boite mail
@@ -199,6 +202,49 @@ label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 @keyframes sp{to{transform:rotate(360deg)}}
 dialog{border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;max-width:440px;width:92vw}
 dialog::backdrop{background:rgba(20,26,36,.45)}
+/* ----------------------------------------------------- saisie guidee v4.0 -- */
+.stepper{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:7px;color:var(--text3);font-size:12px;font-weight:500}
+.step .dot{width:21px;height:21px;border-radius:50%;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--surface);font-family:var(--mono)}
+.step.active{color:var(--text)}
+.step.active .dot{background:var(--accent);border-color:var(--accent);color:#fff}
+.step.done{color:var(--text2)}
+.step.done .dot{background:var(--green-bg);color:var(--green-badge);border-color:var(--green-badge)}
+.step-sep{flex:0 0 22px;height:1px;background:var(--border2)}
+.groupe-titre{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin:13px 0 7px}
+.situations{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:9px}
+.situation{display:flex;flex-direction:column;gap:5px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;cursor:pointer;color:var(--text);font-family:inherit}
+.situation:hover,.situation:focus-visible{border-color:var(--accent);outline:none}
+.situation .st{font-size:13px;font-weight:600;line-height:1.35}
+.situation .sd{font-size:12px;color:var(--text2);line-height:1.45}
+.situation.libre{border-style:dashed}
+.chips-situ{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+.chip-situ{display:inline-block;font-size:10.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--surface2);color:var(--text2)}
+.chip-situ.mod{background:var(--accent-bg);color:var(--accent-fonce)}
+.chip-situ.info{background:var(--info-bg);color:var(--info-txt)}
+.as-rappel{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.auto-ligne{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border:1px dashed var(--info);border-radius:var(--radius);background:var(--info-bg);padding:8px 11px;margin-top:10px}
+.auto-tag{font-size:11px;font-family:var(--mono);font-weight:600;color:var(--info-txt);border:1px solid var(--info);border-radius:999px;padding:2px 9px;background:#fff}
+.auto-txt{font-size:11.5px;color:var(--info-txt)}
+.specs-table{width:100%;border-collapse:collapse;margin-top:4px}
+.specs-table td{border:1px solid var(--border);padding:0;font-size:12.5px}
+.specs-table td:first-child{color:var(--text2);padding:6px 10px;width:42%;background:var(--surface2)}
+.specs-table input{width:100%;background:transparent;border:none;border-radius:0;color:var(--text);padding:6px 10px;font-size:12.5px;font-family:inherit}
+.specs-table input:focus{outline:1px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.apercu-mail{background:#fff;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:14px 16px;font-size:13.5px;line-height:1.65;white-space:pre-wrap}
+.sec-titre{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;margin:16px 0 8px}
+.ce-num{font-family:var(--mono);font-size:11px;color:var(--text3);padding-top:2px;min-width:14px}
+.portee{display:flex;gap:9px;align-items:flex-start;background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--radius);padding:10px 12px;margin-top:12px}
+.portee.neutre{background:var(--surface2);border-color:var(--border)}
+.portee input{margin-top:3px;accent-color:var(--accent)}
+.portee .pt{font-size:12.5px;font-weight:600;color:var(--accent-fonce)}
+.portee .pn{font-size:11px;color:var(--text2)}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center}
+.meta .m{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-family:var(--mono);border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--text2);background:#fff}
+.meta .m b{color:var(--text);font-weight:600}
+.meta .m.exp{background:var(--accent-bg);color:var(--accent-fonce);border-color:var(--accent)}
+.meta .m.exp b{color:var(--accent-fonce)}
+
 @media(max-width:1259px){
   /* sous 1260px : tiroir fixe, ouvert seulement quand un detail est choisi ;
      la zone d attente passe en bandeau horizontal au-dessus du fil */
@@ -347,18 +393,6 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </dialog>
 
-<dialog id="dlg-modeles">
-  <h2><i class="ti ti-template"></i> Mod\u00e8les de questions</h2>
-  <div class="pastilles" style="margin:0 0 9px">
-    <button class="pastille" id="mdl-ctx-devis" onclick="FS.ctxModele('devis')">Contexte devis</button>
-    <button class="pastille" id="mdl-ctx-commande" onclick="FS.ctxModele('commande')">Contexte commande</button>
-  </div>
-  <div class="liste-modeles" id="mdl-liste"><p class="mini">Chargement\u2026</p></div>
-  <div style="display:flex;justify-content:flex-end;margin-top:8px">
-    <button class="btn-s" onclick="document.getElementById('dlg-modeles').close()">Fermer</button>
-  </div>
-</dialog>
-
 <dialog id="dlg-notifier">
   <h2><i class="ti ti-mail-forward"></i> Transmettre aux concernés</h2>
   <p class="mini" style="margin:0 0 8px">Voici exactement ce qui sera transmis, et à qui. Rien n’est encore parti.</p>
@@ -373,8 +407,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '3.2';
-const APP_DATE = '27/08/2026';
+const APP_VERSION = '4.0';
+const APP_DATE = '28/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1181,126 +1215,497 @@ FS.voletRetirer = async function(){
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
 
-/* ---------------------------------------------------------------- saisie -- */
+/* ------------------------------------------------------- saisie v4.0 ------ */
+/* Chantier 111 — SAISIE GUIDÉE (conception validée sur prototype le 28/08) :
+   écran 1 « Que se passe-t-il sur cette carte ? » — les situations viennent de
+   la bibliothèque pb_soluce (GET fabstory-modeles), plus deux chemins locaux
+   (question libre, note simple sans assistant) ;
+   écran 2 tout-en-un — seules les variables NON automatisables ({DATE} et
+   {LIEN} arriveront de l'API distributeur en passe 2 ; en attendant leurs
+   segments sautent proprement du message) ;
+   écran 3 aperçu — texte assemblé, choix retirables/ajoutables, case de
+   portée, méta déduite corrigible, Enregistrer / Abandonner.
+   Le contexte devis/commande est DÉDUIT du statut Odoo (fabstory-statut) et
+   corrigible à l'aperçu — plus de bascule manuelle.
+   La photocopie enregistrée devient une ENVELOPPE { choix:[…], portee:{…}|null }
+   (décision Olivier 28/08) : la question envoyée est autonome, un modèle
+   modifié ne change jamais une question déjà partie. */
+
+let assistant = { produit:null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true };
+const AUTO_VARS = ['DATE','LIEN'];
+const VAR_LABELS = {
+  REF:           ['Référence concernée', 'Servira aussi de MPN sur la fiche.'],
+  REP:           ['Repère(s) sur la carte', ''],
+  PROPOSITION:   ['Équivalent proposé', ''],
+  LISTE:         ['Passifs concernés (repère + référence, une ligne chacun)', 'La liste part complète dans le mail ; repliée au-delà de 5 réfs à l’écran client.'],
+  POINT_A_VERIFIER: ['Point à vérifier', ''],
+  BOITIER_RECU:  ['Boîtier reçu', '']
+};
+const VARS_LONGUES = ['LISTE','POINT_A_VERIFIER'];
+const DESCRIPTIONS_SITU = {
+  M1:'Composant en rupture — j’ai un équivalent à proposer au client.',
+  M2:'Composant en rupture, obsolète ou hors délai — pas d’équivalent trouvé.',
+  M3:'Plusieurs passifs indisponibles — demander l’autorisation générique de substitution.',
+  M4:'Le dossier ne précise pas de spécifications PCB — faire valider le standard PP.',
+  M5:'Autre point à vérifier avant câblage (réponse libre du client).',
+  M5A:'Doute sur le sens de montage — une orientation est proposée en photo.',
+  M5B:'Le boîtier reçu ne correspond pas à l’empreinte du PCB.'
+};
+const DOMAINES_LIBELLES = { appro:'Approvisionnement', devis:'Devis / dossier', production:'Câblage / production', logistique:'Logistique', transverse:'Divers' };
+const INITIALES_COMMERCIAL = ['AC','OC','DG','MM'];   /* mapping expéditeur (Olivier 08/08) */
+
+function ctxDeduit(){ return (STATUT && STATUT.statut === 'devis') ? 'devis' : 'commande'; }
+function etapePourModele(m){
+  if(m.code === 'M4') return 'PCB';
+  return { appro:'APPRO', devis:'DEVIS', production:'CMS', logistique:'DIVERS_PROD' }[m.domaine] || 'DIVERS_PROD';
+}
+function varsDuModele(m){
+  const t = m.texte_client || '';
+  const brutes = (t.match(/\{([A-Z0-9_]+)\}/g) || []).map(v => v.slice(1,-1));
+  const vues = {};
+  const vars = brutes.filter(v => {
+    if(vues[v] || AUTO_VARS.includes(v) || v === 'SPECS') return false;
+    vues[v] = true; return true;
+  });
+  /* le repère alimente la fiche même quand le texte ne le cite pas (M1/M2) */
+  if(!vars.includes('REP')) vars.push('REP');
+  return vars;
+}
+function expediteurPour(ini){ return INITIALES_COMMERCIAL.includes(ini) ? 'commercial@' : 'production@'; }
+
+function assistantReset(){
+  assistant = { produit: P ? P.id : null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true };
+  saisie = { type:'note', etape:null, portee:null, repond_a:null, concernes:null };
+  modeleChoisi = null; choixEdit = []; piecesSaisie = [];
+}
+function modeleCourant(){
+  if(assistant.code === 'QL' || assistant.code === 'NOTE' || !assistant.code) return null;
+  return (MODELES || []).find(x => x.code === assistant.code) || null;
+}
+
+/* ------------------------------------------------------------ rendu carte -- */
 function htmlSaisie(){
-  /* v1.8 : liste de saisie COURTE (retour Olivier 25/08 — trop de precision tue
-     la visibilite). \u00ab Production \u00bb = code DIVERS_PROD en base ; les etapes
-     fines restent valables en base (historique, rangement), juste plus
-     proposees a la saisie. Defaut = DEVIS pour inciter a choisir. */
-  if(!saisie.etape) saisie.etape = 'DEVIS';
-  const etapes = FICHE.etapes || [];
-  const favoris = etapes.filter(e => METIERS_FAVORIS.includes(e.code));
-  const autres = etapes.filter(e => !METIERS_FAVORIS.includes(e.code));
-  const chipsMetier = list => list.map(e =>
-    '<button class="pastille metier' + (saisie.etape===e.code?' on':'') + '" data-etape="' + e.code + '">' +
-    esc(e.libelle) + '</button>').join('');
-  return '' +
-  '<div class="card" id="carte-saisie">' +
-  '<button class="btn-s" id="note-deplier" style="display:flex;align-items:center;gap:7px"><i class="ti ti-pencil-plus"></i> Nouvelle note</button>' +
-  '<div id="note-form" style="display:none">' +
-  '<h2 style="margin-top:0"><i class="ti ti-pencil-plus"></i> Nouvelle note</h2>' +
-  '<label class="lbl" style="margin-top:0">Qui est concern\u00e9 ? <span class="mini" style="font-weight:400">(recevra la notification \u2014 au moins 1)</span></label>' +
-  '<div class="pastilles" id="zone-concernes"></div>' +
-  '<div style="display:flex;align-items:center;gap:8px;margin-top:10px">' +
-  '<label class="mini" for="note-etape" style="margin:0">\u00c9tape</label>' +
-  '<select id="note-etape" style="font-size:12.5px;padding:4px 8px;max-width:250px">' +
-  LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (saisie.etape === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>').join('') +
-  '</select></div>' +
-  '<div class="grille2" style="margin-top:8px">' +
-    '<div><label class="mini">Rep\u00e8re</label><input type="text" id="note-repere" placeholder="C12, U3\u2026"></div>' +
-    '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div>' +
-  '</div>' +
-  '<div class="amorces" id="zone-amorces"></div>' +
-  '<textarea id="note-texte" placeholder="Qu\u2019y a-t-il \u00e0 noter sur cette carte ?"></textarea>' +
-  '<details class="replis"><summary>Photo ou fichier joint</summary>' +
+  /* reset si on change de carte, ou si la fiche a ete rechargee apres envoi */
+  if(assistant.produit !== (P && P.id) ||
+     (assistant.code && assistant.code !== 'NOTE' && assistant.code !== 'QL' && modeleChoisi === null)){
+    assistantReset();
+  }
+  let corps;
+  if(assistant.ecran === 0) corps = htmlSaisieFermee();
+  else {
+    corps = '<div class="stepper" aria-hidden="true">' +
+      [[1,'Situation'],[2,'Compléter'],[3,'Aperçu & envoi']].map(s =>
+        '<span class="step' + (assistant.ecran===s[0]?' active':(assistant.ecran>s[0]?' done':'')) + '">' +
+        '<span class="dot">' + s[0] + '</span>' + s[1] + '</span>'
+      ).join('<span class="step-sep"></span>') + '</div>';
+    if(assistant.ecran === 1) corps += htmlEcranSituations();
+    if(assistant.ecran === 2) corps += htmlEcranCompleter();
+    if(assistant.ecran === 3) corps += htmlEcranApercu();
+  }
+  return '<div class="card" id="carte-saisie">' + corps + '</div>';
+}
+function htmlSaisieFermee(){
+  return '<button class="btn-s" id="note-deplier" style="display:flex;align-items:center;gap:7px" onclick="FS.assistantOuvrir()">' +
+    '<i class="ti ti-pencil-plus"></i> Nouvelle note</button>';
+}
+function rendreSaisie(){
+  const c = el('carte-saisie');
+  if(!c) return;
+  c.outerHTML = htmlSaisie();
+  brancherSaisie();
+}
+FS.assistantOuvrir = async function(){
+  assistant.ecran = 1;
+  rendreSaisie();
+  if(!MODELES){
+    try{ await chargerModeles(); }catch(e){ /* les chemins locaux restent utilisables */ }
+    if(assistant.ecran === 1) rendreSaisie();
+  }
+};
+FS.assistantAbandonner = function(){
+  const rempli = Object.values(assistant.vals).some(v => String(v||'').trim()) || piecesSaisie.length;
+  if(rempli && !confirm('Abandonner cette saisie ? Rien ne sera enregistré.')) return;
+  assistantReset();
+  rendreSaisie();
+};
+FS.assistantEcran = function(n){ assistant.ecran = n; rendreSaisie(); };
+
+/* --------------------------------------------------------------- écran 1 -- */
+function htmlEcranSituations(){
+  let h = '<h2 style="margin-bottom:2px"><i class="ti ti-pencil-plus"></i> Que se passe-t-il sur cette carte ?</h2>' +
+    '<p class="hint" style="margin:0 0 4px">Choisissez la situation — étape et concernés se déduisent, tout reste corrigible à l’aperçu. ' +
+    'Contexte : <strong>' + ctxDeduit() + '</strong> (statut Odoo).</p>';
+  if(!MODELES){
+    h += '<p class="hint"><span class="spin"></span> Chargement de la bibliothèque…</p>';
+  } else {
+    const parDomaine = {};
+    MODELES.forEach(m => { (parDomaine[m.domaine] = parDomaine[m.domaine] || []).push(m); });
+    const ordre = ['appro','devis','production','logistique'].concat(
+      Object.keys(parDomaine).filter(d => !['appro','devis','production','logistique'].includes(d)));
+    ordre.forEach(d => {
+      const liste = parDomaine[d];
+      if(!liste || !liste.length) return;
+      h += '<div class="groupe-titre">' + esc(DOMAINES_LIBELLES[d] || d) + '</div><div class="situations">' +
+        liste.map(m =>
+          '<button class="situation" onclick="FS.choisirSituation(\'' + esc(m.code) + '\')">' +
+          '<span class="st">' + esc(m.titre) + '</span>' +
+          '<span class="sd">' + esc(DESCRIPTIONS_SITU[m.code] || (m.texte_client||'').split('\n')[0].slice(0,110)) + '</span>' +
+          '<span class="chips-situ"><span class="chip-situ mod">' + esc(m.code) + '</span>' +
+          '<span class="chip-situ">' + esc(etapePourModele(m)) + '</span>' +
+          '<span class="chip-situ info">' + esc(poleDefaut(etapePourModele(m)).toLowerCase()) + '</span></span>' +
+          '</button>').join('') + '</div>';
+    });
+  }
+  h += '<div class="groupe-titre">Hors bibliothèque</div><div class="situations">' +
+    '<button class="situation libre" onclick="FS.choisirSituation(\'QL\')">' +
+    '<span class="st">Question libre au client</span>' +
+    '<span class="sd">Question non couverte par un modèle — texte libre + choix de réponses à composer, transformable en modèle.</span></button>' +
+    '<button class="situation libre" onclick="FS.choisirSituation(\'NOTE\')">' +
+    '<span class="st">Simple note / point à traiter</span>' +
+    '<span class="sd">Une note interne, une info à tracer, un point à traiter — champ libre direct, sans assistant.</span></button>' +
+    '</div>' +
+    '<div style="margin-top:12px"><button class="btn-lien" onclick="FS.assistantAbandonner()">Fermer</button></div>';
+  return h;
+}
+FS.choisirSituation = function(code){
+  assistant.code = code; assistant.vals = {}; assistant.portee = true;
+  piecesSaisie = [];
+  const m = modeleCourant();
+  if(m){
+    saisie.type = 'question_client';
+    saisie.etape = etapePourModele(m);
+    saisie.concernes = null;
+    ctxModele = (m.contexte === 'les_deux') ? ctxDeduit() : m.contexte;
+    modeleChoisi = m.code;
+    choixEdit = (m.choix || []).map(c => ({
+      ordre: c.ordre, libelle: c.libelle,
+      aide: (ctxModele === 'devis' ? (c.aide_devis || c.aide) : (c.aide_commande || c.aide)) || null,
+      commentaire_obligatoire: !!c.commentaire_obligatoire
+    }));
+    assistant.specsLignes = ((m.texte_client||'').indexOf('{SPECS}') >= 0)
+      ? SPECS_STANDARD.split('\n').map(l => { const i = l.indexOf(' : '); return [l.slice(0,i), l.slice(i+3)]; })
+      : null;
+  } else {
+    saisie.type = (code === 'QL') ? 'question_client' : 'note';
+    saisie.etape = 'DIVERS_PROD';
+    saisie.concernes = null;
+    ctxModele = ctxDeduit();
+    modeleChoisi = null; choixEdit = [];
+    assistant.specsLignes = null;
+  }
+  assistant.ecran = 2;
+  rendreSaisie();
+};
+
+/* --------------------------------------------------------------- écran 2 -- */
+function titreSituation(){
+  const m = modeleCourant();
+  if(m) return m.code + ' · ' + m.titre;
+  return assistant.code === 'QL' ? 'Question libre au client' : 'Simple note / point à traiter';
+}
+function htmlChampVar(v){
+  const def = VAR_LABELS[v] || [v.replace(/_/g,' ').toLowerCase(), ''];
+  const long = VARS_LONGUES.includes(v);
+  const champ = long
+    ? '<textarea id="as-var-' + v + '" style="font-family:var(--mono)">' + esc(assistant.vals[v]||'') + '</textarea>'
+    : '<input type="text" id="as-var-' + v + '" style="font-family:var(--mono)" value="' + esc(assistant.vals[v]||'') + '">';
+  return '<div' + (long?' style="grid-column:1/-1"':'') + '><label class="lbl">' + esc(def[0]) +
+    ' <span style="color:var(--accent-fonce)">*</span></label>' + champ +
+    (def[1] ? '<p class="mini" style="margin:3px 0 0">' + esc(def[1]) + '</p>' : '') + '</div>';
+}
+function htmlEcranCompleter(){
+  const m = modeleCourant();
+  let h = '<div class="as-rappel"><h2 style="margin:0">' + esc(titreSituation()) + '</h2>' +
+    '<button class="btn-lien" onclick="FS.assistantEcran(1)">changer de situation</button>' +
+    '<span class="mini" style="margin-left:auto">contexte : <strong>' + ctxModele + '</strong>' +
+    (m && m.contexte !== 'les_deux' ? ' (fixé par le modèle)' : ' (statut du SO — corrigible à l’aperçu)') + '</span></div>';
+
+  if(m){
+    const vars = varsDuModele(m);
+    const courts = vars.filter(v => !VARS_LONGUES.includes(v));
+    const longs = vars.filter(v => VARS_LONGUES.includes(v));
+    h += '<div class="grille2">' + courts.map(htmlChampVar).join('') + '</div>' + longs.map(htmlChampVar).join('');
+    if(assistant.specsLignes){
+      h += '<label class="lbl">Standard PP — chaque valeur reste modifiable</label><table class="specs-table">' +
+        assistant.specsLignes.map((s,i) =>
+          '<tr><td>' + esc(s[0]) + '</td><td><input value="' + esc(s[1]) + '" aria-label="' + esc(s[0]) + '" ' +
+          'onchange="assistant.specsLignes[' + i + '][1]=this.value"></td></tr>').join('') + '</table>';
+    }
+    if(/\{(DATE|LIEN)\}/.test(m.texte_client || '')){
+      h += '<div class="auto-ligne">' +
+        (/\{DATE\}/.test(m.texte_client)?'<span class="auto-tag">{DATE} dispo annoncée</span>':'') +
+        (/\{LIEN\}/.test(m.texte_client)?'<span class="auto-tag">{LIEN} fiche distributeur</span>':'') +
+        '<span class="auto-txt">automatisés en passe 2 (API Digikey/Mouser) — en attendant, ces segments sautent du message.</span></div>';
+    }
+  } else if(assistant.code === 'QL'){
+    h += '<label class="lbl">Votre question au client <span style="color:var(--accent-fonce)">*</span></label>' +
+      '<textarea id="as-var-TEXTE" rows="4" placeholder="Posez la question comme vous l’écririez au client…">' + esc(assistant.vals.TEXTE||'') + '</textarea>' +
+      '<div class="auto-ligne"><span class="auto-txt">Les <strong>choix de réponse</strong> se composent à l’aperçu (« Ajouter un choix »). ' +
+      'Sans choix, le client répond en texte libre. « Enregistrer comme modèle » versera la question au point dans la bibliothèque.</span></div>';
+  } else {
+    /* note simple : chemin direct, sans assistant (décision maquette 28/08) */
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">' +
+      '<label class="mini" for="note-etape" style="margin:0">Étape</label>' +
+      '<select id="note-etape" style="font-size:12.5px;padding:4px 8px;max-width:250px">' +
+      LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (saisie.etape === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>').join('') +
+      '</select></div>' +
+      '<div class="grille2" style="margin-top:8px">' +
+      '<div><label class="mini">Repère</label><input type="text" id="note-repere" placeholder="C12, U3…"></div>' +
+      '<div><label class="mini">Composant (MPN)</label><input type="text" id="note-mpn"></div></div>' +
+      '<div class="amorces" id="zone-amorces"></div>' +
+      '<textarea id="as-var-TEXTE" placeholder="Qu’y a-t-il à noter sur cette carte ?">' + esc(assistant.vals.TEXTE||'') + '</textarea>' +
+      '<label class="mini" style="margin-top:8px">Nature</label><div class="pastilles">' +
+      '<button class="pastille p-info' + (saisie.type==='note'?' on':'') + '" data-type="note">Information</button>' +
+      '<button class="pastille' + (saisie.type==='question_interne'?' on':'') + '" data-type="question_interne">À traiter</button></div>' +
+      '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
+      '<input type="checkbox" id="note-visible"> Visible du client</label>';
+  }
+
+  /* pièce jointe : mécanisme éprouvé, ouvert d'office quand le modèle l'attend */
+  const pjOuverte = m && m.piece_jointe_attendue;
+  h += '<details class="replis"' + (pjOuverte ? ' open' : '') + '><summary>Photo ou fichier joint' +
+    (pjOuverte ? ' <span class="mini">(attendu pour ce type de question)</span>' : '') + '</summary>' +
     '<div class="dropzone" id="drop-piece">Glissez un fichier ici, ou cliquez pour parcourir' +
     '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip" style="display:none"></div>' +
-    '<div id="zone-pieces"></div>' +
-  '</details>' +
-  '<label class="mini">Nature</label>' +
-  '<div class="pastilles">' +
-    '<button class="pastille p-info' + (saisie.type==='note'?' on':'') + '" data-type="note">Information</button>' +
-    '<button class="pastille' + (saisie.type==='question_interne'?' on':'') + '" data-type="question_interne">\u00c0 traiter</button>' +
-    '<button class="pastille' + (saisie.type==='question_client'?' on':'') + '" data-type="question_client">Question client</button>' +
-  '</div>' +
-  '<div id="zone-modele" style="display:none">' +
-    '<div class="ligne-modele">' +
-      '<button class="btn-s" type="button" onclick="FS.ouvrirModeles()"><i class="ti ti-template"></i> Mod\u00e8le\u2026</button>' +
-      '<span id="badge-modele"></span>' +
-      '<button class="btn-s" type="button" onclick="FS.enregistrerModele()" title="La question et ses choix deviennent un mod\u00e8le r\u00e9utilisable"><i class="ti ti-bookmark-plus"></i> Enregistrer comme mod\u00e8le</button>' +
-    '</div>' +
-    '<div class="choix-edit" id="zone-choix"></div>' +
-  '</div>' +
-  '<div id="zone-portee" style="display:none">' +
-    '<label class="mini">Cette validation vaudra\u2026</label>' +
-    '<div class="pastilles">' +
-      '<button class="pastille" data-portee="so">Cette commande</button>' +
-      '<button class="pastille" data-portee="carte">Cette carte</button>' +
-      '<button class="pastille" data-portee="client">Ce client</button>' +
-    '</div></div>' +
-  '<label style="font-size:12.5px;color:var(--text2);display:flex;gap:6px;align-items:center;margin-top:4px" id="ligne-visible">' +
-    '<input type="checkbox" id="note-visible"> Visible du client</label>' +
-  '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
-  '<div style="display:flex;gap:8px;align-items:center">' +
-  '<button class="btn" id="note-go">Enregistrer la note</button>' +
-  '<span class="hint" id="note-repond" style="display:none"></span></div>' +
-  '<p class="mini" style="margin:7px 0 0">Enregistrez vos notes et validez le tout quand vous \u00eates pr\u00eat.</p>' +
-  '</div></div>';
+    '<div id="zone-pieces"></div></details>';
+
+  /* concernés + initiales */
+  h += '<label class="lbl">Qui est concerné ? <span class="mini" style="font-weight:400">(recevra la notification — au moins 1)</span></label>' +
+    '<div class="pastilles" id="zone-concernes"></div>' +
+    '<div style="margin-top:8px"><label class="lbl" for="note-initiales" style="margin-top:0">Vos initiales <span style="color:var(--accent-fonce)">*</span></label>' +
+    '<select id="note-initiales" style="max-width:150px;font-family:var(--mono)"><option value="">—</option>' +
+    EQUIPE.map(x => '<option value="' + x + '"' + (qui()===x?' selected':'') + '>' + x + '</option>').join('') + '</select>' +
+    (saisie.type !== 'note' && saisie.type !== 'question_interne'
+      ? '<p class="mini" style="margin:3px 0 0">Décide la boîte d’envoi : ' + INITIALES_COMMERCIAL.join(', ') + ' → commercial · toutes les autres → production.</p>' : '') +
+    '</div>';
+
+  h += '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<button class="btn-s" onclick="FS.assistantEcran(1)"><i class="ti ti-arrow-left"></i> Retour</button>' +
+    (assistant.code === 'NOTE'
+      ? '<button class="btn" id="note-go">Enregistrer la note</button>'
+      : '<button class="btn" onclick="FS.assistantApercu()">Aperçu <i class="ti ti-arrow-right"></i></button>') +
+    '<button class="btn-lien" onclick="FS.assistantAbandonner()">Abandonner</button></div>';
+  return h;
 }
-function brancherSaisie(){
-  rendreConcernes();
-  const bd = document.getElementById('note-deplier');
-  const nf = document.getElementById('note-form');
-  if(bd && nf) bd.onclick = () => { bd.style.display = 'none'; nf.style.display = ''; rendreAmorces(); };
-  const se = document.getElementById('note-etape');
-  if(se) se.onchange = () => {
-    saisie.etape = se.value || null;
-    rendreAmorces();
-    rendreConcernes(); /* le defaut suit l etape tant que rien n est choisi a la main */
-  };
-  document.querySelectorAll('.pastille[data-type]').forEach(b => b.onclick = () => {
-    saisie.type = b.dataset.type;
-    document.querySelectorAll('.pastille[data-type]').forEach(x =>
-      x.classList.toggle('on', x.dataset.type === saisie.type));
-    majVisibilite();
-    rendreZoneModele();
+function lireChampsEcran2(){
+  const m = modeleCourant();
+  const vars = m ? varsDuModele(m) : ['TEXTE'];
+  vars.forEach(v => {
+    const e = el('as-var-' + v);
+    if(e) assistant.vals[v] = e.value.trim();
   });
-  document.querySelectorAll('#zone-portee .pastille[data-portee]').forEach(b => b.onclick = () => {
-    saisie.portee = (saisie.portee === b.dataset.portee) ? null : b.dataset.portee;
-    document.querySelectorAll('#zone-portee .pastille[data-portee]').forEach(x =>
-      x.classList.toggle('on', x.dataset.portee === saisie.portee));
-  });
-  el('note-go').onclick = envoyerNote;
-  el('note-piece').onchange = deposerPiece;
-  const dz = el('drop-piece');
-  if(dz){
-    dz.onclick = () => el('note-piece').click();
-    dz.ondragover = ev => { ev.preventDefault(); dz.classList.add('survol'); };
-    dz.ondragleave = () => dz.classList.remove('survol');
-    dz.ondrop = ev => {
-      ev.preventDefault(); dz.classList.remove('survol');
-      const fic = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
-      if(fic) traiterPiece(fic);
-    };
+  const ini = el('note-initiales');
+  if(ini && ini.value){ setQui(ini.value.trim().toUpperCase()); }
+}
+FS.assistantApercu = function(){
+  lireChampsEcran2();
+  const m = modeleCourant();
+  const vars = m ? varsDuModele(m) : ['TEXTE'];
+  const manque = vars.filter(v => !String(assistant.vals[v]||'').trim());
+  if(manque.length || !qui()){
+    el('note-msg').innerHTML = '<span class="err-msg">Complétez les champs marqués * (et vos initiales) avant l’aperçu.</span>';
+    return;
   }
-  rendreAmorces();
-  rendrePieces();
-  majVisibilite();
+  assistant.ecran = 3;
+  rendreSaisie();
+};
+
+/* --------------------------------------------------------------- écran 3 -- */
+function remplirVars(t){
+  Object.keys(assistant.vals).forEach(k => { t = t.split('{' + k + '}').join(assistant.vals[k]); });
+  return t;
+}
+function nettoyerAuto(t){
+  /* passe 1 sans endpoint distributeur : les segments {DATE}/{LIEN} sautent */
+  return t.replace(/\s*\(\{(DATE|LIEN)\}\)/g, '')
+          .replace(/\s*[—–-]\s*\{(DATE|LIEN)\}/g, '')
+          .replace(/\{(DATE|LIEN)\}/g, '')
+          .replace(/ {2,}/g, ' ');
+}
+function texteAssemble(){
+  const m = modeleCourant();
+  if(!m) return assistant.vals.TEXTE || '';
+  let t = m.texte_client || '';
+  t = t.replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (x,a,b) => ctxModele === 'devis' ? a : b);
+  if(assistant.specsLignes) t = t.replace('{SPECS}', assistant.specsLignes.map(l => l[0] + ' : ' + l[1]).join('\n'));
+  t = nettoyerAuto(remplirVars(t));
+  return t.replace(/\n{3,}/g,'\n\n').trim();
+}
+function porteeDuModele(){
+  const m = modeleCourant();
+  if(!m || !m.portee_libelle) return null;
+  return { libelle: m.portee_libelle, condition: m.portee_condition || null };
+}
+function htmlEcranApercu(){
+  const m = modeleCourant();
+  const estNote = (assistant.code === 'NOTE');
+  let h = '<div class="as-rappel"><h2 style="margin:0">' + esc(titreSituation()) + '</h2>' +
+    '<button class="btn-lien" onclick="FS.assistantEcran(2)">modifier les réponses</button></div>';
+
+  h += '<div class="sec-titre" style="margin-top:4px">Message au client</div>' +
+    '<div class="apercu-mail">' + esc(texteAssemble()) + '</div>';
+  if(piecesSaisie.length){
+    h += piecesSaisie.map(p => '<span class="piece-ligne" style="display:inline-flex"><i class="ti ti-paperclip"></i> ' +
+      esc(p.nom) + ' — jointe au mail, visible côté client</span>').join(' ');
+  }
+
+  h += '<div class="sec-titre">Réponses proposées au client</div><div class="choix-edit" id="zone-choix"></div>';
+
+  const po = porteeDuModele();
+  if(po){
+    const cond = (po.condition && po.condition.length)
+      ? 'Visible côté client uniquement sur le choix n° ' + po.condition.join(', ') + '.'
+      : 'Toujours visible côté client.';
+    h += '<div class="portee"><input type="checkbox" id="as-portee"' + (assistant.portee?' checked':'') + '>' +
+      '<span><span class="pt">' + esc(po.libelle) + '</span><br>' +
+      '<span class="pn" id="as-portee-note">' + (assistant.portee
+        ? cond + ' Case décochée par défaut chez le client (= cette commande seulement).'
+        : 'Décochée : la proposition de validation définitive n’apparaîtra pas côté client.') + '</span></span></div>';
+  } else if(m && String(m.code).indexOf('M5') === 0){
+    h += '<div class="portee neutre"><span class="pn">Pas de case de portée pour les vérifications de câblage — l’historique de la fiche de vie est le réflexe en cas de doute.</span></div>';
+  }
+
+  const ini = qui() || '?';
+  const et = (FICHE.etapes || []).find(x => x.code === saisie.etape);
+  h += '<div class="sec-titre">Fiche de vie <span style="text-transform:none;letter-spacing:0;font-weight:400">(déduit — corrigible)</span></div>' +
+    '<div class="meta">' +
+    '<span class="m">nature <b>' + (estNote ? esc(TYPES_LIBELLES[saisie.type]) : 'Question client') + '</b></span>' +
+    (assistant.vals.REP ? '<span class="m">repère <b>' + esc(assistant.vals.REP) + '</b></span>' : '') +
+    (assistant.vals.REF ? '<span class="m">MPN <b>' + esc(assistant.vals.REF) + '</b></span>' : '') +
+    '<span class="m">étape <select id="as-etape" style="width:auto;border:none;background:transparent;padding:0;font:inherit;font-weight:600;color:var(--text)">' +
+    LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (saisie.etape===x[0]?' selected':'') + '>' + esc(x[1]) + '</option>').join('') +
+    '</select></span>' +
+    ((m && m.contexte === 'les_deux') || assistant.code === 'QL'
+      ? '<span class="m" id="as-ctx" style="cursor:pointer" title="Corriger le contexte">contexte <b>' + ctxModele + '</b> ⇄</span>'
+      : '<span class="m">contexte <b>' + ctxModele + '</b></span>') +
+    '<span class="m">auteur <b>' + esc(ini) + '</b></span>' +
+    '<span class="m exp">expéditeur <b>' + expediteurPour(ini) + '</b></span>' +
+    '</div>' +
+    '<label class="lbl" style="margin-top:10px">Qui est concerné ?</label><div class="pastilles" id="zone-concernes"></div>';
+
+  h += '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<button class="btn-s" onclick="FS.assistantEcran(2)"><i class="ti ti-arrow-left"></i> Retour</button>' +
+    '<button class="btn" id="note-go">Enregistrer la question</button>' +
+    '<button class="btn-s" id="btn-promouvoir" style="display:none" onclick="FS.enregistrerModele()">' +
+    '<i class="ti ti-bookmark-plus"></i> Enregistrer comme modèle</button>' +
+    '<button class="btn-lien" onclick="FS.assistantAbandonner()">Abandonner</button></div>' +
+    '<p class="mini" style="margin:7px 0 0">Rien ne part au client maintenant : l’envoi reste le geste « Transmettre » du bandeau, une fois vos notes enregistrées.</p>';
+  return h;
+}
+function rendreChoixApercu(){
+  const zc = el('zone-choix');
+  if(!zc) return;
+  if(!choixEdit.length){
+    zc.innerHTML = '<p class="mini" style="margin:0">Aucun choix fermé : le client répondra librement. ' +
+      '<a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
+  } else {
+    zc.innerHTML = choixEdit.map((c, i) =>
+      '<div class="ce-item"><span class="ce-num">' + (i+1) + '</span><div><div class="ce-lib">' + esc(c.libelle) +
+      (c.commentaire_obligatoire ? ' <span class="mini">(commentaire obligatoire)</span>' : '') + '</div>' +
+      (c.aide ? '<div class="ce-aide">' + esc(nettoyerAuto(remplirVars(c.aide))) + '</div>' : '') + '</div>' +
+      '<button class="ce-x" type="button" title="Retirer" onclick="FS.retirerChoix(' + i + ')">✕</button></div>'
+    ).join('') +
+    '<p class="mini" style="margin:6px 0 0"><a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
+  }
+  const bp = el('btn-promouvoir');
+  if(bp){
+    const mo = modeleCourant();
+    const modifie = mo ? (choixEdit.length !== (mo.choix||[]).length) : false;
+    bp.style.display = (assistant.code === 'QL' || modifie) ? '' : 'none';
+  }
+}
+
+/* ------------------------------------------------------------ branchement -- */
+function brancherSaisie(){
+  if(assistant.ecran === 0) return;
+  if(assistant.ecran === 1) return;
+
+  rendreConcernes();
+
+  if(assistant.ecran === 2){
+    if(assistant.code === 'NOTE'){
+      const se = el('note-etape');
+      if(se) se.onchange = () => { saisie.etape = se.value || null; rendreAmorces(); rendreConcernes(); };
+      document.querySelectorAll('.pastille[data-type]').forEach(b => b.onclick = () => {
+        saisie.type = b.dataset.type;
+        document.querySelectorAll('.pastille[data-type]').forEach(x =>
+          x.classList.toggle('on', x.dataset.type === saisie.type));
+        majVisibilite();
+      });
+      rendreAmorces();
+      majVisibilite();
+      const go = el('note-go');
+      if(go) go.onclick = envoyerNote;
+    }
+    const np = el('note-piece');
+    if(np) np.onchange = deposerPiece;
+    const dz = el('drop-piece');
+    if(dz){
+      dz.onclick = () => el('note-piece').click();
+      dz.ondragover = ev => { ev.preventDefault(); dz.classList.add('survol'); };
+      dz.ondragleave = () => dz.classList.remove('survol');
+      dz.ondrop = ev => {
+        ev.preventDefault(); dz.classList.remove('survol');
+        const fic = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if(fic) traiterPiece(fic);
+      };
+    }
+    rendrePieces();
+  }
+
+  if(assistant.ecran === 3){
+    rendreChoixApercu();
+    const pc = el('as-portee');
+    if(pc) pc.onchange = function(){
+      assistant.portee = this.checked;
+      const po = porteeDuModele();
+      const cond = (po && po.condition && po.condition.length)
+        ? 'Visible côté client uniquement sur le choix n° ' + po.condition.join(', ') + '.'
+        : 'Toujours visible côté client.';
+      el('as-portee-note').textContent = this.checked
+        ? cond + ' Case décochée par défaut chez le client (= cette commande seulement).'
+        : 'Décochée : la proposition de validation définitive n’apparaîtra pas côté client.';
+    };
+    const se = el('as-etape');
+    if(se) se.onchange = () => { saisie.etape = se.value || null; rendreConcernes(); };
+    const cx = el('as-ctx');
+    if(cx) cx.onclick = () => {
+      ctxModele = (ctxModele === 'devis') ? 'commande' : 'devis';
+      const m = modeleCourant();
+      if(m){
+        /* les aides contextuelles suivent le contexte corrigé */
+        const parLibelle = {};
+        (m.choix || []).forEach(c => { parLibelle[c.libelle] = c; });
+        choixEdit = choixEdit.map(c => {
+          const o = parLibelle[c.libelle];
+          if(!o) return c;
+          return { ordre:c.ordre, libelle:c.libelle,
+            aide: (ctxModele === 'devis' ? (o.aide_devis || o.aide) : (o.aide_commande || o.aide)) || null,
+            commentaire_obligatoire: c.commentaire_obligatoire };
+        });
+      }
+      rendreSaisie();
+    };
+    const go = el('note-go');
+    if(go) go.onclick = envoyerNote;
+  }
 }
 function majVisibilite(){
+  const cb = el('note-visible');
+  if(!cb) return;
   const t = saisie.type;
-  el('zone-portee').style.display = (t === 'question_client') ? '' : 'none';
-  const ligne = el('ligne-visible'), cb = el('note-visible');
-  if(t === 'question_client'){ cb.checked = true; cb.disabled = true; ligne.style.opacity = .6; }
-  else if(t === 'question_interne'){ cb.checked = false; cb.disabled = true; ligne.style.opacity = .6; }
-  else { cb.disabled = false; ligne.style.opacity = 1; }
+  if(t === 'question_interne'){ cb.checked = false; cb.disabled = true; el('ligne-visible').style.opacity = .6; }
+  else { cb.disabled = false; el('ligne-visible').style.opacity = 1; }
 }
 function rendreAmorces(){
   const z = el('zone-amorces');
+  if(!z) return;
   const props = (FICHE.propositions || {})[saisie.etape] || [];
   z.innerHTML = props.map(t => '<button class="amorce">' + esc(t) + '</button>').join('');
   z.querySelectorAll('.amorce').forEach(b => b.onclick = () => {
-    const ta = el('note-texte');
+    const ta = el('as-var-TEXTE');
     ta.value = ta.value ? ta.value : (b.textContent + ' : ');
     ta.focus();
   });
@@ -1337,17 +1742,17 @@ async function traiterPiece(fichier){
     const corps = await compresser(fichier);
     /* Le type vient de l EXTENSION (deduit par n8n), pas du navigateur */
     const up = await fetch(j.url, { method: 'PUT', headers: { 'Content-Type': j.type }, body: corps });
-    if(!up.ok) throw new Error('Envoi refus\u00e9 par le stockage (' + up.status + ').');
+    if(!up.ok) throw new Error('Envoi refusé par le stockage (' + up.status + ').');
     piecesSaisie.push({ chemin: j.chemin, nom: fichier.name, type: j.type });
     envoiPiece = false; rendrePieces();
   }catch(e){
-    envoiPiece = false; rendrePieces('Pi\u00e8ce non d\u00e9pos\u00e9e : ' + e.message);
+    envoiPiece = false; rendrePieces('Pièce non déposée : ' + e.message);
   }
 }
 function rendrePieces(erreur){
   const z = el('zone-pieces'); if(!z) return;
   let h = '';
-  if(envoiPiece) h += '<p class="hint" style="margin:6px 0 0"><span class="spin"></span> Envoi en cours\u2026</p>';
+  if(envoiPiece) h += '<p class="hint" style="margin:6px 0 0"><span class="spin"></span> Envoi en cours…</p>';
   if(erreur) h += '<p class="err-msg" style="margin:6px 0 0">' + esc(erreur) + '</p>';
   piecesSaisie.forEach((p, i) => {
     h += '<div class="piece-ligne"><i class="ti ' + (/^image\//.test(p.type)?'ti-photo':'ti-file-text') + '"></i>' +
@@ -1366,7 +1771,7 @@ FS.ouvrirPiece = function(chemin){
       if(!j || j.ok !== true || !j.url) throw new Error((j && j.motif) || 'Lien indisponible.');
       if(w) w.location.href = j.url; else window.location.href = j.url;
     })
-    .catch(e => { if(w) w.close(); alert('Pi\u00e8ce jointe indisponible : ' + e.message); });
+    .catch(e => { if(w) w.close(); alert('Pièce jointe indisponible : ' + e.message); });
 };
 /* ---------------------------------------------- modeles Pb->Soluce (111) --- */
 let MODELES = null;          // bibliotheque chargee une fois par session
@@ -1374,154 +1779,102 @@ let modeleChoisi = null;     // code du modele applique a la saisie en cours
 let ctxModele = 'commande';  // resout [pas|plus] et les aides contextuelles
 let choixEdit = [];          // choix de reponse de CETTE question (copie editable)
 
-FS.ctxModele = function(c){
-  ctxModele = c;
-  ['devis','commande'].forEach(x =>
-    el('mdl-ctx-' + x).classList.toggle('on', x === ctxModele));
-  rendreListeModeles();
-};
 async function chargerModeles(){
   if(MODELES) return MODELES;
   const j = await getJson(BASE + '/fabstory-modeles');
   MODELES = (j && j.modeles) || [];
   return MODELES;
 }
-FS.ouvrirModeles = async function(){
-  const d = el('dlg-modeles');
-  d.showModal();
-  FS.ctxModele(ctxModele);
-  try{ await chargerModeles(); }catch(e){
-    el('mdl-liste').innerHTML = '<p class="err-msg">' + esc(e.message) + '</p>'; return;
-  }
-  rendreListeModeles();
-};
-function rendreListeModeles(){
-  if(!MODELES) return;
-  const visibles = MODELES.filter(m => m.contexte === 'les_deux' || m.contexte === ctxModele);
-  el('mdl-liste').innerHTML = visibles.length ? visibles.map(m =>
-    '<div class="lm-item" onclick="FS.choisirModele(\'' + m.code + '\')">' +
-    '<div class="lm-titre">' + esc(m.titre) + '</div>' +
-    '<div class="lm-apercu">' + esc((m.texte_client || '').slice(0, 160)) + '</div>' +
-    '</div>').join('') : '<p class="mini">Aucun mod\u00e8le pour ce contexte.</p>';
-}
-const SPECS_STANDARD = 'Mat\u00e9riau : FR4 TG150\nFinition : ENIG\nMasque de soudure : vert, deux faces\nS\u00e9rigraphie : blanche, deux faces\nClasse : IPC-A-600 classe 2\n\u00c9paisseur : 1,6 mm\nCuivre ext\u00e9rieur : 35 \u00b5m\nCuivre interne : 35 \u00b5m\nStack-up : libre';
-function resoudreTexteModele(m){
-  let t = m.texte_client || '';
-  /* segments [pas|plus] : premier = devis, second = commande */
-  t = t.replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (x, a, b) => ctxModele === 'devis' ? a : b);
-  t = t.replace('{SPECS}', SPECS_STANDARD);
-  return t;
-}
-FS.choisirModele = function(code){
-  const m = (MODELES || []).find(x => x.code === code);
-  if(!m) return;
-  modeleChoisi = code;
-  el('note-texte').value = resoudreTexteModele(m);
-  choixEdit = (m.choix || []).map(c => ({
-    ordre: c.ordre,
-    libelle: c.libelle,
-    aide: (ctxModele === 'devis' ? (c.aide_devis || c.aide) : (c.aide_commande || c.aide)) || null,
-    commentaire_obligatoire: !!c.commentaire_obligatoire
-  }));
-  el('dlg-modeles').close();
-  rendreZoneModele();
-  const reste = (el('note-texte').value.match(/\{[A-Z_\u00c0-\u00dc]+\}/g) || []);
-  el('note-msg').innerHTML = reste.length
-    ? '<span style="color:var(--amber-badge)">\u00c0 compl\u00e9ter avant envoi : ' + esc(reste.join(' ')) + '</span>' : '';
-};
-function rendreZoneModele(){
-  const z = el('zone-modele');
-  if(!z) return;
-  z.style.display = (saisie.type === 'question_client') ? '' : 'none';
-  const b = el('badge-modele');
-  b.innerHTML = modeleChoisi
-    ? '<span class="badge-modele"><i class="ti ti-template"></i> ' + esc(modeleChoisi) + '</span>' : '';
-  const zc = el('zone-choix');
-  if(!choixEdit.length){
-    zc.innerHTML = '<p class="mini" style="margin:0">Aucun choix ferm\u00e9 : le client r\u00e9pondra librement. ' +
-      '<a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
-    return;
-  }
-  zc.innerHTML = '<label class="mini" style="margin:0 0 4px">Choix propos\u00e9s au client</label>' +
-    choixEdit.map((c, i) =>
-      '<div class="ce-item"><div><div class="ce-lib">' + esc(c.libelle) +
-      (c.commentaire_obligatoire ? ' <span class="mini">(commentaire obligatoire)</span>' : '') + '</div>' +
-      (c.aide ? '<div class="ce-aide">' + esc(c.aide) + '</div>' : '') + '</div>' +
-      '<button class="ce-x" type="button" title="Retirer" onclick="FS.retirerChoix(' + i + ')">\u2715</button></div>'
-    ).join('') +
-    '<p class="mini" style="margin:6px 0 0"><a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
-}
-FS.retirerChoix = function(i){ choixEdit.splice(i, 1); rendreZoneModele(); };
+const SPECS_STANDARD = 'Matériau : FR4 TG150\nFinition : ENIG\nMasque de soudure : vert, deux faces\nSérigraphie : blanche, deux faces\nClasse : IPC-A-600 classe 2\nÉpaisseur : 1,6 mm\nCuivre extérieur : 35 µm\nCuivre interne : 35 µm\nStack-up : libre';
+FS.retirerChoix = function(i){ choixEdit.splice(i, 1); rendreChoixApercu(); };
 FS.ajouterChoix = function(){
-  const lib = (prompt('Libell\u00e9 du choix (court) :') || '').trim();
+  const lib = (prompt('Libellé du choix (court) :') || '').trim();
   if(!lib) return;
-  const aide = (prompt('Aide affich\u00e9e sous le choix (facultatif) :') || '').trim();
-  const oblig = confirm('Commentaire obligatoire quand le client choisit cette r\u00e9ponse ?\nOK = oui, Annuler = non');
+  const aide = (prompt('Aide affichée sous le choix (facultatif) :') || '').trim();
+  const oblig = confirm('Commentaire obligatoire quand le client choisit cette réponse ?\nOK = oui, Annuler = non');
   choixEdit.push({ ordre: choixEdit.length + 1, libelle: lib, aide: aide || null, commentaire_obligatoire: oblig });
-  rendreZoneModele();
+  rendreChoixApercu();
 };
 FS.enregistrerModele = async function(){
-  const texte = el('note-texte').value.trim();
-  if(!texte){ el('note-msg').innerHTML = '<span class="err-msg">Composez d\u2019abord la question.</span>'; return; }
-  const titre = (prompt('Titre du mod\u00e8le (visible dans le menu) :') || '').trim();
+  /* Promotion depuis l usage. Le modele garde ses VARIABLES et ses segments
+     [pas|plus] : on enregistre le texte du modele d origine (pas la question
+     remplie), ou le texte litteral pour une question libre. */
+  const m = modeleCourant();
+  const texte = m ? (m.texte_client || '') : (assistant.vals.TEXTE || '').trim();
+  const msg = el('note-msg');
+  if(!texte){ msg.innerHTML = '<span class="err-msg">Composez d’abord la question.</span>'; return; }
+  const titre = (prompt('Titre du modèle (visible dans la bibliothèque) :') || '').trim();
   if(!titre) return;
   try{
     const r = await postJson(BASE + '/fabstory-modele-creer', {
       titre: titre, texte_client: texte, choix: choixEdit,
-      contexte: ctxModele, domaine: 'transverse', auteur: qui() || ''
+      contexte: m ? m.contexte : ctxModele, domaine: m ? m.domaine : 'transverse', auteur: qui() || ''
     });
     MODELES = null;   /* la bibliotheque a change : on rechargera */
-    modeleChoisi = r.code;
-    rendreZoneModele();
-    el('note-msg').innerHTML = '<span style="color:var(--green-badge)">Mod\u00e8le ' + esc(r.code) + ' cr\u00e9\u00e9.</span>';
+    msg.innerHTML = '<span style="color:var(--green-badge)">Modèle ' + esc(r.code) + ' créé — il rejoint la bibliothèque.</span>';
   }catch(e){
-    el('note-msg').innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
+    msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
   }
 };
 
 async function envoyerNote(){
-  const texte = el('note-texte').value.trim();
+  const estNote = (assistant.code === 'NOTE');
+  if(estNote) { const ta = el('as-var-TEXTE'); if(ta) assistant.vals.TEXTE = ta.value.trim(); }
+  const texte = estNote ? (assistant.vals.TEXTE || '') : texteAssemble();
   const msg = el('note-msg');
-  if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est n\u00e9cessaire.</span>'; return; }
-  if(envoiPiece){ msg.innerHTML = '<span class="err-msg">Une pi\u00e8ce est en cours d\u2019envoi, un instant.</span>'; return; }
-  const auteur = auteurOuStop();
+  if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est nécessaire.</span>'; return; }
+  if(envoiPiece){ msg.innerHTML = '<span class="err-msg">Une pièce est en cours d’envoi, un instant.</span>'; return; }
+  const iniSel = el('note-initiales');
+  if(iniSel && iniSel.value) setQui(iniSel.value.trim().toUpperCase());
+  const auteur = qui() || auteurOuStop();
   if(!auteur) return;
   const cs = concernesEffectifs();
-  if(!cs.length){ msg.innerHTML = '<span class="err-msg">Choisir au moins un concern\u00e9 (destinataire de la notification).</span>'; return; }
+  if(!cs.length){ msg.innerHTML = '<span class="err-msg">Choisir au moins un concerné (destinataire de la notification).</span>'; return; }
+  const estQuestionClient = (saisie.type === 'question_client');
+  /* v4.0 : la PHOTOCOPIE devient une enveloppe { choix, portee } — la question
+     envoyee est autonome (texte + choix + case, figes ensemble). Les aides des
+     choix partent VARIABLES RESOLUES : le client lit du texte, pas des {REF}. */
+  let enveloppe = null;
+  if(estQuestionClient){
+    const choixResolus = choixEdit.map(c => ({
+      ordre: c.ordre, libelle: c.libelle,
+      aide: c.aide ? nettoyerAuto(remplirVars(c.aide)) : null,
+      commentaire_obligatoire: !!c.commentaire_obligatoire
+    }));
+    enveloppe = { choix: choixResolus, portee: (assistant.portee ? porteeDuModele() : null) };
+  }
   const corps = {
     produit_id: P.id, type: saisie.type, texte_brut: texte, auteur,
     poles: cs,
     etape_code: saisie.etape || null,
-    repere: el('note-repere').value.trim() || null,
-    mpn: el('note-mpn').value.trim() || null,
+    repere: estNote ? ((el('note-repere')||{}).value||'').trim() || null : (assistant.vals.REP || null),
+    mpn: estNote ? ((el('note-mpn')||{}).value||'').trim() || null : (assistant.vals.REF || null),
     lien: null,
     photos: piecesSaisie.map(p => p.chemin),
-    visible_client: el('note-visible').checked,
-    portee_validation: (saisie.type === 'question_client') ? saisie.portee : null,
+    visible_client: estNote ? !!(el('note-visible')||{}).checked : true,
+    portee_validation: null,
     source: 'fabstory',
     differer_notif: true,
-    choix_reponse: (saisie.type === 'question_client' && choixEdit.length) ? choixEdit : null,
-    modele_code: (saisie.type === 'question_client') ? modeleChoisi : null
+    choix_reponse: enveloppe,
+    modele_code: estQuestionClient ? modeleChoisi : null
   };
-  const restes = (texte.match(/\{[A-Z_\u00c0-\u00dc]+\}/g) || []);
-  if(restes.length && !confirm('Le texte contient encore des variables non compl\u00e9t\u00e9es : ' +
-      restes.join(' ') + '\n\nEnregistrer quand m\u00eame ?')){
+  const restes = (texte.match(/\{[A-Z0-9_]+\}/g) || []);
+  if(restes.length && !confirm('Le texte contient encore des variables non complétées : ' +
+      restes.join(' ') + '\n\nEnregistrer quand même ?')){
     return;
   }
   const btn = el('note-go');
-  btn.disabled = true;
+  if(btn) btn.disabled = true;
   msg.innerHTML = '<span class="spin"></span>';
   try{
     await postJson(BASE + '/fabstory-note', corps);
-    piecesSaisie = [];
-    modeleChoisi = null; choixEdit = [];
+    assistantReset();
     await recharger(false);
   }catch(e){
     msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
-    btn.disabled = false;
+    if(btn) btn.disabled = false;
   }
 }
-
 /* ------------------------------------------------------- creation carte --- */
 let SOCIETES = null;
 FS.ouvrirCreation = async function(){
