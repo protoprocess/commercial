@@ -134,7 +134,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "4.2";
+const APP_VERSION = "4.3";
 const APP_DATE = "28/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -299,14 +299,14 @@ function afficherConfrontation(rep, ent) {
 
   h += '<div class="piece ' + (memeTotal ? 'ok' : 'err') + '"><div class="p-nom">Total HT</div><div class="p-corps">' +
        '<span class="badge ' + (memeTotal ? 'badge-ok' : 'badge-err') + '">' + (memeTotal ? 'identique' : '\u00e9cart') + '</span>' +
-       '<div class="p-detail">Bon de commande <b>' + ech(t.po) + ' \u20ac</b> \u00b7 devis <b>' + ech(t.devis) + ' \u20ac</b></div></div></div>';
+       '<div class="p-detail">Bon de commande <b>' + ech(t.po_texte || (t.po + ' \u20ac')) + '</b> \u00b7 devis <b>' + ech(t.devis_texte || (t.devis + ' \u20ac')) + '</b></div></div></div>';
 
   for (const e of rep.ecarts) {
     h += '<div class="piece ' + (e.grave ? 'err' : 'warn') + '"><div class="p-nom">' + ech(e.nom) + '</div><div class="p-corps">' +
       '<span class="badge ' + (e.grave ? 'badge-err' : 'badge-warn') + '">' + (e.grave ? 'grave' : '\u00e0 regarder') + '</span>' +
       '<div class="p-detail">' +
       (e.po ? '<b>PO</b> ' + ech(e.po) : '') +
-      (e.devis ? '<br><b>Devis</b> ' + ech(e.devis) : '') +
+      (e.constat ? '<br><b>' + ech(e.libelle_constat || 'Devis') + '</b> ' + ech(e.constat) : '') +
       (e.note ? '<br><span style="color:var(--text3)">' + ech(e.note) + '</span>' : '') +
       '</div></div></div>';
   }
