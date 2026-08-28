@@ -407,7 +407,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.0';
+const APP_VERSION = '4.1';
 const APP_DATE = '28/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1517,8 +1517,14 @@ function remplirVars(t){
   return t;
 }
 function nettoyerAuto(t){
-  /* passe 1 sans endpoint distributeur : les segments {DATE}/{LIEN} sautent */
-  return t.replace(/\s*\(\{(DATE|LIEN)\}\)/g, '')
+  /* passe 1 sans endpoint distributeur : les segments {DATE}/{LIEN} sautent.
+     v4.1 : un segment OPTIONNEL entre crochets (sans pipe) qui contient encore
+     une variable auto non remplie saute EN ENTIER, crochets compris ; s'il ne
+     contient plus de variable (passe 2, valeur remplie), seuls les crochets
+     tombent. Le segment [pas|plus] est deja resolu avant cet appel. */
+  return t.replace(/\[[^\[\]|]*\{(DATE|LIEN)\}[^\[\]|]*\]/g, '')
+          .replace(/\[([^\[\]|]*)\]/g, '$1')
+          .replace(/\s*\(\{(DATE|LIEN)\}\)/g, '')
           .replace(/\s*[—–-]\s*\{(DATE|LIEN)\}/g, '')
           .replace(/\{(DATE|LIEN)\}/g, '')
           .replace(/ {2,}/g, ' ');
