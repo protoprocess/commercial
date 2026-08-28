@@ -134,7 +134,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "4.3";
+const APP_VERSION = "4.4";
 const APP_DATE = "28/08/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -252,19 +252,56 @@ chargerEntrantes();
    carte, regle posee le 28/08 — trop aleatoire, ca produirait de faux
    rapprochements silencieux. L ecran ne fait que MONTRER les ecarts ; les
    corrections restent des gestes humains dans Odoo. */
-function demanderDevis(ent) {
+async function demanderDevis(ent) {
   if (!ent) return;
   const z = el('confrontation');
-  const suggestion = ent.num_commande_client ? ' (PO ' + ech(ent.num_commande_client) + ')' : '';
-  z.innerHTML = '<div class="rapport visible" style="margin-top:16px"><h2>Confronter au devis' + suggestion + '</h2>' +
-    '<div class="piece"><div class="p-nom">Devis</div><div class="p-corps">' +
-    '<div class="p-detail">Num\u00e9ro du devis Odoo \u00e0 confronter (l humain choisit, jamais l appli) :</div>' +
+  z.innerHTML = '<div class="etat-msg chargement"><span class="spin"></span>Recherche des devis ouverts\u2026</div>';
+
+  /* RAPPROCHEMENT ASSISTE : l appli PROPOSE, l humain TRANCHE. Les devis sont
+     classes par proximite de montant avec le bon de commande — le signal le
+     plus fiable et le plus lisible. Jamais de selection automatique, meme
+     quand un seul devis tombe au centime pres. */
+  let rep = null;
+  try { rep = await appel('commande-devis-ouverts?entrante=' + encodeURIComponent(ent.id)); }
+  catch (err) { rep = null; }
+
+  const po = ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '';
+  let h = '<div class="rapport visible" style="margin-top:16px"><h2>Choisir le devis' + po + '</h2>';
+
+  if (rep && rep.ok && rep.nb_devis) {
+    h += '<div class="piece"><div class="p-corps"><div class="p-detail">' +
+         'Bon de commande <b>' + ech(rep.total_po_texte) + '</b> \u00b7 ' +
+         ech(rep.nb_devis) + ' devis ouvert(s) chez ' + ech((rep.clients_trouves[0] || {}).nom || ent.client_detecte) +
+         '</div></div></div>';
+    for (const d of rep.devis) {
+      const cl = d.meme_montant ? 'ok' : '';
+      h += '<div class="piece ' + cl + '"><div class="p-nom">' + ech(d.nom) + '</div><div class="p-corps">' +
+        (d.meme_montant ? '<span class="badge badge-ok">m\u00eame montant</span>' : '') +
+        '<div class="p-detail">' + ech(d.date) + ' \u00b7 <b>' + ech(d.total_texte) + '</b>' +
+        (d.projet ? ' \u00b7 ' + ech(d.projet) : '') +
+        (d.po_deja_pose ? '<br><span style="color:var(--amber)">porte d\u00e9j\u00e0 la r\u00e9f\u00e9rence client ' + ech(d.po_deja_pose) + '</span>' : '') +
+        '</div><div class="p-actions">' +
+        '<button class="btn-p" data-choisir-devis="' + ech(d.nom) + '">Confronter \u00e0 ce devis</button>' +
+        '</div></div></div>';
+    }
+  } else {
+    h += '<div class="piece warn"><div class="p-corps"><span class="badge badge-warn">aucun devis trouv\u00e9</span>' +
+         '<div class="p-detail">' + ech((rep && rep.note) || 'Aucun devis ouvert n a \u00e9t\u00e9 trouv\u00e9 pour ce client.') + '</div></div></div>';
+  }
+
+  h += '<div class="piece"><div class="p-nom">Autre devis</div><div class="p-corps">' +
+    '<div class="p-detail">Saisir un num\u00e9ro si le bon devis n est pas dans la liste :</div>' +
     '<div class="p-actions" style="align-items:center">' +
     '<input type="text" id="conf-so" placeholder="SO2608-436" style="min-width:220px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-    '<button class="btn-p" id="conf-go">Confronter</button>' +
+    '<button class="btn-s" id="conf-go">Confronter</button>' +
     '</div></div></div></div>';
+
+  z.innerHTML = h;
+  z.querySelectorAll('[data-choisir-devis]').forEach(b => b.addEventListener('click', function () {
+    el('conf-so').value = this.dataset.choisirDevis;
+    lancerConfrontation(ent);
+  }));
   const champ = el('conf-so');
-  champ.focus();
   champ.addEventListener('keydown', e => { if (e.key === 'Enter') lancerConfrontation(ent); });
   el('conf-go').addEventListener('click', () => lancerConfrontation(ent));
 }
@@ -327,7 +364,7 @@ function afficherConfrontation(rep, ent) {
      en lot. La validation elle-meme se fait dans Odoo, jamais ici. */
   h += '<div class="piece"><div class="p-nom">Suite</div><div class="p-corps"><div class="p-actions">' +
     (d.po_pose ? '<span style="color:var(--text3);font-size:12px">N\u00b0 de commande client d\u00e9j\u00e0 pos\u00e9 : ' + ech(d.po_pose) + '</span>'
-               : '<button class="btn-p" data-poser-po="' + d.id + '" data-po="' + ech(ent.num_commande_client || '') + '" data-ent="' + ent.id + '">Poser le n\u00b0 de commande client sur le devis</button>') +
+               : '<button class="btn-p" data-poser-po="' + d.id + '" data-po="' + ech(ent.num_commande_client || '') + '" data-ent="' + ent.id + '">Rattacher : n\u00b0 de commande + bon de commande dans le fil</button>') +
     '<a class="btn-s" style="text-decoration:none;display:inline-block" target="_blank" rel="noopener" href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + d.id + '">Ouvrir le devis dans Odoo</a>' +
     '<span style="color:var(--text3);font-size:12px;width:100%">Les corrections et la confirmation se font dans Odoo. L appli ne fait que montrer.</span>' +
     '</div></div></div>';
@@ -337,8 +374,8 @@ function afficherConfrontation(rep, ent) {
 
   const bp = z.querySelector('[data-poser-po]');
   if (bp) bp.addEventListener('click', function () {
-    agir(this, 'commande-poser-po', { so_id: parseInt(this.dataset.poserPo, 10), num_commande_client: this.dataset.po, entrante_id: parseInt(this.dataset.ent, 10) },
-      r => 'N\u00b0 ' + r.num_commande_client + ' pos\u00e9 sur ' + r.so + '.');
+    agir(this, 'commande-rattacher', { so_id: parseInt(this.dataset.poserPo, 10), num_commande_client: this.dataset.po, entrante_id: parseInt(this.dataset.ent, 10) },
+      r => 'N\u00b0 ' + r.num_commande_client + ' pos\u00e9 sur ' + r.so + ' \u2014 bon de commande pouss\u00e9 dans le fil du devis.');
   });
 }
 
