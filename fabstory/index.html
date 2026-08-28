@@ -407,7 +407,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.1';
+const APP_VERSION = '4.2';
 const APP_DATE = '28/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1408,7 +1408,8 @@ function htmlChampVar(v){
   const long = VARS_LONGUES.includes(v);
   const champ = long
     ? '<textarea id="as-var-' + v + '" style="font-family:var(--mono)">' + esc(assistant.vals[v]||'') + '</textarea>'
-    : '<input type="text" id="as-var-' + v + '" style="font-family:var(--mono)" value="' + esc(assistant.vals[v]||'') + '">';
+    : '<input type="text" id="as-var-' + v + '" style="font-family:var(--mono)" value="' + esc(assistant.vals[v]||'') + '"' +
+      (v === 'REF' ? ' onchange="FS.chercherLienMouser(false)"' : '') + '>';
   return '<div' + (long?' style="grid-column:1/-1"':'') + '><label class="lbl">' + esc(def[0]) +
     ' <span style="color:var(--accent-fonce)">*</span></label>' + champ +
     (def[1] ? '<p class="mini" style="margin:3px 0 0">' + esc(def[1]) + '</p>' : '') + '</div>';
@@ -1432,10 +1433,24 @@ function htmlEcranCompleter(){
           'onchange="assistant.specsLignes[' + i + '][1]=this.value"></td></tr>').join('') + '</table>';
     }
     if(/\{(DATE|LIEN)\}/.test(m.texte_client || '')){
-      h += '<div class="auto-ligne">' +
-        (/\{DATE\}/.test(m.texte_client)?'<span class="auto-tag">{DATE} dispo annoncée</span>':'') +
-        (/\{LIEN\}/.test(m.texte_client)?'<span class="auto-tag">{LIEN} fiche distributeur</span>':'') +
-        '<span class="auto-txt">automatisés en passe 2 (API Digikey/Mouser) — en attendant, ces segments sautent du message.</span></div>';
+      /* v4.2 (decision Olivier 28/08, option A) : date et lien SAISIS par l operateur,
+         apres lecture sur les sites distributeurs. Seul le lien est pre-rempli
+         (fiche produit Mouser via fabstory-ref-info). Champs facultatifs :
+         vides, leurs segments sautent du message. */
+      h += '<div class="grille2" style="margin-top:10px">' +
+        (/\{DATE\}/.test(m.texte_client)
+          ? '<div><label class="lbl">Disponibilité annoncée (facultatif)</label>' +
+            '<input type="text" id="as-var-DATE" placeholder="ex. 01/10/2026" style="font-family:var(--mono)" value="' + esc(assistant.vals.DATE||'') + '">' +
+            '<p class="mini" style="margin:3px 0 0">À lire sur le site du distributeur — vide : la phrase disparaît du message.</p></div>' : '') +
+        (/\{LIEN\}/.test(m.texte_client)
+          ? '<div><label class="lbl">Lien fiche produit (facultatif)</label>' +
+            '<input type="text" id="as-var-LIEN" placeholder="pré-rempli avec la fiche Mouser si trouvée" style="font-family:var(--mono)" value="' + esc(assistant.vals.LIEN||'') + '">' +
+            '<p class="mini" id="as-lien-msg" style="margin:3px 0 0">' + esc(assistant.lienMsg||'') + '</p></div>' : '') +
+        '</div>' +
+        '<div class="auto-ligne"><span class="auto-txt">Consulter la disponibilité chez :</span>' +
+        ['Mouser','DigiKey','Farnell','TME'].map(d =>
+          '<button type="button" class="btn-s" onclick="FS.ouvrirDistrib(\'' + d + '\')">' + d + '</button>').join('') +
+        '<button type="button" class="btn-s" onclick="FS.chercherLienMouser(true)">Lien Mouser</button></div>';
     }
   } else if(assistant.code === 'QL'){
     h += '<label class="lbl">Votre question au client <span style="color:var(--accent-fonce)">*</span></label>' +
@@ -1495,6 +1510,14 @@ function lireChampsEcran2(){
     const e = el('as-var-' + v);
     if(e) assistant.vals[v] = e.value.trim();
   });
+  /* v4.2 : variables facultatives — une valeur vide est SUPPRIMEE de vals,
+     sinon remplirVars() viderait {DATE} et le segment optionnel ne sauterait plus */
+  AUTO_VARS.forEach(v => {
+    const e = el('as-var-' + v);
+    if(!e) return;
+    const val = e.value.trim();
+    if(val) assistant.vals[v] = val; else delete assistant.vals[v];
+  });
   const ini = el('note-initiales');
   if(ini && ini.value){ setQui(ini.value.trim().toUpperCase()); }
 }
@@ -1513,9 +1536,49 @@ FS.assistantApercu = function(){
 
 /* --------------------------------------------------------------- écran 3 -- */
 function remplirVars(t){
-  Object.keys(assistant.vals).forEach(k => { t = t.split('{' + k + '}').join(assistant.vals[k]); });
+  Object.keys(assistant.vals).forEach(k => {
+    const val = String(assistant.vals[k] === undefined || assistant.vals[k] === null ? '' : assistant.vals[k]);
+    if(!val.trim()) return;               /* v4.2 : une variable vide reste {X} et saute au nettoyage */
+    t = t.split('{' + k + '}').join(val);
+  });
   return t;
 }
+/* v4.2 — sites distributeurs (recherche par MPN, aucune API) + lien Mouser via fabstory-ref-info */
+const DISTRIB_URLS = {
+  Mouser:  m => 'https://www.mouser.fr/c/?q=' + encodeURIComponent(m),
+  DigiKey: m => 'https://www.digikey.fr/fr/products/result?keywords=' + encodeURIComponent(m),
+  Farnell: m => 'https://fr.farnell.com/search?st=' + encodeURIComponent(m),
+  TME:     m => 'https://www.tme.eu/fr/katalog/?search=' + encodeURIComponent(m)
+};
+function refCourante(){
+  const e = el('as-var-REF');
+  return ((e && e.value) || assistant.vals.REF || '').trim();
+}
+FS.ouvrirDistrib = function(d){
+  const ref = refCourante();
+  if(!ref){ el('note-msg').innerHTML = '<span class="err-msg">Saisissez d’abord la référence concernée.</span>'; return; }
+  window.open(DISTRIB_URLS[d](ref), '_blank', 'noopener');
+};
+let lienMouserPour = null;
+FS.chercherLienMouser = async function(force){
+  const ref = refCourante();
+  const champ = el('as-var-LIEN'); const msg = el('as-lien-msg');
+  if(!champ || !ref) return;
+  if(!force && (lienMouserPour === ref || champ.value.trim())) return;
+  lienMouserPour = ref;
+  if(msg) msg.textContent = 'Recherche de la fiche Mouser…';
+  try{
+    const r = await getJson(BASE + '/fabstory-ref-info?mpn=' + encodeURIComponent(ref));
+    const off = ((r && r.offres) || []).find(o => o.distributeur === 'Mouser' && o.lien);
+    if(off){
+      if(force || !champ.value.trim()) champ.value = off.lien;
+      assistant.lienMsg = 'Fiche Mouser trouvée (' + (off.spn || '') + ').';
+    } else {
+      assistant.lienMsg = 'Référence inconnue chez Mouser — collez un lien à la main si besoin.';
+    }
+  }catch(e){ assistant.lienMsg = 'Recherche Mouser indisponible.'; }
+  if(msg) msg.textContent = assistant.lienMsg;
+};
 function nettoyerAuto(t){
   /* passe 1 sans endpoint distributeur : les segments {DATE}/{LIEN} sautent.
      v4.1 : un segment OPTIONNEL entre crochets (sans pipe) qui contient encore
@@ -1855,7 +1918,7 @@ async function envoyerNote(){
     etape_code: saisie.etape || null,
     repere: estNote ? ((el('note-repere')||{}).value||'').trim() || null : (assistant.vals.REP || null),
     mpn: estNote ? ((el('note-mpn')||{}).value||'').trim() || null : (assistant.vals.REF || null),
-    lien: null,
+    lien: estNote ? null : (assistant.vals.LIEN || null),
     photos: piecesSaisie.map(p => p.chemin),
     visible_client: estNote ? !!(el('note-visible')||{}).checked : true,
     portee_validation: null,
