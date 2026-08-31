@@ -274,7 +274,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.16";
+const APP_VERSION = "0.17";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -420,10 +420,10 @@ function svgLienExt() {
 }
 function htmlLiensDoc(e) {
   const l = (e && e.enveloppe && e.enveloppe.liens) || {};
-  const out = [];
-  if (l.datasheet) out.push('<a href="' + esc(l.datasheet) + '" target="_blank" rel="noopener">' + svgLienExt() + 'Voir la datasheet</a>');
-  if (l.produit) out.push('<a href="' + esc(l.produit) + '" target="_blank" rel="noopener">' + svgLienExt() + 'Voir la fiche produit</a>');
-  return out.length ? '<div class="liens-doc">' + out.join("") + "</div>" : "";
+  /* v0.17 (Olivier 31/08) : UN bouton, la datasheet en direct ; la fiche produit
+     reste accessible par le lien "fiche produit" dans le texte. */
+  if (!l.datasheet) return "";
+  return '<div class="liens-doc"><a href="' + esc(l.datasheet) + '" target="_blank" rel="noopener">' + svgLienExt() + 'Voir datasheet</a></div>';
 }
 function fmtDate(iso) {
   if (!iso) return "";
