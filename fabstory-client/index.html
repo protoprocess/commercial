@@ -132,7 +132,14 @@
   .comp { font-family: var(--mono); font-size: 12.5px; margin-bottom: 5px; overflow-wrap: anywhere; }
   .comp .k { color: var(--text2); }
   .comp .v { color: var(--info-txt); font-weight: 600; }
-  .point-texte { font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .point-texte { font-size: 13.5px; overflow-wrap: anywhere; line-height: 1.5; }
+  .point-texte p { margin: 0 0 7px; }
+  .point-texte p:last-child { margin-bottom: 0; }
+  .point-texte .lien-inline { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .point-texte .lien-inline:hover { text-decoration: underline; }
+  .liens-doc { display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 4px; }
+  .liens-doc a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+  .liens-doc a:hover { background: var(--accent); color: #fff; }
   .point-meta { font-size: 11.5px; color: var(--text3); margin-top: 5px; }
 
   /* Formulaire de reponse */
@@ -267,7 +274,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.15";
+const APP_VERSION = "0.16";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -395,6 +402,28 @@ function esc(v) {
   return String(v == null ? "" : v)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+/* v0.16 : texte client en paragraphes, URL brute -> lien "fiche produit" (jamais
+   affichee en clair), sans changer le texte enregistre. */
+function htmlTexteClient(t) {
+  const brut = String(t == null ? "" : t);
+  const paras = brut.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+  return paras.map(function (l) {
+    const h = esc(l).replace(/\s*[\u2014\u2013-]?\s*(https?:\/\/[^\s<]+?)([.,;:!?]?)(?=\s|$)/g, function (m, url, fin) {
+      return ' (<a class="lien-inline" href="' + url + '" target="_blank" rel="noopener">fiche produit</a>)' + fin;
+    });
+    return "<p>" + h + "</p>";
+  }).join("");
+}
+function svgLienExt() {
+  return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function htmlLiensDoc(e) {
+  const l = (e && e.enveloppe && e.enveloppe.liens) || {};
+  const out = [];
+  if (l.datasheet) out.push('<a href="' + esc(l.datasheet) + '" target="_blank" rel="noopener">' + svgLienExt() + 'Voir la datasheet</a>');
+  if (l.produit) out.push('<a href="' + esc(l.produit) + '" target="_blank" rel="noopener">' + svgLienExt() + 'Voir la fiche produit</a>');
+  return out.length ? '<div class="liens-doc">' + out.join("") + "</div>" : "";
 }
 function fmtDate(iso) {
   if (!iso) return "";
@@ -531,7 +560,7 @@ function construirePoint(e) {
       '<div class="point-corps">' +
         (soBadge ? '<div style="margin-bottom:7px">' + soBadge + "</div>" : "") +
         comp +
-        '<div class="point-texte">' + esc(e.texte) + "</div>" +
+        '<div class="point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
         htmlPieces(e.pieces) +
         '<div class="point-meta">Question pos\u00e9e le ' + esc(fmtDate(e.cree_le)) +
           (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
@@ -860,7 +889,7 @@ function rendreFil(r) {
       : "";
     let html = '<div class="entree-tete">' + chips.join("") +
       '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
-      comp + '<div class="entree-texte">' + esc(e.texte) + "</div>" +
+      comp + '<div class="entree-texte point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
       htmlPieces(e.pieces);
     (reponsesDe[e.id] || []).forEach(function (rep) {
       html += '<div class="reponse-bloc">' +
