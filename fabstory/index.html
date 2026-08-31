@@ -409,7 +409,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.7';
+const APP_VERSION = '4.8';
 const APP_DATE = '31/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -893,6 +893,7 @@ function rendreFiche(){
     CONCERNES_LISTE.map(c => '<option value="' + c[0] + '"' + (filtreConcerne===c[0]?' selected':'') + '>' + c[1] + '</option>').join('') +
     '</select>' +
     '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
+    '<button class="filtre" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, t\u00e9l\u00e9chargeable depuis cette page.">Voir le rapport client</button>' +
     '<button class="btn-mail-client" onclick="FS.mailClient()" title="Cr\u00e9e un brouillon Gmail (commercial@ ou production@ selon vos initiales) avec les questions client en attente et le lien de r\u00e9ponse en ligne. Rien ne part sans vous.">Pr\u00e9parer le mail client</button>' +
     '</div>';
   if(!visibles.length){
@@ -957,6 +958,19 @@ FS.copierClient = async function(){
     alert(questions.length + ' question(s) client copi\u00e9e(s), pr\u00eates \u00e0 joindre au devis.');
   }catch(err){
     prompt('Copiez le texte ci-dessous :', texte);
+  }
+};
+
+/* ch.137 : acces rapide a la vue client (= rapport de fabrication) depuis
+   l appli interne, sans devoir passer par Preparer le mail client. Le jeton
+   est cree s il n existe pas encore (meme regle que le circuit mail). */
+FS.voirRapportClient = async function(){
+  try{
+    const r = await getJson(BASE + '/fabstory-jeton?produit_id=' + P.id);
+    if(!r || !r.ok || !r.jeton){ alert(r && r.motif ? r.motif : 'Lien indisponible.'); return; }
+    window.open('https://protoprocess.github.io/commercial/fabstory-client/?jeton=' + encodeURIComponent(r.jeton), '_blank');
+  }catch(err){
+    alert('Impossible d\u2019ouvrir le rapport : ' + (err && err.message ? err.message : err));
   }
 };
 
