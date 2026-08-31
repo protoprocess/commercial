@@ -409,7 +409,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.5';
+const APP_VERSION = '4.6';
 const APP_DATE = '31/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1605,8 +1605,10 @@ FS.chercherLienMouser = async function(force){
     const off = ((r && r.offres) || []).find(o => o.distributeur === 'Mouser' && o.lien);
     if(off){
       if(force || !champ.value.trim()) champ.value = off.lien;
-      assistant.lienMsg = 'Fiche Mouser trouvée (' + (off.spn || '') + ').';
+      assistant.datasheet = off.datasheet || null;
+      assistant.lienMsg = 'Fiche Mouser trouvée (' + (off.spn || '') + ')' + (off.datasheet ? ' — datasheet trouvée.' : ' — pas de datasheet.');
     } else {
+      assistant.datasheet = null;
       assistant.lienMsg = 'Référence inconnue chez Mouser — collez un lien à la main si besoin.';
     }
   }catch(e){ assistant.lienMsg = 'Recherche Mouser indisponible.'; }
@@ -1943,7 +1945,13 @@ async function envoyerNote(){
       aide: c.aide ? nettoyerAuto(remplirVars(c.aide)) : null,
       commentaire_obligatoire: !!c.commentaire_obligatoire
     }));
-    enveloppe = { choix: choixResolus, portee: (assistant.portee ? porteeDuModele() : null) };
+    /* v4.6 (31/08) : variables STRUCTUREES dans l enveloppe (REF, PROPOSITION, DATE,
+       LIEN, DATASHEET...) — la vue client en tire les liens, et la regle client
+       automatique (portee "pour toujours") en tirera l equivalence. Valeurs vides exclues. */
+    const vars = {};
+    Object.keys(assistant.vals).forEach(k => { const v = String(assistant.vals[k] == null ? '' : assistant.vals[k]).trim(); if(v) vars[k] = v; });
+    if(assistant.datasheet) vars.DATASHEET = assistant.datasheet;
+    enveloppe = { choix: choixResolus, portee: (assistant.portee ? porteeDuModele() : null), vars: vars };
   }
   const corps = {
     produit_id: P.id, type: saisie.type, texte_brut: texte, auteur,
