@@ -409,7 +409,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.6';
+const APP_VERSION = '4.7';
 const APP_DATE = '31/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1257,7 +1257,7 @@ FS.voletRetirer = async function(){
    modifié ne change jamais une question déjà partie. */
 
 let assistant = { produit:null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true };
-const AUTO_VARS = ['DATE','LIEN'];
+const AUTO_VARS = ['DATE','LIEN','DATASHEET'];
 const VAR_LABELS = {
   REF:           ['Référence concernée', 'Servira aussi de MPN sur la fiche.'],
   REP:           ['Repère(s) sur la carte', ''],
@@ -1471,11 +1471,14 @@ function htmlEcranCompleter(){
           ? '<div><label class="lbl">Lien fiche produit (facultatif)</label>' +
             '<input type="text" id="as-var-LIEN" placeholder="pré-rempli avec la fiche Mouser si trouvée" style="font-family:var(--mono)" value="' + esc(assistant.vals.LIEN||'') + '">' +
             '<p class="mini" id="as-lien-msg" style="margin:3px 0 0">' + esc(assistant.lienMsg||'') + '</p></div>' : '') +
+        (/\{LIEN\}/.test(m.texte_client)
+          ? '<div><label class="lbl">Lien datasheet (facultatif)</label>' +
+            '<input type="text" id="as-var-DATASHEET" placeholder="pré-rempli (DigiKey / Mouser) si trouvé" style="font-family:var(--mono)" value="' + esc(assistant.vals.DATASHEET||'') + '">' +
+            '<p class="mini" style="margin:3px 0 0">Affiché au client comme bouton « Voir datasheet ».</p></div>' : '') +
         '</div>' +
-        '<div class="auto-ligne"><span class="auto-txt">Consulter la pièce proposée (ou la référence si aucune) chez :</span>' +
+        '<div class="auto-ligne"><span class="auto-txt">Vérifier la dispo chez :</span>' +
         ['Mouser','DigiKey','Farnell','TME'].map(d =>
-          '<button type="button" class="btn-s" onclick="FS.ouvrirDistrib(\'' + d + '\')">' + d + '</button>').join('') +
-        '<button type="button" class="btn-s" onclick="FS.chercherLienMouser(true)">Lien Mouser</button></div>';
+          '<button type="button" class="btn-s" onclick="FS.ouvrirDistrib(\'' + d + '\')">' + d + '</button>').join('') + '</div>';
     }
   } else if(assistant.code === 'QL'){
     h += '<label class="lbl">Votre question au client <span style="color:var(--accent-fonce)">*</span></label>' +
@@ -1594,24 +1597,34 @@ FS.ouvrirDistrib = function(d){
 };
 let lienMouserPour = null;
 FS.chercherLienMouser = async function(force){
+  /* v4.7 : Mouser + DigiKey (endpoint ref-info v0.9). Lien = Mouser d abord, sinon
+     DigiKey ; datasheet = DigiKey d abord, sinon Mouser. Champs pre-remplis
+     seulement s ils sont vides (ou si force). */
   const ref = refPourLien();
   const champ = el('as-var-LIEN'); const msg = el('as-lien-msg');
   if(!champ || !ref) return;
   if(!force && (lienMouserPour === ref || champ.value.trim())) return;
   lienMouserPour = ref;
-  if(msg) msg.textContent = 'Recherche de la fiche Mouser…';
+  if(msg) msg.textContent = 'Recherche distributeurs…';
   try{
     const r = await getJson(BASE + '/fabstory-ref-info?mpn=' + encodeURIComponent(ref));
-    const off = ((r && r.offres) || []).find(o => o.distributeur === 'Mouser' && o.lien);
-    if(off){
-      if(force || !champ.value.trim()) champ.value = off.lien;
-      assistant.datasheet = off.datasheet || null;
-      assistant.lienMsg = 'Fiche Mouser trouvée (' + (off.spn || '') + ')' + (off.datasheet ? ' — datasheet trouvée.' : ' — pas de datasheet.');
+    const offres = (r && r.offres) || [];
+    const mo = offres.find(o => o.distributeur === 'Mouser');
+    const dk = offres.find(o => o.distributeur === 'DigiKey');
+    const lien = (r && r.lien) || null;
+    const ds = (r && r.datasheet) || null;
+    if(lien && (force || !champ.value.trim())) champ.value = lien;
+    const champDs = el('as-var-DATASHEET');
+    if(champDs && ds && (force || !champDs.value.trim())) champDs.value = ds;
+    assistant.datasheet = ds;
+    const trouves = [mo ? 'Mouser' : null, dk ? 'DigiKey' : null].filter(Boolean);
+    if(!trouves.length){
+      assistant.lienMsg = 'Référence inconnue chez Mouser et DigiKey — collez les liens à la main si besoin.';
     } else {
-      assistant.datasheet = null;
-      assistant.lienMsg = 'Référence inconnue chez Mouser — collez un lien à la main si besoin.';
+      assistant.lienMsg = 'Trouvée chez ' + trouves.join(' et ') + (lien ? ' — lien ' + (mo && mo.lien ? 'Mouser' : 'DigiKey') : '') +
+        (ds ? ', datasheet ' + (dk && dk.datasheet ? 'DigiKey' : 'Mouser') + '.' : ' — pas de datasheet, collez-la si besoin.');
     }
-  }catch(e){ assistant.lienMsg = 'Recherche Mouser indisponible.'; }
+  }catch(e){ assistant.lienMsg = 'Recherche distributeurs indisponible.'; }
   if(msg) msg.textContent = assistant.lienMsg;
 };
 function nettoyerAuto(t){
