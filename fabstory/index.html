@@ -407,8 +407,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.2';
-const APP_DATE = '28/08/2026';
+const APP_VERSION = '4.3';
+const APP_DATE = '31/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1409,7 +1409,7 @@ function htmlChampVar(v){
   const champ = long
     ? '<textarea id="as-var-' + v + '" style="font-family:var(--mono)">' + esc(assistant.vals[v]||'') + '</textarea>'
     : '<input type="text" id="as-var-' + v + '" style="font-family:var(--mono)" value="' + esc(assistant.vals[v]||'') + '"' +
-      (v === 'REF' ? ' onchange="FS.chercherLienMouser(false)"' : '') + '>';
+      ((v === 'REF' || v === 'PROPOSITION') ? ' onchange="FS.chercherLienMouser(false)"' : '') + '>';
   return '<div' + (long?' style="grid-column:1/-1"':'') + '><label class="lbl">' + esc(def[0]) +
     ' <span style="color:var(--accent-fonce)">*</span></label>' + champ +
     (def[1] ? '<p class="mini" style="margin:3px 0 0">' + esc(def[1]) + '</p>' : '') + '</div>';
@@ -1447,7 +1447,7 @@ function htmlEcranCompleter(){
             '<input type="text" id="as-var-LIEN" placeholder="pré-rempli avec la fiche Mouser si trouvée" style="font-family:var(--mono)" value="' + esc(assistant.vals.LIEN||'') + '">' +
             '<p class="mini" id="as-lien-msg" style="margin:3px 0 0">' + esc(assistant.lienMsg||'') + '</p></div>' : '') +
         '</div>' +
-        '<div class="auto-ligne"><span class="auto-txt">Consulter la disponibilité chez :</span>' +
+        '<div class="auto-ligne"><span class="auto-txt">Consulter la pièce proposée (ou la référence si aucune) chez :</span>' +
         ['Mouser','DigiKey','Farnell','TME'].map(d =>
           '<button type="button" class="btn-s" onclick="FS.ouvrirDistrib(\'' + d + '\')">' + d + '</button>').join('') +
         '<button type="button" class="btn-s" onclick="FS.chercherLienMouser(true)">Lien Mouser</button></div>';
@@ -1551,17 +1551,25 @@ const DISTRIB_URLS = {
   TME:     m => 'https://www.tme.eu/fr/katalog/?search=' + encodeURIComponent(m)
 };
 function refCourante(){
+  /* reference pour les sites distributeurs = la reference concernee */
   const e = el('as-var-REF');
   return ((e && e.value) || assistant.vals.REF || '').trim();
 }
+function refPourLien(){
+  /* v4.3 (Olivier 31/08) : le LIEN client pointe sur ce qu on PROPOSE (M1 : l equivalent) ;
+     sans proposition (M2...), sur la reference concernee */
+  const p = el('as-var-PROPOSITION');
+  const prop = ((p && p.value) || assistant.vals.PROPOSITION || '').trim();
+  return prop || refCourante();
+}
 FS.ouvrirDistrib = function(d){
-  const ref = refCourante();
+  const ref = refPourLien();
   if(!ref){ el('note-msg').innerHTML = '<span class="err-msg">Saisissez d’abord la référence concernée.</span>'; return; }
   window.open(DISTRIB_URLS[d](ref), '_blank', 'noopener');
 };
 let lienMouserPour = null;
 FS.chercherLienMouser = async function(force){
-  const ref = refCourante();
+  const ref = refPourLien();
   const champ = el('as-var-LIEN'); const msg = el('as-lien-msg');
   if(!champ || !ref) return;
   if(!force && (lienMouserPour === ref || champ.value.trim())) return;
