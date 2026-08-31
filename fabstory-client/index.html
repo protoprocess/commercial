@@ -232,8 +232,8 @@
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi des projets</span></span></a>
   <a class="btn-home" id="btnHome" href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Retour \u00e0 votre espace client Proto Process">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11.5L12 4l9 7.5M5.5 10v9h13v-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Espace client</a>
-  <button type="button" class="btn-imprimer" id="btnImprimer" style="display:none" title="T\u00e9l\u00e9charger le rapport de fabrication en PDF">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V4h12v5M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>T\u00e9l\u00e9charger le rapport</button>
+  <button type="button" class="btn-imprimer" id="btnImprimer" style="display:none" title="Télécharger le rapport de fabrication en PDF">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V4h12v5M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Télécharger le rapport</button>
   <span class="ver" id="verBadge"></span>
 </header>
 
@@ -500,6 +500,13 @@ function rendreHero(r) {
   document.getElementById("heroSociete").textContent = p.nom_client || "";
   document.getElementById("heroRef").textContent = p.ref_carte || p.cle_produit || "";
   document.getElementById("heroLib").textContent = p.libelle_carte || "";
+  /* Nom de fichier PDF a l impression = document.title cote navigateur.
+     On le rend identifiable (client + ref carte) des que la carte est connue,
+     plutot que de laisser le titre generique de l onglet au chargement. */
+  const refPourTitre = p.ref_carte || p.cle_produit || "";
+  if (p.nom_client || refPourTitre) {
+    document.title = [p.nom_client, refPourTitre, "Rapport de fabrication"].filter(Boolean).join(" ");
+  }
   if (r.indice_courant) {
     const b = document.getElementById("heroIndice");
     b.textContent = "Indice " + r.indice_courant;
