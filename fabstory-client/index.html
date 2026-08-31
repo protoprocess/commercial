@@ -196,6 +196,12 @@
   .reponse-de { font-size: 11.5px; color: var(--vert); font-weight: 700; margin-bottom: 3px; }
   .vide { color: var(--text3); font-size: 13px; text-align: center; padding: 26px 0; }
 
+  /* ---- Conformite (ch.137) ---- */
+  .conf-ligne { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .conf-ligne:last-child { border-bottom: none; }
+  .conf-k { color: var(--text2); flex: none; }
+  .conf-v { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+
   /* ---- Page entiere en refus / chargement ---- */
   #chargement, #refus { text-align: center; padding: 70px 20px; color: var(--text2); }
   #refus h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
@@ -275,6 +281,11 @@
 
     <div class="sec-titre"><span>Historique de votre carte</span></div>
     <div class="fil" id="fil"></div>
+
+    <div id="conformiteBloc" style="display:none">
+      <div class="sec-titre"><span>Conformité</span></div>
+      <div class="carte" id="conformiteZone"></div>
+    </div>
   </div>
 </main>
 
@@ -289,7 +300,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.19";
+const APP_VERSION = "0.20";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -492,9 +503,41 @@ async function chargerStatut() {
     const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + "&partie=statut");
     const r = await rep.json();
     rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
+    rendreConformite(r && r.ok ? r.conformite : null);
   } catch (e) {
     rendreJalons(null, null);
+    rendreConformite(null);
   }
+}
+
+/* ch.137 : section Conformite, calculee cote serveur (N de serie, N de
+   declaration) a partir du SO + de la quantite deja lus pour le statut.
+   N apparait que si Odoo a bien rendu ces informations (carte non rattachee
+   a un SO connu = section absente, pas de ligne a moitie remplie). */
+function rendreConformite(c) {
+  const bloc = document.getElementById("conformiteBloc");
+  const zone = document.getElementById("conformiteZone");
+  if (!bloc || !zone) return;
+  if (!c) { bloc.style.display = "none"; return; }
+  const p = (DONNEES && DONNEES.produit) || {};
+  const plage = (c.n_serie_debut === c.n_serie_fin)
+    ? c.n_serie_debut
+    : (c.n_serie_debut + " \u00e0 " + c.n_serie_fin);
+  const lignes = [
+    ["N\u00b0 de d\u00e9claration", c.n_declaration],
+    ["Client", p.nom_client],
+    ["D\u00e9signation", p.libelle_carte || p.ref_carte || p.cle_produit],
+    ["N\u00b0 de s\u00e9rie / lot", plage],
+    ["Observations", c.rohs_texte]
+  ];
+  zone.innerHTML = lignes
+    .filter(function (l) { return l[1]; })
+    .map(function (l) {
+      return '<div class="conf-ligne"><span class="conf-k">' + esc(l[0]) +
+        '</span><span class="conf-v">' + esc(l[1]) + "</span></div>";
+    })
+    .join("");
+  bloc.style.display = "block";
 }
 
 /* ------------------------------ Hero ------------------------------ */
