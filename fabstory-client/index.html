@@ -44,6 +44,8 @@
   .ver { margin-left: 12px; color: #6b7280; font-size: 11px; font-family: var(--mono); }
   .btn-home { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid #5BC4D8; color: #5BC4D8; font-size: 12px; font-weight: 600; text-decoration: none; }
   .btn-home:hover { background: #5BC4D8; color: #0a0c12; }
+  .btn-imprimer { margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; font-family: var(--sans); cursor: pointer; }
+  .btn-imprimer:hover { border-color: var(--accent); color: var(--accent-fonce); }
   .portee-case { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; padding: 10px 12px; border: 1px solid #f0d9b8; background: #fdf6ec; border-radius: var(--radius); font-size: 13px; color: #6b4b12; cursor: pointer; }
   .portee-case input { margin-top: 3px; width: 16px; height: 16px; accent-color: #F2A65A; }
   .portee-case small { display: block; color: var(--text3); font-size: 11.5px; margin-top: 2px; }
@@ -207,6 +209,17 @@
     main { padding: 14px 10px 50px; }
     .carte { padding: 15px; }
   }
+
+  /* ---- Impression (ch.137) : la vue ecran devient le rapport telechargeable.
+     On masque tout ce qui est interactif ou transitoire (formulaires, boutons,
+     questions encore ouvertes) et on garde l identite + l historique complet. ---- */
+  @media print {
+    header, .btn-imprimer, .btn-bom, #bandeauLecture,
+    #pointsTitre, #pointsSous, #points, .rep-form { display: none !important; }
+    main { max-width: none; padding: 0; }
+    .carte, .entree, .reponse-bloc { page-break-inside: avoid; }
+    .jalons.attente .pt { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -219,6 +232,8 @@
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi des projets</span></span></a>
   <a class="btn-home" id="btnHome" href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Retour \u00e0 votre espace client Proto Process">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11.5L12 4l9 7.5M5.5 10v9h13v-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Espace client</a>
+  <button type="button" class="btn-imprimer" id="btnImprimer" style="display:none" title="T\u00e9l\u00e9charger le rapport de fabrication en PDF">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V4h12v5M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>T\u00e9l\u00e9charger le rapport</button>
   <span class="ver" id="verBadge"></span>
 </header>
 
@@ -274,10 +289,11 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.17";
+const APP_VERSION = "0.18";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
+document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
 document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
 document.title = "Suivi des projets · " + APP_NAME + " v" + APP_VERSION;
@@ -454,6 +470,7 @@ async function charger() {
   DONNEES = r;
   document.getElementById("chargement").style.display = "none";
   document.getElementById("contenu").style.display = "block";
+  document.getElementById("btnImprimer").style.display = "inline-flex";
   rendreHero(r);
   rendrePoints(r);
   rendreFil(r);
