@@ -41,7 +41,12 @@
   .logo-text .lt { color: #fff; }
   .logo-text .ls { color: #555; margin: 0 5px; }
   .logo-text .lo { color: var(--accent); }
-  .ver { margin-left: auto; color: #6b7280; font-size: 11px; font-family: var(--mono); }
+  .ver { margin-left: 12px; color: #6b7280; font-size: 11px; font-family: var(--mono); }
+  .btn-home { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid #5BC4D8; color: #5BC4D8; font-size: 12px; font-weight: 600; text-decoration: none; }
+  .btn-home:hover { background: #5BC4D8; color: #0a0c12; }
+  .portee-case { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; padding: 10px 12px; border: 1px solid #f0d9b8; background: #fdf6ec; border-radius: var(--radius); font-size: 13px; color: #6b4b12; cursor: pointer; }
+  .portee-case input { margin-top: 3px; width: 16px; height: 16px; accent-color: #F2A65A; }
+  .portee-case small { display: block; color: var(--text3); font-size: 11.5px; margin-top: 2px; }
 
   main { max-width: 860px; margin: 0 auto; padding: 22px 16px 60px; }
 
@@ -205,6 +210,8 @@
          style="object-fit:contain" onerror="this.style.display='none'"></a>
   <a href="https://protoprocess-main-16873066.dev.odoo.com/my/fabrication" title="Toutes vos cartes en fabrication" style="text-decoration:none">
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi des projets</span></span></a>
+  <a class="btn-home" id="btnHome" href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Retour \u00e0 votre espace client Proto Process">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11.5L12 4l9 7.5M5.5 10v9h13v-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Espace client</a>
   <span class="ver" id="verBadge"></span>
 </header>
 
@@ -260,8 +267,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.14";
-const APP_DATE = "25/08/2026";
+const APP_VERSION = "0.15";
+const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
@@ -535,10 +542,24 @@ function construirePoint(e) {
   return bloc;
 }
 
+function aEnveloppe(e) {
+  return !!(e && e.enveloppe && Array.isArray(e.enveloppe.choix) && e.enveloppe.choix.length);
+}
 function construireFormulaire(e) {
   if (DONNEES.repondable === false) return "";
   let html = '<div class="rep-form">';
-  if (e.choix_fermes) {
+  if (aEnveloppe(e)) {
+    /* v0.15 (ch.61 point 2) : ENVELOPPE figee par FabStory v4 (ch.111) — les choix
+       sont ceux de la question, l aide s affiche sous le choix selectionne, la
+       portee est UNE case (decision Olivier 31/08 : "valable pour toujours" ou rien). */
+    html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div><div class="choix-liste">';
+    e.enveloppe.choix.forEach(function (c, i) {
+      html += '<button type="button" class="choix-btn" data-env="' + i + '">' + esc(c.libelle) + "</button>";
+    });
+    html += "</div>";
+    html += '<div class="choix-aide"></div>';
+    html += '<textarea class="rep-comm" placeholder="Commentaire (facultatif)"></textarea>';
+  } else if (e.choix_fermes) {
     html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div><div class="choix-liste">';
     CHOIX_FERMES.forEach(function (c) {
       html += '<button type="button" class="choix-btn" data-choix="' + c.code + '">' + esc(c.label) + "</button>";
@@ -559,13 +580,21 @@ function construireFormulaire(e) {
     '<div class="fichiers-liste"></div>' +
     '<div class="fichiers-aide">Facultatif \u2014 3 fichiers max, 5\u00a0Mo chacun (PDF, image, Excel, CSV). Utile pour une datasheet ou une r\u00e9f\u00e9rence propos\u00e9e.</div>' +
     '</div>';
-  html += '<div class="rep-lbl" style="margin-top:11px">Port\u00e9e de la d\u00e9cision&nbsp;:</div>' +
-    '<div class="portee-liste">';
-  PORTEES.forEach(function (p, i) {
-    html += '<button type="button" class="portee-btn' + (i === 0 ? " sel" : "") + '" data-portee="' + p.code + '">' + esc(p.label) + "</button>";
-  });
-  html += "</div>" +
-    '<div class="portee-aide">' + esc(PORTEES[0].aide) + '</div>';
+  if (aEnveloppe(e)) {
+    if (e.enveloppe.portee && e.enveloppe.portee.libelle) {
+      html += '<label class="portee-case"><input type="checkbox" class="portee-toujours">' +
+        '<span>' + esc(e.enveloppe.portee.libelle) +
+        '<small>Case d\u00e9coch\u00e9e\u00a0: votre r\u00e9ponse vaut pour cette commande seulement.</small></span></label>';
+    }
+  } else {
+    html += '<div class="rep-lbl" style="margin-top:11px">Port\u00e9e de la d\u00e9cision&nbsp;:</div>' +
+      '<div class="portee-liste">';
+    PORTEES.forEach(function (p, i) {
+      html += '<button type="button" class="portee-btn' + (i === 0 ? " sel" : "") + '" data-portee="' + p.code + '">' + esc(p.label) + "</button>";
+    });
+    html += "</div>" +
+      '<div class="portee-aide">' + esc(PORTEES[0].aide) + '</div>';
+  }
   /* Signature repliee (decision 08/08) : le destinataire du mail est connu de
      PP, le nom ne sert que si le lien a circule en interne chez le client.
      Le jour ou le lien saura QUI le porte (portail client, ou destinataire
@@ -583,17 +612,24 @@ function construireFormulaire(e) {
 function brancherFormulaire(bloc, e) {
   const form = bloc.querySelector(".rep-form");
   if (!form) return;
-  let choixSel = e.choix_fermes ? null : "libre";
+  let choixSel = (e.choix_fermes || aEnveloppe(e)) ? null : "libre";
   form.querySelectorAll(".choix-btn").forEach(function (b) {
     b.addEventListener("click", function () {
       form.querySelectorAll(".choix-btn").forEach(function (x) { x.classList.remove("sel"); });
       b.classList.add("sel");
-      choixSel = b.dataset.choix;
-      const def = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+      let def;
+      if (aEnveloppe(e)) {
+        const c = e.enveloppe.choix[parseInt(b.dataset.env, 10)];
+        choixSel = c ? c.libelle : null;
+        def = c ? { aide: c.aide || "", commentaireObligatoire: !!c.commentaire_obligatoire } : null;
+      } else {
+        choixSel = b.dataset.choix;
+        def = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+      }
       const aide = form.querySelector(".choix-aide");
       if (aide && def) {
-        aide.textContent = def.aide;
-        aide.style.display = "block";
+        aide.textContent = def.aide || "";
+        aide.style.display = def.aide ? "block" : "none";
       }
       const zone = form.querySelector(".rep-comm");
       if (def && def.commentaireObligatoire) {
@@ -692,7 +728,10 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   erreur.style.display = "none";
   const commentaire = (form.querySelector(".rep-comm").value || "").trim();
   if (!choixSel) { montrerErreur(erreur, "Choisissez une r\u00e9ponse avant d\u2019envoyer."); return; }
-  const defChoix = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+  const env = aEnveloppe(e);
+  const defChoix = env
+    ? (function () { const c = e.enveloppe.choix.find(function (x) { return x.libelle === choixSel; }); return c ? { commentaireObligatoire: !!c.commentaire_obligatoire } : null; })()
+    : CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
   const commObligatoire = (choixSel === "libre") || (defChoix && defChoix.commentaireObligatoire);
   if (commObligatoire && !commentaire) {
     montrerErreur(erreur, "Ce choix demande un commentaire \u2014 \u00e9crivez-le dans le champ pr\u00e9vu."); return;
@@ -711,10 +750,10 @@ async function envoyerReponse(bloc, e, form, choixSel) {
     const rep = await fetch(API + "/fabstory-client-reponse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jeton: JETON, question_id: e.id, choix: choixSel,
-        commentaire: commentaire, portee: portee, auteur: nom
-      })
+      body: JSON.stringify(env
+        ? { jeton: JETON, question_id: e.id, choix_libelle: choixSel, commentaire: commentaire,
+            portee_toujours: !!(form.querySelector(".portee-toujours") && form.querySelector(".portee-toujours").checked), auteur: nom }
+        : { jeton: JETON, question_id: e.id, choix: choixSel, commentaire: commentaire, portee: portee, auteur: nom })
     });
     r = await rep.json();
   } catch (err) { r = null; }
