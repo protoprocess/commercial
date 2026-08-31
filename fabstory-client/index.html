@@ -289,7 +289,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.18";
+const APP_VERSION = "0.19";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -470,11 +470,14 @@ async function charger() {
   DONNEES = r;
   document.getElementById("chargement").style.display = "none";
   document.getElementById("contenu").style.display = "block";
-  document.getElementById("btnImprimer").style.display = "inline-flex";
   rendreHero(r);
   rendrePoints(r);
   rendreFil(r);
-  chargerStatut();
+  await chargerStatut();
+  /* Le bouton n apparait qu une fois le VRAI statut charge (pas juste le
+     contenu principal) : sinon une impression trop rapide fige "Statut de
+     fabrication en cours de lecture..." dans le PDF au lieu du jalon reel. */
+  document.getElementById("btnImprimer").style.display = "inline-flex";
 }
 
 function montrerRefus(message) {
