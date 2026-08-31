@@ -407,7 +407,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.3';
+const APP_VERSION = '4.4';
 const APP_DATE = '31/08/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -891,6 +891,7 @@ function rendreFiche(){
     CONCERNES_LISTE.map(c => '<option value="' + c[0] + '"' + (filtreConcerne===c[0]?' selected':'') + '>' + c[1] + '</option>').join('') +
     '</select>' +
     '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
+    '<button class="filtre" onclick="FS.mailClient()" title="Cr\u00e9e un brouillon Gmail (commercial@ ou production@ selon vos initiales) avec les questions client en attente et le lien de r\u00e9ponse en ligne. Rien ne part sans vous.">Pr\u00e9parer le mail client</button>' +
     '</div>';
   if(!visibles.length){
     html += '<p class="hint" style="margin:0">' + (racines.length ? 'Rien ne passe ce filtre.' :
@@ -954,6 +955,28 @@ FS.copierClient = async function(){
     alert(questions.length + ' question(s) client copi\u00e9e(s), pr\u00eates \u00e0 joindre au devis.');
   }catch(err){
     prompt('Copiez le texte ci-dessous :', texte);
+  }
+};
+
+/* v4.4 (chantier 61, 31/08) : brouillon Gmail vers le client depuis la carte.
+   Boite d envoi = initiales (AC/OC/DG/MM -> commercial@, autres -> production@),
+   decidee cote n8n. Le brouillon est a relire et envoyer depuis Gmail. */
+FS.mailClient = async function(){
+  const nb = (FICHE.entrees || []).filter(e => e.type === 'question_client' && e.etat === 'en_attente').length;
+  if(!nb){ alert('Aucune question client en attente sur cette carte.'); return; }
+  let ini = qui();
+  if(!ini){
+    ini = (prompt('Vos initiales (d\u00e9cident de la bo\u00eete d\u2019envoi : ' + INITIALES_COMMERCIAL.join(', ') + ' \u2192 commercial, autres \u2192 production) :') || '').trim().toUpperCase();
+    if(!ini) return;
+    setQui(ini);
+  }
+  const boite = expediteurPour(ini);
+  if(!confirm('Pr\u00e9parer un brouillon dans ' + boite + ' avec ' + nb + ' question(s) client en attente ?\nRien ne part : vous relisez et envoyez depuis Gmail.')) return;
+  try{
+    const r = await postJson(BASE + '/fabstory-mail-client', { produit_id: P.id, initiales: ini });
+    alert(r && r.message ? r.message : (r && r.ok ? 'Brouillon cr\u00e9\u00e9.' : 'Pas de brouillon cr\u00e9\u00e9.'));
+  }catch(err){
+    alert('Brouillon non cr\u00e9\u00e9 : ' + (err && err.message ? err.message : err));
   }
 };
 
