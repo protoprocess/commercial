@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.5";
+const APP_VERSION = "6.6";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -395,7 +395,7 @@ function brancherChoixDevis(z, ent) {
 function afficherChoixDevis(z) {
   const ent = DIAG.ent;
   const pertinents = DIAG.devisListe.filter(d => d.cite_au_po || d.meme_ref || d.meme_montant).length;
-  const refab = ent.ref_detectee ? '<div class="dl"><span class="ic ' + (pertinents ? 'mute' : 'ok') + '">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+  const refabHtml = ent.ref_detectee ? '<div class="dl"><span class="ic ' + (pertinents ? 'mute' : 'ok') + '">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
       '<button class="' + (pertinents ? 'btn-s' : 'btn-p') + '" id="conf-refab">Cr\u00e9er un devis refab depuis la carte</button>' +
       '<span class="why">carte <code>' + ech(ent.ref_detectee) + '</code> \u00b7 cadences pr\u00e9-remplies depuis le bon de commande</span></span></div>' : '';
   const note = DIAG.note || (pertinents ? 'Plusieurs devis possibles sur cette r\u00e9f\u00e9rence : choisir.' : (DIAG.devisListe.length ? 'Aucun devis ouvert sur cette r\u00e9f\u00e9rence produit : cr\u00e9er un devis refab, ou saisir un num\u00e9ro.' : 'Aucun devis ouvert pour ce client : cr\u00e9er un devis refab, ou saisir un num\u00e9ro.'));
@@ -403,7 +403,7 @@ function afficherChoixDevis(z) {
     (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') +
     (ent.ref_detectee ? ' \u00b7 <code>' + ech(ent.ref_detectee) + '</code>' : '') + '<span class="sp"></span>' +
     '<span style="color:var(--amber);font-size:12px">' + ech(note) + '</span></div>' +
-    (pertinents ? '' : refab) + htmlChoixDevis(null) + (pertinents ? refab : '') +
+    (pertinents ? '' : refabHtml) + htmlChoixDevis(null) + (pertinents ? refabHtml : '') +
     '</div>';
   brancherChoixDevis(z, ent);
   const refab = z.querySelector('#conf-refab');
