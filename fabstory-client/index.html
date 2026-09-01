@@ -210,6 +210,21 @@
   .entree-resume, .fil-note-print { display: none; }
   .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .fil-metier:first-child { margin-top: 4px; }
+  .f08 { border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; background: #fff; color: #1a1a1a; }
+  .f08 i { color: #555; font-size: 0.92em; }
+  .f08-bandeau { text-align: center; padding: 10px 8px 8px; border-bottom: 1px solid #bbb; }
+  .f08-titre { font-size: 17px; font-weight: 800; color: #1f4e9c; letter-spacing: 0.4px; }
+  .f08-sous { font-size: 12px; } .f08-norme { font-size: 11px; } .f08-form { font-size: 10px; color: #888; }
+  .f08-t { width: 100%; border-collapse: collapse; }
+  .f08-t td, .f08-t th { border: 1px solid #bbb; padding: 6px 8px; font-size: 12px; text-align: left; vertical-align: top; background: #fff; }
+  .f08-t th { background: #f3f4f6; font-weight: 600; }
+  .f08-k { font-weight: 700; font-size: 11.5px; }
+  .f08-fort { font-weight: 700; color: #1f4e9c; }
+  .f08-obs { font-size: 11px; font-weight: 600; color: #1f4e9c; }
+  .f08-phrase { border: 1px solid #bbb; border-top: none; padding: 8px 10px; font-size: 11.5px; line-height: 1.45; }
+  .f08-signature td { height: 46px; }
+  .f08-surv { border: 1px solid #bbb; border-top: none; padding: 8px 10px 20px; font-size: 11.5px; }
+  .f08 .conf-visa-img { max-width: 46mm; max-height: 18mm; display: block; margin-top: 2px; }
   .conf-declaration { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); }
   .conf-visa { align-items: center; }
   .conf-visa-img { max-width: 170px; max-height: 80px; width: auto; height: auto; display: block; }
@@ -307,6 +322,8 @@
     #conformiteBloc { page-break-before: always; }
     .conf-ligne { padding: 6px 0; font-size: 10pt; }
     .conf-declaration { font-size: 9.5pt; color: #333; }
+    .f08-t td, .f08-t th, .f08-phrase, .f08-surv { font-size: 9pt; }
+    .f08 { border-radius: 0; }
     .conf-visa-img { max-width: 62mm; max-height: 28mm; }
   }
 </style>
@@ -416,7 +433,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.34";
+const APP_VERSION = "0.35";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -851,6 +868,7 @@ async function chargerStatut() {
     const r = await rep.json();
     rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
     rendreInspection(r && r.ok ? r.inspection : null);
+    if (r && r.ok && r.conformite) { r.conformite.so = r.conformite.so || r.so || ""; if (r.conformite.qte == null) r.conformite.qte = r.qte_cmd; }
     rendreConformite(r && r.ok ? r.conformite : null);
   } catch (e) {
     rendreJalons(null, null);
@@ -912,25 +930,50 @@ function rendreConformite(c) {
     : (c.n_serie_debut + t("a") + c.n_serie_fin);
   const auj = new Date();
   const dateFr = String(auj.getDate()).padStart(2, "0") + "/" + String(auj.getMonth() + 1).padStart(2, "0") + "/" + auj.getFullYear();
-  const lignes = [
-    [t("c_declaration"), c.n_declaration],
-    [t("c_client"), p.nom_client],
-    [t("c_designation"), p.libelle_carte || p.ref_carte || p.cle_produit],
-    [t("c_serie"), plage],
-    [t("c_observations"), t("c_rohs")],
-    [t("c_fait_par"), c.fait_par],
-    [t("c_date"), dateFr]
-  ];
-  zone.innerHTML = lignes
-    .filter(function (l) { return l[1]; })
-    .map(function (l) {
-      return '<div class="conf-ligne"><span class="conf-k">' + esc(l[0]) +
-        '</span><span class="conf-v">' + esc(l[1]) + "</span></div>";
-    })
-    .join("") +
-    '<p class="conf-declaration">' + esc(t("c_declaration_texte")) + '</p>' +
-    '<div class="conf-ligne conf-visa"><span class="conf-k">' + t("c_visa") + '</span>' +
-    '<img src="../shared/visa-pp.png" alt="Visa Proto Process" class="conf-visa-img" onerror="this.parentElement.style.display=\'none\'"></div>';
+  /* Mise en forme calquee sur le formulaire F08/B (bilingue par nature :
+     identique quelle que soit la langue de la page). Le N/date de BL n est
+     pas encore remonte du statut : case laissee vide, comme sur le papier. */
+  const so = c.so || "";
+  const K = function (fr, en) { return '<div class="f08-k">' + fr + '<br><i>' + en + '</i></div>'; };
+  zone.innerHTML =
+    '<div class="f08">' +
+    '<div class="f08-bandeau"><div class="f08-titre">D\u00c9CLARATION DE CONFORMIT\u00c9</div>' +
+    '<div class="f08-sous"><i>CERTIFICATE OF CONFORMITY</i></div>' +
+    '<div class="f08-norme"><i>(NF L 00-015C)</i></div>' +
+    '<div class="f08-form">Formulaire F08/B</div></div>' +
+    '<table class="f08-t"><tr>' +
+    '<td style="width:22%">' + K("Client :", "Customer:") + '</td>' +
+    '<td style="width:45%" class="f08-fort">' + esc(p.nom_client || "") + '</td>' +
+    '<td style="width:33%">' + K("N\u00b0 de la d\u00e9claration :", "Statement n\u00b0:") + '<div class="f08-fort">' + esc(c.n_declaration || "") + '</div></td>' +
+    '</tr><tr>' +
+    '<td>' + K("Commande :", "Order:") + '</td>' +
+    '<td class="f08-fort">' + esc(so) + '</td>' +
+    '<td>' + K("N\u00b0 et date du bordereau de livraison :", "Number and date of delivery note:") + '</td>' +
+    '</tr></table>' +
+    '<table class="f08-t f08-produits"><tr>' +
+    '<th>' + K("D\u00e9nomination", "Designation") + '</th>' +
+    '<th>' + K("R\u00e9f\u00e9rence ou type", "Reference or type") + '</th>' +
+    '<th>' + K("N\u00b0 de s\u00e9rie ou de lot", "Serial or batch number") + '</th>' +
+    '<th style="width:9%">' + K("Quantit\u00e9", "Qty") + '</th>' +
+    '<th style="width:24%">' + K("Observations", "Observations") + '</th>' +
+    '</tr><tr>' +
+    '<td>Carte \u00e9lectronique<br><i>Electronic board</i></td>' +
+    '<td class="f08-fort">' + esc(p.libelle_carte || p.ref_carte || p.cle_produit || "") + '</td>' +
+    '<td class="f08-fort">' + esc(plage || "") + '</td>' +
+    '<td class="f08-fort" style="text-align:center">' + esc(String(c.qte != null ? c.qte : "")) + '</td>' +
+    '<td class="f08-obs">Conforme \u00e0 la directive Europ\u00e9enne 2011/65/EC &amp; 2015/863/UE (RoHS)<br><i>Compliance of European Directive 2011/65/EC &amp; 2015/863/UE (RoHS)</i></td>' +
+    '</tr></table>' +
+    '<div class="f08-phrase"><b>Nous d\u00e9clarons que la fourniture cit\u00e9e est conforme aux exigences du contrat et que, apr\u00e8s v\u00e9rifications et essais, elle r\u00e9pond en tout point aux exigences sp\u00e9cifi\u00e9es, aux normes et r\u00e8glements applicables, sauf exceptions, r\u00e9serves ou d\u00e9rogations \u00e9num\u00e9r\u00e9es dans la pr\u00e9sente d\u00e9claration de conformit\u00e9.</b><br>' +
+    '<i>This is to certify that unless otherwise provided for and stated hereafter, the supplies described herein fully comply with the contract requirements, that they have been inspected and tested and have been found in every respect in compliance with the relevant requirements as well as with the applicable standards and regulations in force.</i></div>' +
+    '<table class="f08-t f08-signature"><tr>' +
+    '<td rowspan="2" style="width:38%">' + K("Responsable Qualit\u00e9 Fournisseur", "Supplier Quality Manager") + '</td>' +
+    '<td style="width:28%">' + K("Fait par :", "") + '<div class="f08-fort">' + esc(c.fait_par || "") + '</div></td>' +
+    '<td style="width:14%">' + K("Date :", "") + '<div class="f08-fort">' + esc(dateFr) + '</div></td>' +
+    '<td style="width:20%">' + K("Visa :", "") +
+    '<img src="../shared/visa-pp.png" alt="Visa Proto Process" class="conf-visa-img" onerror="this.style.display=\'none\'"></td>' +
+    '</tr></table>' +
+    '<div class="f08-surv">' + K("R\u00e9serv\u00e9 \u00e0 l\u2019organisme de surveillance \u2014 Nom et fonction, date :", "Inspection body only \u2014 Name and title, date:") + '<div class="f08-vide"></div></div>' +
+    '</div>';
   bloc.style.display = "block";
   majRapportVide();
 }
