@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.6";
+const APP_VERSION = "6.7";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -780,6 +780,7 @@ function afficher(rep) {
       })).filter(c => c.date || c.qte || c.prix);
       agir(this, 'commande-creer-devis', {
         produit_id: parseInt(this.dataset.creerDevis, 10),
+        article_id: art.article ? art.article.id : null, /* v6.7 : l article vu a l ecran */
         ref_projet: cible.querySelector('.fd-ref').value.trim() || null,
         cadences: cadences,
         num_commande_client: (ENTRANTE && ENTRANTE.num_commande_client) || null,
