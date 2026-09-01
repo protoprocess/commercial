@@ -76,6 +76,35 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
   border-top-color:var(--accent); border-radius:50%; animation:r .8s linear infinite; vertical-align:-1px; margin-right:6px; }
 @keyframes r { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation:none; } }
+/* ---- Diagnostic commande (v5.0, 01/09) : une ligne = un fait + une ecriture ---- */
+.hdr-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+.btn-accueil { padding:5px 11px; background:transparent; color:var(--text2); border:0.5px solid var(--border2); border-radius:var(--radius); font-size:12px; cursor:pointer; font-family:inherit; }
+.btn-accueil:hover { color:var(--accent); border-color:var(--accent); }
+.diag { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-top:16px; }
+.diag-tete { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+.diag-tete b { color:var(--text); }
+.diag-tete .sp { flex:1; }
+.dl { display:flex; gap:10px; align-items:center; padding:7px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+.dl .ic { flex:none; width:18px; text-align:center; font-family:var(--mono); font-weight:700; }
+.dl .ic.ok { color:var(--green); } .dl .ic.warn { color:var(--amber); } .dl .ic.err { color:var(--red); } .dl .ic.mute { color:var(--text3); }
+.dl input[type=checkbox] { flex:none; width:15px; height:15px; accent-color:var(--accent); margin:0 1px; cursor:pointer; }
+.dl .lib { flex:none; width:150px; color:var(--text2); }
+.dl .val { flex:1; min-width:0; overflow-wrap:anywhere; }
+.dl .val code { font-family:var(--mono); font-size:11.5px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+.dl .det { flex:none; max-width:42%; color:var(--text3); font-size:12px; text-align:right; }
+.dl .det.err { color:var(--red); }
+.dl input[type=date] { background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); padding:3px 6px; font-family:var(--mono); font-size:12px; color-scheme:dark; }
+.dl.off { opacity:.5; }
+.diag-pied { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+.diag-pied .msg { font-size:12px; color:var(--text3); }
+.autres { display:none; border-bottom:1px solid var(--border); }
+.autres.visible { display:block; }
+.autres .dl { border-bottom:none; padding:4px 0; }
+.lien { color:var(--accent); cursor:pointer; font-size:12px; text-decoration:none; }
+.lien:hover { text-decoration:underline; }
+.journal { margin-top:8px; }
+.journal .dl { border-bottom:none; padding:3px 0; }
+.aide { cursor:help; border-bottom:1px dotted var(--text3); }
 </style>
 
 <style>
@@ -101,6 +130,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
        style="object-fit:contain" onerror="this.style.display='none'">
   <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Commande</span></span>
   <span class="ver" id="ver"></span>
+  <span class="hdr-right"><button class="btn-accueil" id="btn-accueil" title="Retour à la liste des commandes entrantes">← Accueil</button></span>
 </header>
 
 <div class="wrap">
@@ -134,8 +164,8 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "4.5";
-const APP_DATE = "28/08/2026";
+const APP_VERSION = "5.0";
+const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
 
@@ -222,8 +252,8 @@ async function chargerEntrantes() {
         (cad ? '<br>' + ech(cad) : '') +
         (e.resume ? '<br><span style="color:var(--text3)">' + ech(e.resume) + ' (confiance ' + ech(e.confidence) + ')</span>' : '') +
         '</div><div class="p-actions">' +
-        (e.ref_detectee ? '<button class="btn-p" data-ouvrir-entrante="' + e.id + '">Diagnostiquer</button>' : '') +
-        '<button class="btn-s" data-confronter="' + e.id + '">Confronter \u00e0 un devis</button>' +
+        '<button class="btn-p" data-diag-entrante="' + e.id + '">Diagnostiquer</button>' +
+        (e.ref_detectee ? '<button class="btn-s" data-ouvrir-entrante="' + e.id + '" title="Les 5 pi\u00e8ces de l\u2019affaire : article, carte FabStory, liens, projet">Affaire</button>' : '') +
         '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="traitee">Marquer trait\u00e9e</button>' +
         '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="ecartee">\u00c9carter</button>' +
         '</div></div></div>';
@@ -232,9 +262,9 @@ async function chargerEntrantes() {
       ENTRANTE = rep.entrantes.find(x => String(x.id) === this.dataset.ouvrirEntrante) || null;
       if (ENTRANTE) { el('entree').value = ENTRANTE.ref_detectee; el('entree').dispatchEvent(new Event('input')); diagnostiquer(); }
     }));
-    z.querySelectorAll('[data-confronter]').forEach(b => b.addEventListener('click', function () {
-      const ent = rep.entrantes.find(x => String(x.id) === this.dataset.confronter) || null;
-      demanderDevis(ent);
+    z.querySelectorAll('[data-diag-entrante]').forEach(b => b.addEventListener('click', function () {
+      const ent = rep.entrantes.find(x => String(x.id) === this.dataset.diagEntrante) || null;
+      diagnostiquerEntrante(ent, this);
     }));
     z.querySelectorAll('[data-entrante-etat]').forEach(b => b.addEventListener('click', async function () {
       this.disabled = true;
@@ -247,137 +277,192 @@ async function chargerEntrantes() {
   } catch (err) { /* silencieux : le bandeau est un plus, jamais un blocage */ }
 }
 chargerEntrantes();
-/* ---- CONFRONTATION du bon de commande au devis (chantier 146) ----------
-   L humain designe le devis : aucun rapprochement automatique sur le nom de
-   carte, regle posee le 28/08 — trop aleatoire, ca produirait de faux
-   rapprochements silencieux. L ecran ne fait que MONTRER les ecarts ; les
-   corrections restent des gestes humains dans Odoo. */
-async function demanderDevis(ent) {
+/* ---- DIAGNOSTIC D UNE COMMANDE ENTRANTE (v5.0, 01/09/2026) ---------------
+   Une seule action : Diagnostiquer = chercher les devis ouverts du client,
+   retenir le plus probable (meme montant, sinon le plus proche), confronter,
+   et proposer les ECRITURES Odoo cochees par defaut. « Changer de devis »
+   reste a un clic si le rapprochement est faux.
+   Decision Olivier 01/09 : une checklist qui ne fait rien n a pas de valeur ;
+   l appli doit ecrire dans Odoo, la confirmation du devis reste humaine. */
+let DIAG = null; /* { ent, devisListe, note, so } */
+
+async function diagnostiquerEntrante(ent, bouton) {
   if (!ent) return;
+  if (!code()) { el('acces').classList.add('visible'); el('code').focus(); return; }
   const z = el('confrontation');
-  z.innerHTML = '<div class="etat-msg chargement"><span class="spin"></span>Recherche des devis ouverts\u2026</div>';
-
-  /* RAPPROCHEMENT ASSISTE : l appli PROPOSE, l humain TRANCHE. Les devis sont
-     classes par proximite de montant avec le bon de commande — le signal le
-     plus fiable et le plus lisible. Jamais de selection automatique, meme
-     quand un seul devis tombe au centime pres. */
-  let rep = null;
-  try { rep = await appel('commande-devis-ouverts?entrante=' + encodeURIComponent(ent.id)); }
-  catch (err) { rep = null; }
-
-  const po = ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '';
-  let h = '<div class="rapport visible" style="margin-top:16px"><h2>Choisir le devis' + po + '</h2>';
-
-  if (rep && rep.ok && rep.nb_devis) {
-    h += '<div class="piece"><div class="p-corps"><div class="p-detail">' +
-         'Bon de commande <b>' + ech(rep.total_po_texte) + '</b> \u00b7 ' +
-         ech(rep.nb_devis) + ' devis ouvert(s) chez ' + ech((rep.clients_trouves[0] || {}).nom || ent.client_detecte) +
-         '</div></div></div>';
-    for (const d of rep.devis) {
-      const cl = d.meme_montant ? 'ok' : '';
-      h += '<div class="piece ' + cl + '"><div class="p-nom">' + ech(d.nom) + '</div><div class="p-corps">' +
-        (d.meme_montant ? '<span class="badge badge-ok">m\u00eame montant</span>' : '') +
-        '<div class="p-detail">' + ech(d.date) + ' \u00b7 <b>' + ech(d.total_texte) + '</b>' +
-        (d.projet ? ' \u00b7 ' + ech(d.projet) : '') +
-        (d.po_deja_pose ? '<br><span style="color:var(--amber)">porte d\u00e9j\u00e0 la r\u00e9f\u00e9rence client ' + ech(d.po_deja_pose) + '</span>' : '') +
-        '</div><div class="p-actions">' +
-        '<button class="btn-p" data-choisir-devis="' + ech(d.nom) + '">Confronter \u00e0 ce devis</button>' +
-        '</div></div></div>';
-    }
-  } else {
-    h += '<div class="piece warn"><div class="p-corps"><span class="badge badge-warn">aucun devis trouv\u00e9</span>' +
-         '<div class="p-detail">' + ech((rep && rep.note) || 'Aucun devis ouvert n a \u00e9t\u00e9 trouv\u00e9 pour ce client.') + '</div></div></div>';
-  }
-
-  h += '<div class="piece"><div class="p-nom">Autre devis</div><div class="p-corps">' +
-    '<div class="p-detail">Saisir un num\u00e9ro si le bon devis n est pas dans la liste :</div>' +
-    '<div class="p-actions" style="align-items:center">' +
-    '<input type="text" id="conf-so" placeholder="SO2608-436" style="min-width:220px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-    '<button class="btn-s" id="conf-go">Confronter</button>' +
-    '</div></div></div></div>';
-
-  z.innerHTML = h;
-  z.querySelectorAll('[data-choisir-devis]').forEach(b => b.addEventListener('click', function () {
-    el('conf-so').value = this.dataset.choisirDevis;
-    lancerConfrontation(ent);
-  }));
-  const champ = el('conf-so');
-  champ.addEventListener('keydown', e => { if (e.key === 'Enter') lancerConfrontation(ent); });
-  el('conf-go').addEventListener('click', () => lancerConfrontation(ent));
+  if (bouton) { bouton.disabled = true; bouton.textContent = 'Diagnostic\u2026'; }
+  z.innerHTML = '<div class="etat-msg chargement"><span class="spin"></span>Recherche du devis et confrontation\u2026</div>';
+  el('rapport').classList.remove('visible');
+  let liste = null;
+  try { liste = await appel('commande-devis-ouverts?entrante=' + encodeURIComponent(ent.id)); } catch (err) { liste = null; }
+  DIAG = { ent: ent, devisListe: (liste && liste.ok) ? (liste.devis || []) : [], note: liste ? liste.note : null, so: null };
+  if (bouton) { bouton.disabled = false; bouton.textContent = 'Diagnostiquer'; }
+  const premier = DIAG.devisListe[0] || null;
+  if (!premier) { afficherChoixDevis(z); return; }
+  await confronter(ent, premier.nom);
 }
 
-async function lancerConfrontation(ent) {
-  const so = (el('conf-so').value || '').trim();
-  if (!so) { el('conf-so').focus(); return; }
-  const btn = el('conf-go');
-  btn.disabled = true; btn.textContent = 'Lecture\u2026';
+async function confronter(ent, so) {
+  const z = el('confrontation');
+  z.innerHTML = '<div class="etat-msg chargement"><span class="spin"></span>Confrontation \u00e0 ' + ech(so) + '\u2026</div>';
   try {
     const rep = await appel('commande-confronter?entrante=' + encodeURIComponent(ent.id) + '&so=' + encodeURIComponent(so));
-    afficherConfrontation(rep, ent);
+    afficherDiag(rep, ent);
   } catch (err) {
-    el('confrontation').innerHTML = '<div class="etat-msg err">La confrontation n a pas r\u00e9pondu (' + ech(err.message) + ').</div>';
+    z.innerHTML = '<div class="etat-msg err">La confrontation n\u2019a pas r\u00e9pondu (' + ech(err.message) + ').</div>';
   }
-  btn.disabled = false; btn.textContent = 'Confronter';
+  z.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function afficherConfrontation(rep, ent) {
-  const z = el('confrontation');
-  if (!rep || !rep.ok) {
-    z.innerHTML = '<div class="etat-msg err">' + ech((rep && rep.motif) || 'R\u00e9ponse illisible.') + '</div>';
-    return;
+/* Autres devis candidats + saisie manuelle. */
+function htmlChoixDevis(exclure) {
+  const l = (DIAG ? DIAG.devisListe : []).filter(d => d.nom !== exclure);
+  let h = '';
+  for (const d of l) {
+    h += '<div class="dl"><span class="ic ' + (d.meme_montant ? 'ok' : 'mute') + '">' + (d.meme_montant ? '=' : '\u00b7') + '</span>' +
+      '<span class="lib"><a class="lien" data-choisir-devis="' + ech(d.nom) + '">' + ech(d.nom) + '</a></span>' +
+      '<span class="val">' + ech(d.date) + ' \u00b7 <b>' + ech(d.total_texte) + '</b>' + (d.projet ? ' \u00b7 ' + ech(d.projet) : '') +
+      (d.po_deja_pose ? ' <span style="color:var(--amber)">porte d\u00e9j\u00e0 ' + ech(d.po_deja_pose) + '</span>' : '') + '</span></div>';
   }
+  h += '<div class="dl"><span class="ic mute">\u2026</span><span class="lib">Autre devis</span><span class="val" style="display:flex;gap:8px;align-items:center">' +
+    '<input type="text" id="conf-so" placeholder="SO2608-436" style="max-width:200px;padding:5px 9px;font-size:12.5px">' +
+    '<button class="btn-s" id="conf-go">Diagnostiquer</button></span></div>';
+  return h;
+}
+function brancherChoixDevis(z, ent) {
+  z.querySelectorAll('[data-choisir-devis]').forEach(b => b.addEventListener('click', function () { confronter(ent, this.dataset.choisirDevis); }));
+  const champ = z.querySelector('#conf-so'), go = z.querySelector('#conf-go');
+  const lancer = () => { const v = (champ.value || '').trim(); if (v) confronter(ent, v); else champ.focus(); };
+  if (champ) champ.addEventListener('keydown', e => { if (e.key === 'Enter') lancer(); });
+  if (go) go.addEventListener('click', lancer);
+}
+function afficherChoixDevis(z) {
+  const ent = DIAG.ent;
+  z.innerHTML = '<div class="diag"><div class="diag-tete"><b>' + ech(ent.client_detecte || ent.expediteur || '?') + '</b>' +
+    (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') + '<span class="sp"></span>' +
+    '<span style="color:var(--amber);font-size:12px">' + ech(DIAG.note || 'Aucun devis ouvert trouv\u00e9 pour ce client : saisir le num\u00e9ro.') + '</span></div>' +
+    htmlChoixDevis(null) + '</div>';
+  brancherChoixDevis(z, ent);
+  const champ = z.querySelector('#conf-so'); if (champ) champ.focus();
+}
+
+function afficherDiag(rep, ent) {
+  const z = el('confrontation');
+  if (!rep || !rep.ok) { z.innerHTML = '<div class="etat-msg err">' + ech((rep && rep.motif) || 'R\u00e9ponse illisible.') + '</div>'; return; }
+  DIAG.so = rep.devis;
   const d = rep.devis, t = rep.totaux;
   const memeTotal = Math.abs(Number(t.po) - Number(t.devis)) < 0.01;
+  const graves = (rep.ecarts || []).filter(e => e.grave && !e.couvert);
+  const regarder = (rep.ecarts || []).filter(e => !e.grave && !e.couvert);
+  const vide = '<span style="color:var(--text3)">\u2014</span>';
 
-  let h = '<div class="rapport visible" style="margin-top:16px">';
-  h += '<h2>' + ech(d.nom) + ' \u00b7 ' + ech(d.client) + ' \u2014 ' +
-       (rep.nb_graves ? '<span style="color:var(--red)">' + rep.nb_graves + ' \u00e9cart(s) grave(s)</span>' : '<span style="color:var(--green)">aucun \u00e9cart grave</span>') +
-       (rep.nb_ecarts > rep.nb_graves ? ' \u00b7 ' + (rep.nb_ecarts - rep.nb_graves) + ' \u00e0 regarder' : '') + '</h2>';
+  let h = '<div class="diag">';
+  h += '<div class="diag-tete"><b>' + ech(d.nom) + '</b> \u00b7 ' + ech(d.client) +
+    ' \u00b7 <span class="badge ' + (memeTotal ? 'badge-ok' : 'badge-err') + '">' +
+    (memeTotal ? 'PO = devis ' + ech(t.devis_texte) : 'PO ' + ech(t.po_texte) + ' \u2260 devis ' + ech(t.devis_texte)) + '</span>' +
+    '<span class="sp"></span>' +
+    '<a class="lien" id="lien-changer">Changer de devis</a>' +
+    '<a class="lien" target="_blank" rel="noopener" href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + d.id + '">Ouvrir dans Odoo \u2197</a></div>';
+  h += '<div class="autres" id="autres">' + htmlChoixDevis(d.nom) + '</div>';
 
-  h += '<div class="piece ' + (memeTotal ? 'ok' : 'err') + '"><div class="p-nom">Total HT</div><div class="p-corps">' +
-       '<span class="badge ' + (memeTotal ? 'badge-ok' : 'badge-err') + '">' + (memeTotal ? 'identique' : '\u00e9cart') + '</span>' +
-       '<div class="p-detail">Bon de commande <b>' + ech(t.po_texte || (t.po + ' \u20ac')) + '</b> \u00b7 devis <b>' + ech(t.devis_texte || (t.devis + ' \u20ac')) + '</b></div></div></div>';
-
-  for (const e of rep.ecarts) {
-    h += '<div class="piece ' + (e.grave ? 'err' : 'warn') + '"><div class="p-nom">' + ech(e.nom) + '</div><div class="p-corps">' +
-      '<span class="badge ' + (e.grave ? 'badge-err' : 'badge-warn') + '">' + (e.grave ? 'grave' : '\u00e0 regarder') + '</span>' +
-      '<div class="p-detail">' +
-      (e.po ? '<b>PO</b> ' + ech(e.po) : '') +
-      (e.constat ? '<br><b>' + ech(e.libelle_constat || 'Devis') + '</b> ' + ech(e.constat) : '') +
-      (e.note ? '<br><span style="color:var(--text3)">' + ech(e.note) + '</span>' : '') +
-      '</div></div></div>';
+  /* Ecritures : une ligne = une case, cochee par defaut quand elle est sure */
+  for (const a of (rep.actions || [])) {
+    const off = !a.ecriture;
+    let val;
+    if (a.cle === 'date') val = a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide;
+    else if (a.cle === 'note') val = a.valeur ? '<span class="aide" title="' + ech((a.liste || []).join('\n')) + '">' + ech(a.valeur) + '</span>' : vide;
+    else if (a.cle === 'pj') val = ech(a.valeur);
+    else val = a.valeur ? '<code>' + ech(a.valeur) + '</code>' : vide;
+    h += '<div class="dl' + (off ? ' off' : '') + '"><input type="checkbox" data-action="' + a.cle + '"' + (a.coche ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
+      '<span class="lib">' + ech(a.libelle) + '</span><span class="val">' + val + '</span>' +
+      '<span class="det' + (a.grave ? ' err' : '') + '">' + (a.deja ? '\u2713 ' : '') + ech(a.detail || '') + '</span></div>';
   }
-
-  if (rep.exigences && rep.exigences.length) {
-    h += '<div class="piece warn"><div class="p-nom">Exigences du PO</div><div class="p-corps">' +
-      '<span class="badge badge-warn">' + rep.exigences.length + '</span><div class="p-detail">' +
-      rep.exigences.map(x => '\u2022 ' + ech(x)).join('<br>') + '</div></div></div>';
+  /* Constats en lecture seule : ce que l appli ne peut pas ecrire seule */
+  for (const e of graves.concat(regarder)) {
+    h += '<div class="dl"><span class="ic ' + (e.grave ? 'err' : 'warn') + '">!</span><span class="lib">' + ech(e.nom) + '</span>' +
+      '<span class="val">' + (e.po ? '<b>PO</b> ' + ech(String(e.po).slice(0, 140)) : '') +
+      (e.constat ? ' \u2192 <b>' + ech(e.libelle_constat || 'Devis') + '</b> ' + ech(String(e.constat).slice(0, 160)) : '') + '</span>' +
+      '<span class="det">' + (e.note ? '<span class="aide" title="' + ech(e.note) + '">pourquoi ?</span>' : '') + '</span></div>';
   }
-
   if (rep.conformes && rep.conformes.length) {
-    h += '<div class="piece ok"><div class="p-nom">Conformes</div><div class="p-corps">' +
-      '<span class="badge badge-ok">' + rep.conformes.length + '</span><div class="p-detail">' +
-      rep.conformes.map(x => '\u2713 ' + ech(x)).join('<br>') + '</div></div></div>';
+    h += '<div class="dl"><span class="ic ok">\u2713</span><span class="lib">Conformes</span>' +
+      '<span class="val"><span class="aide" title="' + ech(rep.conformes.join('\n')) + '">' + rep.conformes.length + ' point(s) v\u00e9rifi\u00e9(s)</span></span><span class="det"></span></div>';
   }
-
-  /* Les actions restent SEPAREES et volontaires : rien n est jamais applique
-     en lot. La validation elle-meme se fait dans Odoo, jamais ici. */
-  h += '<div class="piece"><div class="p-nom">Suite</div><div class="p-corps"><div class="p-actions">' +
-    (d.po_pose ? '<span style="color:var(--text3);font-size:12px">N\u00b0 de commande client d\u00e9j\u00e0 pos\u00e9 : ' + ech(d.po_pose) + '</span>'
-               : '<button class="btn-p" data-poser-po="' + d.id + '" data-po="' + ech(ent.num_commande_client || '') + '" data-ent="' + ent.id + '">Rattacher : n\u00b0 de commande + bon de commande dans le fil</button>') +
-    '<a class="btn-s" style="text-decoration:none;display:inline-block" target="_blank" rel="noopener" href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + d.id + '">Ouvrir le devis dans Odoo</a>' +
-    '<span style="color:var(--text3);font-size:12px;width:100%">Les corrections et la confirmation se font dans Odoo. L appli ne fait que montrer.</span>' +
-    '</div></div></div>';
-
-  h += '</div>';
+  h += '<div class="diag-pied"><button class="btn-p" id="btn-appliquer">Appliquer dans Odoo</button><span class="msg" id="diag-msg"></span></div>';
+  h += '<div class="journal" id="journal"></div></div>';
   z.innerHTML = h;
 
-  const bp = z.querySelector('[data-poser-po]');
-  if (bp) bp.addEventListener('click', function () {
-    agir(this, 'commande-rattacher', { so_id: parseInt(this.dataset.poserPo, 10), num_commande_client: this.dataset.po, entrante_id: parseInt(this.dataset.ent, 10) },
-      r => 'N\u00b0 ' + r.num_commande_client + ' pos\u00e9 sur ' + r.so + ' \u2014 bon de commande pouss\u00e9 dans le fil du devis.');
-  });
+  el('lien-changer').addEventListener('click', () => el('autres').classList.toggle('visible'));
+  brancherChoixDevis(z, ent);
+  const majBouton = () => {
+    const n = z.querySelectorAll('[data-action]:checked').length;
+    const b = el('btn-appliquer');
+    b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n;
+  };
+  z.querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
+  majBouton();
+  el('btn-appliquer').addEventListener('click', () => appliquer(rep, ent));
 }
+
+/* Un seul appel groupe : l API pose tout, relit tout, et rend un journal. */
+async function appliquer(rep, ent) {
+  const z = el('confrontation');
+  const coche = c => { const x = z.querySelector('[data-action="' + c + '"]'); return !!(x && x.checked); };
+  const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
+  const dateChamp = z.querySelector('[data-date]');
+  const ecritures = {
+    ref: coche('ref') && A.ref ? (A.ref.valeur || null) : null,
+    date: coche('date') && dateChamp && dateChamp.value ? dateChamp.value : null,
+    abonner_email: coche('abonner') && A.abonner ? (A.abonner.valeur || null) : null,
+    abonner_nom: coche('abonner') && A.abonner ? (A.abonner.nom || null) : null,
+    exigences: coche('note') && A.note ? (A.note.liste || []) : [],
+    piece_jointe: coche('pj')
+  };
+  const b = el('btn-appliquer'), m = el('diag-msg');
+  b.disabled = true; b.textContent = '\u00c9criture en cours\u2026'; m.textContent = ''; m.style.color = '';
+  try {
+    const r = await appel('commande-rattacher', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ so_id: rep.devis.id, entrante_id: ent.id, ecritures: ecritures }) });
+    afficherJournal(r);
+    if (r.ok) {
+      b.textContent = '\u2713 Appliqu\u00e9 sur ' + (r.so || rep.devis.nom);
+      m.textContent = 'Entrante trait\u00e9e. La confirmation du devis reste dans Odoo.';
+      chargerEntrantes();
+    } else {
+      b.disabled = false; b.textContent = 'R\u00e9essayer';
+      m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
+    }
+  } catch (err) {
+    b.disabled = false; b.textContent = 'R\u00e9essayer';
+    m.textContent = 'L\u2019\u00e9criture n\u2019a pas r\u00e9pondu (' + err.message + ').'; m.style.color = 'var(--red)';
+  }
+}
+const LIB_JOURNAL = { ref: 'R\u00e9f. client', date: 'Date de livraison', abonner: 'Contact achat', note: 'Note exigences', pj: 'Bon de commande' };
+function afficherJournal(r) {
+  const j = el('journal'); if (!j) return;
+  const lignes = (r.journal || []).map(x => {
+    const ic = x.fait === true ? '<span class="ic ok">\u2713</span>' : x.fait === false ? '<span class="ic err">\u2717</span>' : '<span class="ic mute">\u2026</span>';
+    let txt = LIB_JOURNAL[x.cle] || x.cle;
+    if (x.deja) txt += ' \u2014 d\u00e9j\u00e0 en place';
+    else if (x.cle === 'abonner' && x.contact) txt += ' \u2014 ' + ech(x.contact.nom) + (x.contact.cree ? ' (contact cr\u00e9\u00e9)' : '');
+    else if (x.cle === 'date' && x.avant) txt += ' \u2014 remplace ' + ech(x.avant);
+    if (x.motif && x.fait !== true) txt += ' <span style="color:var(--text3)">' + ech(x.motif) + '</span>';
+    return '<div class="dl">' + ic + '<span class="val">' + txt + '</span></div>';
+  });
+  j.innerHTML = lignes.join('');
+}
+
+/* ---- Accueil : retour a la liste des entrantes (demande Olivier 01/09) --- */
+function accueil() {
+  el('confrontation').innerHTML = '';
+  el('rapport').classList.remove('visible');
+  el('etat').textContent = ''; el('etat').className = 'etat-msg'; el('etat').style.color = '';
+  el('entree').value = ''; el('detecte').innerHTML = '';
+  ENTRANTE = null; DIAG = null; DERNIER = null;
+  chargerEntrantes();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+el('btn-accueil').addEventListener('click', accueil);
 
 async function diagnostiquer() {
   const a = analyser(el('entree').value);
