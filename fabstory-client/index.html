@@ -210,6 +210,14 @@
   .entree-resume, .fil-note-print { display: none; }
   .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .fil-metier:first-child { margin-top: 4px; }
+  .f08-inspection td, .f08-inspection th { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .f08-inspection .f08-fort { color: var(--pp-blue); }
+  .f08-obs-cell { color: var(--text3); font-size: 11.5px; font-style: italic; }
+  @media print {
+    .f08-inspection td, .f08-inspection th { background: #fff; border-color: #bbb; color: #1a1a1a; }
+    .f08-inspection .f08-fort { color: #1f4e9c; }
+    .f08-obs-cell { color: #888; }
+  }
   .f08-cartouche { margin-bottom: 16px; }
   .f08-cartouche td { background: var(--surface2); border-color: var(--border2); color: var(--text); }
   .f08-cartouche .f08-fort { color: var(--pp-blue); }
@@ -364,13 +372,13 @@
 
   <div id="contenu" style="display:none">
     <div class="print-entete">
-      <img class="print-logo" src="../shared/logo-pp-complet.png" alt="Proto Process" onerror="this.style.display='none'">
+      <img class="print-logo" src="/brand/logo-pp-rect-noir.png" alt="Proto Process" onerror="this.style.display='none'">
       <div class="print-entete-txt">
         <div class="print-titre" id="printTitre">Rapport de fabrication</div>
         <div class="print-sous" id="printSous"></div>
       </div>
-      <img class="print-certif" src="../shared/logo-afaq.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
-      <img class="print-certif" src="../shared/logo-ipc.png" alt="IPC-A-610" onerror="this.style.display='none'">
+      <img class="print-certif" src="/brand/certifs/afaq-9001.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
+      <img class="print-certif" src="/brand/certifs/ipc-a-610.png" alt="IPC-A-610" onerror="this.style.display='none'">
       <div class="print-date" id="printDate"></div>
     </div>
     <section id="hero" class="carte">
@@ -430,13 +438,14 @@
 
       <div id="inspectionBloc" style="display:none">
         <div class="print-entete insp-entete" id="inspEntete">
-          <img class="print-logo" src="../shared/logo-pp-complet.png" alt="Proto Process" onerror="this.style.display='none'">
+          <img class="print-logo" src="/brand/logo-pp-rect-noir.png" alt="Proto Process" onerror="this.style.display='none'">
           <div class="print-entete-txt">
             <div class="print-titre">Rapport d’inspection avant emballage</div>
-            <div class="print-sous">Formulaire F08/B</div>
+            <div class="print-sous" id="inspSous"></div>
           </div>
-          <img class="print-certif" src="../shared/logo-afaq.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
-          <img class="print-certif" src="../shared/logo-ipc.png" alt="IPC-A-610" onerror="this.style.display='none'">
+          <div class="print-date">Formulaire F08/B</div>
+          <img class="print-certif" src="/brand/certifs/afaq-9001.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
+          <img class="print-certif" src="/brand/certifs/ipc-a-610.png" alt="IPC-A-610" onerror="this.style.display='none'">
         </div>
         <div class="sec-titre"><span>Inspection avant emballage</span></div>
         <div class="carte" id="inspectionZone"></div>
@@ -462,7 +471,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.37";
+const APP_VERSION = "0.38";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -558,7 +567,7 @@ const T = {
     historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
-    inspection_titre: "Inspection avant emballage", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous",
+    inspection_titre: "Inspection avant emballage", insp_col_item: "Points inspect\u00e9s", insp_col_comment: "Commentaires", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous",
     statut_lecture: "Statut de fabrication en cours de lecture\u2026", statut_indispo: "Statut de fabrication indisponible pour le moment.",
     statut_actuel: "Statut actuel : ", commande: "commande", indice: "Indice ",
     jalon_devis: "Devis", jalon_preparation: "Pr\u00e9paration", jalon_fabrication: "Fabrication", jalon_expediee: "Exp\u00e9di\u00e9e",
@@ -612,7 +621,7 @@ const T = {
     historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
-    inspection_titre: "Pre-packing inspection", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side",
+    inspection_titre: "Pre-packing inspection", insp_col_item: "Inspected items", insp_col_comment: "Comments", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side",
     statut_lecture: "Reading production status\u2026", statut_indispo: "Production status unavailable for now.",
     statut_actuel: "Current status: ", commande: "order", indice: "Revision ",
     jalon_devis: "Quotation", jalon_preparation: "Preparation", jalon_fabrication: "Production", jalon_expediee: "Shipped",
@@ -942,13 +951,18 @@ function rendreInspection(pts) {
   const zone = document.getElementById("inspectionZone");
   if (!bloc || !zone) return;
   if (!pts || !pts.length) { bloc.style.display = "none"; majRapportVide(); return; }
-  zone.innerHTML = pts
-    .map(function (p) {
-      return '<div class="op-ligne"><span class="op-point' + (p.conforme ? " fait" : "") + '"></span>' +
-        '<span class="op-nom">' + esc(tInsp(p.code, p.libelle)) + "</span>" +
-        '<span class="op-etat">' + (p.conforme ? t("conforme") : t("a_controler")) + "</span></div>";
-    })
-    .join("");
+  /* Presentation au format du formulaire F08/B : tableau borde
+     Points inspectes | Ok | Commentaires. X dans Ok quand le controle final
+     est pointe ; sinon l etat "a controler" en commentaire. */
+  zone.innerHTML = '<table class="f08-t f08-inspection"><tr>' +
+    '<th>' + esc(t("insp_col_item")) + '</th>' +
+    '<th style="width:10%; text-align:center">Ok</th>' +
+    '<th style="width:30%">' + esc(t("insp_col_comment")) + '</th></tr>' +
+    pts.map(function (p) {
+      return '<tr><td>' + esc(tInsp(p.code, p.libelle)) + '</td>' +
+        '<td style="text-align:center" class="f08-fort">' + (p.conforme ? "X" : "") + '</td>' +
+        '<td class="f08-obs-cell">' + (p.conforme ? "" : esc(t("a_controler"))) + '</td></tr>';
+    }).join("") + '</table>';
   bloc.style.display = "block";
   majRapportVide();
 }
@@ -971,6 +985,14 @@ function rendreCartouche(r) {
   const plage = c.n_serie_debut ? (c.n_serie_debut === c.n_serie_fin ? c.n_serie_debut : c.n_serie_debut + t("a") + c.n_serie_fin) : "";
   document.getElementById("cartLSerie").textContent = plage ? t("cart_serie").replace(" :", "").replace(":", "") : "";
   document.getElementById("cartVSerie").textContent = plage;
+  /* En-tete de la page inspection : sous-ligne au modele de la page 1,
+     completee du SO et du numero de commande client. */
+  const inspSous = document.getElementById("inspSous");
+  if (inspSous) {
+    inspSous.textContent = [document.getElementById("printSous").textContent, r.so,
+      r.client_order_ref ? (t("cart_ref_client") + " " + r.client_order_ref) : null]
+      .filter(Boolean).join("  \u00b7  ");
+  }
   bloc.style.display = "block";
   majRapportVide();
 }
