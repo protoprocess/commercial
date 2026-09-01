@@ -201,6 +201,7 @@
   .conf-ligne:last-child { border-bottom: none; }
   .conf-k { color: var(--text2); flex: none; }
   .conf-v { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+  .conf-declaration { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); }
   .conf-visa { align-items: center; }
   .conf-visa-img { max-width: 170px; max-height: 80px; width: auto; height: auto; display: block; }
 
@@ -336,7 +337,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.24";
+const APP_VERSION = "0.25";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -370,12 +371,155 @@ const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
 const SO_AVANT = (params.get("so") || "").trim();
 
+/* ch.148 (01/09) : langue de la page. Priorite : ?lang=fr|en (tests, surcharge),
+   sinon produits.langue (miroir de la langue du client Odoo, synchronise chaque
+   nuit), sinon fr. Fixee AVANT le premier rendu du contenu : pas de clignotement.
+   Le contenu saisi (questions, choix, reponses) reste dans sa langue d origine. */
+let LANG = (/^(fr|en)$/i.test(params.get("lang") || "")) ? params.get("lang").toLowerCase() : "fr";
+const LANG_FORCEE = LANG !== "fr" || /^(fr|en)$/i.test(params.get("lang") || "");
+const T = {
+  fr: {
+    titre_onglet: "Suivi des projets", btn_home: "Espace client", btn_home_title: "Retour \u00e0 votre espace client Proto Process",
+    btn_print: "T\u00e9l\u00e9charger le rapport", btn_print_title: "T\u00e9l\u00e9charger le rapport de fabrication en PDF",
+    chargement: "Chargement de votre suivi\u2026",
+    refus_titre: "Ce lien n\u2019est pas ou plus valide",
+    refus_texte: "Le lien de suivi que vous avez ouvert n\u2019est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.",
+    refus_indispo: "Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.",
+    bandeau_lecture: "Ce lien est en lecture seule : le suivi reste consultable, mais les r\u00e9ponses en ligne sont ferm\u00e9es. Contactez Proto Process pour toute question.",
+    voir_bom: "Voir la BOM",
+    points_titre: "En attente de votre r\u00e9ponse", points_sous: "Votre r\u00e9ponse d\u00e9bloque directement la pr\u00e9paration de votre carte.",
+    points_fait: "Tous les points sont trait\u00e9s \u2014 merci\u00a0!",
+    onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
+    historique_titre: "Historique de votre carte",
+    historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
+    rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
+    inspection_titre: "Inspection avant emballage", conformite_titre: "Conformit\u00e9",
+    statut_lecture: "Statut de fabrication en cours de lecture\u2026", statut_indispo: "Statut de fabrication indisponible pour le moment.",
+    statut_actuel: "Statut actuel : ", commande: "commande", indice: "Indice ",
+    jalon_devis: "Devis", jalon_preparation: "Pr\u00e9paration", jalon_fabrication: "Fabrication", jalon_expediee: "Exp\u00e9di\u00e9e",
+    chip_attente: "En attente", chip_resolu: "R\u00e9solu", votre_commande: "Votre commande ", chip_commande: "Commande ",
+    rep: "Rep", ref_mpn: "Ref/MPN", question_posee: "Question pos\u00e9e le ",
+    vous: "Vous", fiche_produit: "fiche produit", voir_datasheet: "Voir datasheet",
+    votre_reponse: "Votre r\u00e9ponse\u00a0:", comm_facultatif: "Commentaire (facultatif)", commentaire: "Commentaire",
+    comm_obligatoire: "Commentaire (obligatoire pour ce choix)", ecrire_reponse: "\u00c9crivez votre r\u00e9ponse ici",
+    joindre: "Joindre des fichiers\u00a0:", dropzone: "Cliquez ici ou glissez-d\u00e9posez vos fichiers",
+    fichiers_aide: "Facultatif \u2014 3 fichiers max, 5\u00a0Mo chacun (PDF, image, Excel, CSV). Utile pour une datasheet ou une r\u00e9f\u00e9rence propos\u00e9e.",
+    portee_decochee: "Case d\u00e9coch\u00e9e\u00a0: votre r\u00e9ponse vaut pour cette commande seulement.",
+    portee_titre: "Port\u00e9e de la d\u00e9cision\u00a0:",
+    signer: "Signer ma r\u00e9ponse (facultatif)", votre_nom: "Votre nom", envoyer: "Envoyer la r\u00e9ponse", envoi: "Envoi\u2026", fichier: "Fichier ",
+    err_choix: "Choisissez une r\u00e9ponse avant d\u2019envoyer.",
+    err_comm: "Ce choix demande un commentaire \u2014 \u00e9crivez-le dans le champ pr\u00e9vu.",
+    err_envoi: "L\u2019envoi n\u2019a pas abouti. V\u00e9rifiez votre connexion puis r\u00e9essayez.",
+    err_format: " n\u2019est pas un format accept\u00e9 (PDF, image, Excel, CSV).", err_taille: " d\u00e9passe 5\u00a0Mo.", err_nb: "3 fichiers maximum par r\u00e9ponse.",
+    autre: "Autre", fichier_joint: " fichier joint.", fichiers_joints: " fichiers joints.",
+    non_joint: "\u26a0 Non joint : ", non_joint_fin: " \u2014 vous pouvez l\u2019envoyer par mail.",
+    rep_enregistree: "R\u00e9ponse enregistr\u00e9e.", atelier_informe: "L\u2019atelier Proto Process en est inform\u00e9 \u2014 merci\u00a0!",
+    conforme: "Conforme", a_controler: "\u00c0 contr\u00f4ler",
+    c_declaration: "N\u00b0 de d\u00e9claration", c_client: "Client", c_designation: "D\u00e9signation", c_serie: "N\u00b0 de s\u00e9rie / lot",
+    c_observations: "Observations", c_rohs: "Conforme \u00e0 la directive Europ\u00e9enne 2011/65/EC & 2015/863/UE (RoHS)",
+    c_fait_par: "Fait par", c_date: "Date", c_visa: "Visa", a: " \u00e0 ",
+    c_declaration_texte: "Nous d\u00e9clarons que la fourniture cit\u00e9e est conforme aux exigences du contrat et que, apr\u00e8s v\u00e9rifications et essais, elle r\u00e9pond en tout point aux exigences sp\u00e9cifi\u00e9es, aux normes et r\u00e8glements applicables, sauf exceptions, r\u00e9serves ou d\u00e9rogations \u00e9num\u00e9r\u00e9es dans la pr\u00e9sente d\u00e9claration de conformit\u00e9.",
+    titre_rapport: "Rapport de fabrication",
+    insp: { presence_composants: "Pr\u00e9sence des composants / BOM", polarite: "Polarit\u00e9 / sens des composants", plaquage: "Plaquage des composants",
+      alignement_connecteurs: "Alignement des connecteurs", aspect_soudures: "Aspect des soudures et remont\u00e9es", controle_rx: "Contr\u00f4le RX",
+      aspect_general: "Aspect g\u00e9n\u00e9ral (rayures PCB, composants endommag\u00e9s\u2026)", proprete: "Propret\u00e9 (soudure traversants\u2026)",
+      etiquetage_pp: "\u00c9tiquetage N\u00b0 de s\u00e9rie PP", etiquetage_client: "\u00c9tiquetage sp\u00e9cifique client",
+      apres_lavage: "Pr\u00e9sence des \u00e9l\u00e9ments mont\u00e9s apr\u00e8s lavage (fusible, piles, cavaliers\u2026)", assemblage: "Assemblage (face avant, visserie\u2026)",
+      tropicalisation: "Tropicalisation", programmation: "Programmation", modifications: "Aspect des modifications demand\u00e9es (reprises filaires\u2026)",
+      controle_final: "Contr\u00f4le final", test_fonctionnel: "Test fonctionnel" }
+  },
+  en: {
+    titre_onglet: "Project tracking", btn_home: "Customer portal", btn_home_title: "Back to your Proto Process customer portal",
+    btn_print: "Download the report", btn_print_title: "Download the production report as PDF",
+    chargement: "Loading your tracking\u2026",
+    refus_titre: "This link is not valid, or no longer valid",
+    refus_texte: "The tracking link you opened is no longer active. To receive a new link, please contact your Proto Process contact person.",
+    refus_indispo: "Tracking is temporarily unavailable. Please try again in a few minutes.",
+    bandeau_lecture: "This link is read-only: tracking remains available, but online replies are closed. Contact Proto Process for any question.",
+    voir_bom: "View BOM",
+    points_titre: "Awaiting your reply", points_sous: "Your reply directly unblocks the preparation of your board.",
+    points_fait: "All points are settled \u2014 thank you!",
+    onglet_historique: "History", onglet_rapport: "Production report",
+    historique_titre: "Your board\u2019s history",
+    historique_vide: "Production events for your board will appear here as manufacturing progresses.",
+    rapport_vide: "The production report will fill in as your board is manufactured.",
+    inspection_titre: "Pre-packing inspection", conformite_titre: "Certificate of conformity",
+    statut_lecture: "Reading production status\u2026", statut_indispo: "Production status unavailable for now.",
+    statut_actuel: "Current status: ", commande: "order", indice: "Revision ",
+    jalon_devis: "Quotation", jalon_preparation: "Preparation", jalon_fabrication: "Production", jalon_expediee: "Shipped",
+    chip_attente: "Pending", chip_resolu: "Settled", votre_commande: "Your order ", chip_commande: "Order ",
+    rep: "Des.", ref_mpn: "Ref/MPN", question_posee: "Question asked on ",
+    vous: "You", fiche_produit: "product page", voir_datasheet: "View datasheet",
+    votre_reponse: "Your reply:", comm_facultatif: "Comment (optional)", commentaire: "Comment",
+    comm_obligatoire: "Comment (required for this choice)", ecrire_reponse: "Write your reply here",
+    joindre: "Attach files:", dropzone: "Click here or drag and drop your files",
+    fichiers_aide: "Optional \u2014 3 files max, 5\u00a0MB each (PDF, image, Excel, CSV). Useful for a datasheet or a proposed reference.",
+    portee_decochee: "Unchecked: your reply applies to this order only.",
+    portee_titre: "Scope of the decision:",
+    signer: "Sign my reply (optional)", votre_nom: "Your name", envoyer: "Send reply", envoi: "Sending\u2026", fichier: "File ",
+    err_choix: "Choose a reply before sending.",
+    err_comm: "This choice requires a comment \u2014 please write it in the field provided.",
+    err_envoi: "Sending failed. Check your connection and try again.",
+    err_format: " is not an accepted format (PDF, image, Excel, CSV).", err_taille: " exceeds 5\u00a0MB.", err_nb: "3 files maximum per reply.",
+    autre: "Other", fichier_joint: " file attached.", fichiers_joints: " files attached.",
+    non_joint: "\u26a0 Not attached: ", non_joint_fin: " \u2014 you can send it by email.",
+    rep_enregistree: "Reply recorded.", atelier_informe: "The Proto Process workshop has been notified \u2014 thank you!",
+    conforme: "Compliant", a_controler: "To be checked",
+    c_declaration: "Statement n\u00b0", c_client: "Customer", c_designation: "Designation", c_serie: "Serial or batch number",
+    c_observations: "Observations", c_rohs: "Compliance with European Directive 2011/65/EC & 2015/863/UE (RoHS)",
+    c_fait_par: "Issued by", c_date: "Date", c_visa: "Stamp", a: " to ",
+    c_declaration_texte: "This is to certify that, unless otherwise provided for and stated hereafter, the supplies described herein fully comply with the contract requirements, that they have been inspected and tested and have been found in every respect in compliance with the relevant requirements as well as with the applicable standards and regulations in force.",
+    titre_rapport: "Production report",
+    insp: { presence_composants: "Presence of components / BOM", polarite: "Polarity / components direction", plaquage: "Components seating",
+      alignement_connecteurs: "Connectors alignment", aspect_soudures: "Soldering appearance", controle_rx: "X-ray inspection",
+      aspect_general: "General appearance (PCB scratches, damaged components\u2026)", proprete: "Cleanliness (THT soldering\u2026)",
+      etiquetage_pp: "PP serial labeling", etiquetage_client: "Customer specific labeling",
+      apres_lavage: "Presence of elements assembled after washing (fuse, batteries, jumpers\u2026)", assemblage: "Assembly (front panel, screws\u2026)",
+      tropicalisation: "Conformal coating", programmation: "Programming", modifications: "Requested modifications appearance (wired reworks\u2026)",
+      controle_final: "Final control", test_fonctionnel: "Functional test" }
+  }
+};
+function t(k) { const d = T[LANG] || T.fr; return (k in d) ? d[k] : (T.fr[k] || k); }
+function tInsp(code, libelle) { const d = (T[LANG] || T.fr).insp || {}; return d[code] || T.fr.insp[code] || libelle || code; }
+function texteDernier(el, texte) {
+  if (!el) return;
+  const n = el.childNodes[el.childNodes.length - 1];
+  if (n && n.nodeType === 3) n.nodeValue = texte; else el.appendChild(document.createTextNode(texte));
+}
+/* Applique la langue a tout ce qui est ecrit en dur dans le HTML. Appele une
+   fois la langue connue (fiche chargee), et tout de suite si ?lang= est fourni. */
+function traduireStatique() {
+  document.documentElement.lang = LANG;
+  const q = function (s) { return document.querySelector(s); };
+  if (q(".logo-text .lo")) q(".logo-text .lo").textContent = t("titre_onglet");
+  texteDernier(document.getElementById("btnHome"), t("btn_home"));
+  document.getElementById("btnHome").title = t("btn_home_title");
+  texteDernier(document.getElementById("btnImprimer"), t("btn_print"));
+  document.getElementById("btnImprimer").title = t("btn_print_title");
+  document.getElementById("chargement").textContent = t("chargement");
+  if (q("#refus h1")) q("#refus h1").textContent = t("refus_titre");
+  if (q("#refus p")) q("#refus p").textContent = t("refus_texte");
+  document.getElementById("bandeauLecture").textContent = t("bandeau_lecture");
+  if (q("#btnBom span")) q("#btnBom span").textContent = t("voir_bom");
+  if (q("#pointsTitre span:nth-child(2)")) q("#pointsTitre span:nth-child(2)").textContent = t("points_titre");
+  document.getElementById("pointsSous").textContent = t("points_sous");
+  if (q(".onglet[data-panneau=panHistorique]")) q(".onglet[data-panneau=panHistorique]").textContent = t("onglet_historique");
+  if (q(".onglet[data-panneau=panRapport]")) q(".onglet[data-panneau=panRapport]").textContent = t("onglet_rapport");
+  if (q("#panHistorique .sec-titre span")) q("#panHistorique .sec-titre span").textContent = t("historique_titre");
+  document.getElementById("rapportVide").textContent = t("rapport_vide");
+  if (q("#inspectionBloc .sec-titre span")) q("#inspectionBloc .sec-titre span").textContent = t("inspection_titre");
+  if (q("#conformiteBloc .sec-titre span")) q("#conformiteBloc .sec-titre span").textContent = t("conformite_titre");
+  document.getElementById("jalonsNote").textContent = t("statut_lecture");
+  document.title = t("titre_onglet") + " \u00b7 " + APP_NAME + " v" + APP_VERSION;
+}
+if (LANG_FORCEE) traduireStatique();
+
 /* Choix fermes du chantier 106, libelles revus par Olivier le 08/08. Le
    systeme generique de choix PAR question (bibliotheque Pb->Soluce) est le
    chantier 111. Codes alignes avec le workflow FabStory - Client (public) :
    commentaire OBLIGATOIRE pour alternative_ok, autre et libre — sans lui,
    PP ne saurait pas QUELLE alternative le client propose. */
-const CHOIX_FERMES = [
+const CHOIX_FERMES_FR = [
   { code: "je_fournis", label: "Je fournis ce composant", commentaireObligatoire: false,
     aide: "Vous nous exp\u00e9diez le composant\u00a0; la fabrication reprend \u00e0 r\u00e9ception." },
   { code: "alternative_ok", label: "Alternative(s) possible(s)", commentaireObligatoire: true,
@@ -389,9 +533,32 @@ const CHOIX_FERMES = [
   { code: "autre", label: "Autre\u2026", commentaireObligatoire: true,
     aide: "D\u00e9crivez votre r\u00e9ponse dans le champ de commentaire." }
 ];
+const CHOIX_FERMES_EN = [
+  { code: "je_fournis", label: "I will supply this component", commentaireObligatoire: false,
+    aide: "You ship the component to us; manufacturing resumes on receipt." },
+  { code: "alternative_ok", label: "Alternative(s) possible", commentaireObligatoire: true,
+    aide: "Indicate in the comment the reference(s) you propose \u2014 or \u201cOK for the proposed reference\u201d if we suggested one." },
+  { code: "attendre", label: "Wait for stock / availability", commentaireObligatoire: false,
+    aide: "We order as soon as it is back in stock at our distributors; the delivery date may slip accordingly." },
+  { code: "cabler_sans", label: "Do not assemble", commentaireObligatoire: false,
+    aide: "The board is assembled without this component, the location is left empty." },
+  { code: "chiffrage_broker", label: "Broker quotation", commentaireObligatoire: false,
+    aide: "We search for the reference through a broker network and submit a quotation before any order." },
+  { code: "autre", label: "Other\u2026", commentaireObligatoire: true,
+    aide: "Describe your reply in the comment field." }
+];
+/* Les CODES sont ceux du workflow, quelle que soit la langue ; seuls les libelles changent. */
+const CHOIX_FERMES = (LANG === "en") ? CHOIX_FERMES_EN : CHOIX_FERMES_FR;
 /* Portees renommees le 08/08 (retour Olivier), chacune avec son sous-entendu
    explicite — l aide change avec la selection, comme pour les choix. */
-const PORTEES = [
+const PORTEES = (LANG === "en") ? [
+  { code: "so", label: "For this order only",
+    aide: "Applies to this order. On re-order, the question may be asked again if the case arises." },
+  { code: "carte", label: "For this project / this board",
+    aide: "Recorded for this board: also applies to its future re-orders. The question will be asked again if it arises on another product." },
+  { code: "client", label: "All projects / all boards",
+    aide: "Definitive rule for all your boards, whatever the product: the question will not be asked again." }
+] : [
   { code: "so", label: "Pour cette commande uniquement",
     aide: "Vaut pour cette commande. En cas de re-commande, la question pourra \u00eatre repos\u00e9e si le cas se repr\u00e9sente." },
   { code: "carte", label: "Pour ce projet / cette carte",
@@ -400,10 +567,10 @@ const PORTEES = [
     aide: "R\u00e8gle d\u00e9finitive pour l\u2019ensemble de vos cartes, quel que soit le produit\u00a0: la question ne sera plus pos\u00e9e." }
 ];
 const JALONS = [
-  { code: "devis",       label: "Devis" },
-  { code: "preparation", label: "Pr\u00e9paration" },
-  { code: "fabrication", label: "Fabrication" },
-  { code: "expediee",    label: "Exp\u00e9di\u00e9e" }
+  { code: "devis",       cle: "jalon_devis" },
+  { code: "preparation", cle: "jalon_preparation" },
+  { code: "fabrication", cle: "jalon_fabrication" },
+  { code: "expediee",    cle: "jalon_expediee" }
 ];
 
 /* Icones en SVG EMBARQUE uniquement : la police d'icones ne charge pas chez
@@ -494,7 +661,7 @@ function htmlTexteClient(t) {
   const paras = brut.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
   return paras.map(function (l) {
     const h = esc(l).replace(/\s*[\u2014\u2013-]?\s*(https?:\/\/[^\s<]+?)([.,;:!?]?)(?=\s|$)/g, function (m, url, fin) {
-      return ' (<a class="lien-inline" href="' + url + '" target="_blank" rel="noopener">fiche produit</a>)' + fin;
+      return ' (<a class="lien-inline" href="' + url + '" target="_blank" rel="noopener">' + t("fiche_produit") + '</a>)' + fin;
     });
     return "<p>" + h + "</p>";
   }).join("");
@@ -507,13 +674,13 @@ function htmlLiensDoc(e) {
   /* v0.17 (Olivier 31/08) : UN bouton, la datasheet en direct ; la fiche produit
      reste accessible par le lien "fiche produit" dans le texte. */
   if (!l.datasheet) return "";
-  return '<div class="liens-doc"><a href="' + esc(l.datasheet) + '" target="_blank" rel="noopener">' + svgLienExt() + 'Voir datasheet</a></div>';
+  return '<div class="liens-doc"><a href="' + esc(l.datasheet) + '" target="_blank" rel="noopener">' + svgLienExt() + t("voir_datasheet") + '</a></div>';
 }
 function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d)) return "";
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(LANG === "en" ? "en-GB" : "fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 let DONNEES = null;
@@ -531,11 +698,13 @@ async function charger() {
       (SO_AVANT ? "&so=" + encodeURIComponent(SO_AVANT) : ""));
     r = await rep.json();
   } catch (e) {
-    montrerRefus("Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.");
+    montrerRefus(t("refus_indispo"));
     return;
   }
   if (!r || !r.ok) { montrerRefus(); return; }
   DONNEES = r;
+  if (!LANG_FORCEE && r.produit && (r.produit.langue === "en" || r.produit.langue === "fr")) LANG = r.produit.langue;
+  traduireStatique();
   document.getElementById("chargement").style.display = "none";
   document.getElementById("contenu").style.display = "block";
   rendreHero(r);
@@ -582,8 +751,8 @@ function rendreInspection(pts) {
   zone.innerHTML = pts
     .map(function (p) {
       return '<div class="op-ligne"><span class="op-point' + (p.conforme ? " fait" : "") + '"></span>' +
-        '<span class="op-nom">' + esc(p.libelle) + "</span>" +
-        '<span class="op-etat">' + (p.conforme ? "Conforme" : "\u00c0 contr\u00f4ler") + "</span></div>";
+        '<span class="op-nom">' + esc(tInsp(p.code, p.libelle)) + "</span>" +
+        '<span class="op-etat">' + (p.conforme ? t("conforme") : t("a_controler")) + "</span></div>";
     })
     .join("");
   bloc.style.display = "block";
@@ -602,17 +771,17 @@ function rendreConformite(c) {
   const p = (DONNEES && DONNEES.produit) || {};
   const plage = (c.n_serie_debut === c.n_serie_fin)
     ? c.n_serie_debut
-    : (c.n_serie_debut + " \u00e0 " + c.n_serie_fin);
+    : (c.n_serie_debut + t("a") + c.n_serie_fin);
   const auj = new Date();
   const dateFr = String(auj.getDate()).padStart(2, "0") + "/" + String(auj.getMonth() + 1).padStart(2, "0") + "/" + auj.getFullYear();
   const lignes = [
-    ["N\u00b0 de d\u00e9claration", c.n_declaration],
-    ["Client", p.nom_client],
-    ["D\u00e9signation", p.libelle_carte || p.ref_carte || p.cle_produit],
-    ["N\u00b0 de s\u00e9rie / lot", plage],
-    ["Observations", c.rohs_texte],
-    ["Fait par", c.fait_par],
-    ["Date", dateFr]
+    [t("c_declaration"), c.n_declaration],
+    [t("c_client"), p.nom_client],
+    [t("c_designation"), p.libelle_carte || p.ref_carte || p.cle_produit],
+    [t("c_serie"), plage],
+    [t("c_observations"), t("c_rohs")],
+    [t("c_fait_par"), c.fait_par],
+    [t("c_date"), dateFr]
   ];
   zone.innerHTML = lignes
     .filter(function (l) { return l[1]; })
@@ -621,7 +790,8 @@ function rendreConformite(c) {
         '</span><span class="conf-v">' + esc(l[1]) + "</span></div>";
     })
     .join("") +
-    '<div class="conf-ligne conf-visa"><span class="conf-k">Visa</span>' +
+    '<p class="conf-declaration">' + esc(t("c_declaration_texte")) + '</p>' +
+    '<div class="conf-ligne conf-visa"><span class="conf-k">' + t("c_visa") + '</span>' +
     '<img src="../shared/visa-pp.png" alt="Visa Proto Process" class="conf-visa-img" onerror="this.parentElement.style.display=\'none\'"></div>';
   bloc.style.display = "block";
   majRapportVide();
@@ -638,11 +808,11 @@ function rendreHero(r) {
      plutot que de laisser le titre generique de l onglet au chargement. */
   const refPourTitre = p.ref_carte || p.cle_produit || "";
   if (p.nom_client || refPourTitre) {
-    document.title = [p.nom_client, refPourTitre, "Rapport de fabrication"].filter(Boolean).join(" ");
+    document.title = [p.nom_client, refPourTitre, t("titre_rapport")].filter(Boolean).join(" ");
   }
   if (r.indice_courant) {
     const b = document.getElementById("heroIndice");
-    b.textContent = "Indice " + r.indice_courant;
+    b.textContent = t("indice") + r.indice_courant;
     b.style.display = "inline-flex";
   }
   /* Lien BOM (Luminovo) : uniquement si c est une vraie URL — un texte libre
@@ -672,9 +842,9 @@ function rendreJalons(statut, so, enAttente) {
     html += '<div class="' + cls + '"><span class="pt">' + svgJalon(j.code) + '</span><span class="lbl">' + esc(j.label) + "</span></div>";
   });
   conteneur.innerHTML = html;
-  if (enAttente) { note.textContent = "Statut de fabrication en cours de lecture\u2026"; return; }
-  if (idx < 0) { note.textContent = "Statut de fabrication indisponible pour le moment."; return; }
-  note.textContent = "Statut actuel : " + JALONS[idx].label + (so ? " (commande " + so + ")" : "");
+  if (enAttente) { note.textContent = t("statut_lecture"); return; }
+  if (idx < 0) { note.textContent = t("statut_indispo"); return; }
+  note.textContent = t("statut_actuel") + t(JALONS[idx].cle) + (so ? " (" + t("commande") + " " + so + ")" : "");
 }
 
 /* -------------------------- Points a trancher --------------------- */
@@ -703,12 +873,12 @@ function construirePoint(e) {
   bloc.className = "carte point";
   bloc.dataset.id = e.id;
   const soBadge = (SO_AVANT && e.so_canonique === SO_AVANT)
-    ? '<span class="badge badge-so">Votre commande ' + esc(e.so_canonique) + "</span>"
-    : (e.so_canonique ? '<span class="chip chip-etape">Commande ' + esc(e.so_canonique) + "</span>" : "");
+    ? '<span class="badge badge-so">' + t("votre_commande") + esc(e.so_canonique) + "</span>"
+    : (e.so_canonique ? '<span class="chip chip-etape">' + t("chip_commande") + esc(e.so_canonique) + "</span>" : "");
   const comp = (e.repere || e.mpn)
     ? '<div class="comp">' +
-      (e.repere ? '<span class="k">Rep&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
-      (e.mpn ? '<span class="k">Ref/MPN&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
+      (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
+      (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
       "</div>"
     : "";
   bloc.innerHTML =
@@ -719,7 +889,7 @@ function construirePoint(e) {
         comp +
         '<div class="point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
         htmlPieces(e.pieces) +
-        '<div class="point-meta">Question pos\u00e9e le ' + esc(fmtDate(e.cree_le)) +
+        '<div class="point-meta">' + t("question_posee") + esc(fmtDate(e.cree_le)) +
           (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
         construireFormulaire(e) +
       "</div>" +
@@ -738,42 +908,42 @@ function construireFormulaire(e) {
     /* v0.15 (ch.61 point 2) : ENVELOPPE figee par FabStory v4 (ch.111) — les choix
        sont ceux de la question, l aide s affiche sous le choix selectionne, la
        portee est UNE case (decision Olivier 31/08 : "valable pour toujours" ou rien). */
-    html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div><div class="choix-liste">';
+    html += '<div class="rep-lbl">' + t("votre_reponse") + '</div><div class="choix-liste">';
     e.enveloppe.choix.forEach(function (c, i) {
       html += '<button type="button" class="choix-btn" data-env="' + i + '">' + esc(c.libelle) + "</button>";
     });
     html += "</div>";
     html += '<div class="choix-aide"></div>';
-    html += '<textarea class="rep-comm" placeholder="Commentaire (facultatif)"></textarea>';
+    html += '<textarea class="rep-comm" placeholder="' + esc(t("comm_facultatif")) + '"></textarea>';
   } else if (e.choix_fermes) {
-    html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div><div class="choix-liste">';
+    html += '<div class="rep-lbl">' + t("votre_reponse") + '</div><div class="choix-liste">';
     CHOIX_FERMES.forEach(function (c) {
       html += '<button type="button" class="choix-btn" data-choix="' + c.code + '">' + esc(c.label) + "</button>";
     });
     html += "</div>";
     html += '<div class="choix-aide"></div>';
-    html += '<textarea class="rep-comm" placeholder="Commentaire"></textarea>';
+    html += '<textarea class="rep-comm" placeholder="' + esc(t("commentaire")) + '"></textarea>';
   } else {
-    html += '<div class="rep-lbl">Votre r\u00e9ponse&nbsp;:</div>' +
-      '<textarea class="rep-comm" placeholder="\u00c9crivez votre r\u00e9ponse ici"></textarea>';
+    html += '<div class="rep-lbl">' + t("votre_reponse") + '</div>' +
+      '<textarea class="rep-comm" placeholder="' + esc(t("ecrire_reponse")) + '"></textarea>';
   }
   html += '<div class="fichiers-zone">' +
-    '<div class="rep-lbl">Joindre des fichiers&nbsp;:</div>' +
+    '<div class="rep-lbl">' + t("joindre") + '</div>' +
     '<div class="dropzone" role="button" tabindex="0">' +
-      'Cliquez ici ou glissez-d\u00e9posez vos fichiers' +
+      esc(t("dropzone")) +
       '<input type="file" class="rep-fichiers" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.xls,.csv">' +
     '</div>' +
     '<div class="fichiers-liste"></div>' +
-    '<div class="fichiers-aide">Facultatif \u2014 3 fichiers max, 5\u00a0Mo chacun (PDF, image, Excel, CSV). Utile pour une datasheet ou une r\u00e9f\u00e9rence propos\u00e9e.</div>' +
+    '<div class="fichiers-aide">' + esc(t("fichiers_aide")) + '</div>' +
     '</div>';
   if (aEnveloppe(e)) {
     if (e.enveloppe.portee && e.enveloppe.portee.libelle) {
       html += '<label class="portee-case"><input type="checkbox" class="portee-toujours">' +
         '<span>' + esc(e.enveloppe.portee.libelle) +
-        '<small>Case d\u00e9coch\u00e9e\u00a0: votre r\u00e9ponse vaut pour cette commande seulement.</small></span></label>';
+        '<small>' + esc(t("portee_decochee")) + '</small></span></label>';
     }
   } else {
-    html += '<div class="rep-lbl" style="margin-top:11px">Port\u00e9e de la d\u00e9cision&nbsp;:</div>' +
+    html += '<div class="rep-lbl" style="margin-top:11px">' + t("portee_titre") + '</div>' +
       '<div class="portee-liste">';
     PORTEES.forEach(function (p, i) {
       html += '<button type="button" class="portee-btn' + (i === 0 ? " sel" : "") + '" data-portee="' + p.code + '">' + esc(p.label) + "</button>";
@@ -786,9 +956,9 @@ function construireFormulaire(e) {
      Le jour ou le lien saura QUI le porte (portail client, ou destinataire
      attache au SO en seance relances), ce champ se pre-remplira tout seul. */
   html += '<div class="rep-bas">' +
-    '<a class="lien-signer" role="button" tabindex="0">Signer ma r\u00e9ponse (facultatif)</a>' +
-    '<input type="text" class="rep-nom" maxlength="80" placeholder="Votre nom" style="display:none">' +
-    '<button type="button" class="btn-envoyer">Envoyer la r\u00e9ponse</button>' +
+    '<a class="lien-signer" role="button" tabindex="0">' + esc(t("signer")) + '</a>' +
+    '<input type="text" class="rep-nom" maxlength="80" placeholder="' + esc(t("votre_nom")) + '" style="display:none">' +
+    '<button type="button" class="btn-envoyer">' + esc(t("envoyer")) + '</button>' +
     "</div>" +
     '<div class="rep-erreur"></div>' +
   "</div>";
@@ -819,10 +989,10 @@ function brancherFormulaire(bloc, e) {
       }
       const zone = form.querySelector(".rep-comm");
       if (def && def.commentaireObligatoire) {
-        zone.placeholder = "Commentaire (obligatoire pour ce choix)";
+        zone.placeholder = t("comm_obligatoire");
         zone.focus();
       } else {
-        zone.placeholder = "Commentaire (facultatif)";
+        zone.placeholder = t("comm_facultatif");
       }
     });
   });
@@ -874,13 +1044,13 @@ function brancherFormulaire(bloc, e) {
         const f = nouveaux[i];
         const ext = (f.name.lastIndexOf(".") > 0) ? f.name.slice(f.name.lastIndexOf(".") + 1).toLowerCase() : "";
         if (EXT_OK.indexOf(ext) < 0) {
-          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb n\u2019est pas un format accept\u00e9 (PDF, image, Excel, CSV)."); continue;
+          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb" + t("err_format")); continue;
         }
         if (f.size > 5242880) {
-          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb d\u00e9passe 5\u00a0Mo."); continue;
+          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb" + t("err_taille")); continue;
         }
         if (form._fichiers.length >= 3) {
-          montrerErreur(erreurZone, "3 fichiers maximum par r\u00e9ponse."); break;
+          montrerErreur(erreurZone, t("err_nb")); break;
         }
         form._fichiers.push(f);
       }
@@ -913,14 +1083,14 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   const erreur = form.querySelector(".rep-erreur");
   erreur.style.display = "none";
   const commentaire = (form.querySelector(".rep-comm").value || "").trim();
-  if (!choixSel) { montrerErreur(erreur, "Choisissez une r\u00e9ponse avant d\u2019envoyer."); return; }
+  if (!choixSel) { montrerErreur(erreur, t("err_choix")); return; }
   const env = aEnveloppe(e);
   const defChoix = env
     ? (function () { const c = e.enveloppe.choix.find(function (x) { return x.libelle === choixSel; }); return c ? { commentaireObligatoire: !!c.commentaire_obligatoire } : null; })()
     : CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
   const commObligatoire = (choixSel === "libre") || (defChoix && defChoix.commentaireObligatoire);
   if (commObligatoire && !commentaire) {
-    montrerErreur(erreur, "Ce choix demande un commentaire \u2014 \u00e9crivez-le dans le champ pr\u00e9vu."); return;
+    montrerErreur(erreur, t("err_comm")); return;
   }
   const porteeBtn = form.querySelector(".portee-btn.sel");
   const portee = porteeBtn ? porteeBtn.dataset.portee : "so";
@@ -930,7 +1100,7 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   const fichiers = Array.isArray(form._fichiers) ? form._fichiers.slice(0, 3) : [];
   const bouton = form.querySelector(".btn-envoyer");
   bouton.disabled = true;
-  bouton.textContent = "Envoi\u2026";
+  bouton.textContent = t("envoi");
   let r;
   try {
     const rep = await fetch(API + "/fabstory-client-reponse", {
@@ -945,9 +1115,9 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   } catch (err) { r = null; }
   if (!r || !r.ok) {
     bouton.disabled = false;
-    bouton.textContent = "Envoyer la r\u00e9ponse";
+    bouton.textContent = t("envoyer");
     montrerErreur(erreur, (r && r.motif) ? r.motif :
-      "L\u2019envoi n\u2019a pas abouti. V\u00e9rifiez votre connexion puis r\u00e9essayez.");
+      t("err_envoi"));
     return;
   }
   /* Upload des pieces APRES la reponse, une par une : un echec de piece ne
@@ -956,7 +1126,7 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   const ratees = [];
   for (let i = 0; i < fichiers.length; i++) {
     const f = fichiers[i];
-    bouton.textContent = "Fichier " + (i + 1) + "/" + fichiers.length + "\u2026";
+    bouton.textContent = t("fichier") + (i + 1) + "/" + fichiers.length + "\u2026";
     try {
       const b64 = await lireFichierB64(f);
       const repP = await fetch(API + "/fabstory-client-piece", {
@@ -974,14 +1144,14 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   bloc.querySelector(".point-ico").innerHTML = svgCoche(24);
   const choixObj = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
   const resume = (choixSel === "libre") ? commentaire
-    : (choixSel === "autre") ? ("Autre \u2014 " + commentaire)
+    : (choixSel === "autre") ? (t("autre") + " \u2014 " + commentaire)
     : (choixObj ? choixObj.label : "") + (commentaire ? " \u2014 " + commentaire : "");
   let bilanPieces = "";
-  if (jointes.length) bilanPieces += "\n" + jointes.length + (jointes.length > 1 ? " fichiers joints." : " fichier joint.");
-  if (ratees.length) bilanPieces += "\n\u26a0 Non joint : " + ratees.join(", ") + " \u2014 vous pouvez l\u2019envoyer par mail.";
+  if (jointes.length) bilanPieces += "\n" + jointes.length + (jointes.length > 1 ? t("fichiers_joints") : t("fichier_joint"));
+  if (ratees.length) bilanPieces += "\n" + t("non_joint") + ratees.join(", ") + t("non_joint_fin");
   form.outerHTML = '<div class="rep-fait">' + svgCoche(20) +
-    '<span class="txt"><strong>R\u00e9ponse enregistr\u00e9e.</strong>\n' + esc(resume) + esc(bilanPieces) +
-    "\nL\u2019atelier Proto Process en est inform\u00e9 \u2014 merci\u00a0!</span></div>" +
+    '<span class="txt"><strong>' + esc(t("rep_enregistree")) + '</strong>\n' + esc(resume) + esc(bilanPieces) +
+    "\n" + esc(t("atelier_informe")) + "</span></div>" +
     (jointes.length ? htmlPieces(jointes) : "");
   majCompte();
 }
@@ -998,7 +1168,7 @@ function majCompte() {
   compte.classList.toggle("zero", restants === 0);
   if (restants === 0) {
     document.getElementById("pointsIco").innerHTML = svgCoche(20);
-    document.getElementById("pointsSous").textContent = "Tous les points sont trait\u00e9s \u2014 merci\u00a0!";
+    document.getElementById("pointsSous").textContent = t("points_fait");
   }
 }
 
@@ -1022,7 +1192,7 @@ function rendreFil(r) {
     }
   });
   if (!racines.length) {
-    fil.innerHTML = '<div class="vide">Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.</div>';
+    fil.innerHTML = '<div class="vide">' + esc(t("historique_vide")) + '</div>';
     return;
   }
   racines.sort(function (a, b) { return new Date(b.cree_le) - new Date(a.cree_le); });
@@ -1035,13 +1205,13 @@ function rendreFil(r) {
     if (e.so_canonique) chips.push('<span class="chip chip-etape">' + esc(e.so_canonique) + "</span>");
     if (e.type === "question_client") {
       chips.push(e.etat === "en_attente"
-        ? '<span class="chip chip-attente">En attente</span>'
-        : '<span class="chip chip-resolu">R\u00e9solu</span>');
+        ? '<span class="chip chip-attente">' + t("chip_attente") + '</span>'
+        : '<span class="chip chip-resolu">' + t("chip_resolu") + '</span>');
     }
     const comp = (e.repere || e.mpn)
       ? '<div class="comp">' +
-        (e.repere ? '<span class="k">Rep&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
-        (e.mpn ? '<span class="k">Ref/MPN&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
+        (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
+        (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
         "</div>"
       : "";
     let html = '<div class="entree-tete">' + chips.join("") +
@@ -1050,7 +1220,7 @@ function rendreFil(r) {
       htmlPieces(e.pieces);
     (reponsesDe[e.id] || []).forEach(function (rep) {
       html += '<div class="reponse-bloc">' +
-        '<div class="reponse-de">' + esc(rep.auteur || (rep.emetteur === "client" ? "Vous" : "Proto Process")) +
+        '<div class="reponse-de">' + esc(rep.auteur || (rep.emetteur === "client" ? t("vous") : "Proto Process")) +
         " \u00b7 " + esc(fmtDate(rep.cree_le)) + "</div>" +
         '<div class="entree-texte">' + esc(rep.texte) + "</div>" +
         htmlPieces(rep.pieces) + "</div>";
