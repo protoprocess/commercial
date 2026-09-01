@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.2";
+const APP_VERSION = "6.3";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -267,6 +267,8 @@ async function chargerEntrantes() {
       return '<div class="piece ' + (rat ? 'ok' : 'warn') + '" style="margin-top:14px"><div class="p-nom">Mail re\u00e7u</div><div class="p-corps">' +
         (rat ? '<span class="badge badge-ok">rattach\u00e9e \u00b7 ' + ech(e.odoo_so_name || '') + '</span> <span style="color:var(--text3);font-size:12px">attend la confirmation du devis dans Odoo</span>'
              : '<span class="badge badge-warn">commande entrante</span>') +
+        (Number(e.nb_lots) > 1 ? ' <span class="badge badge-mute">lot ' + ech(e.lot) + '/' + ech(e.nb_lots) + '</span>' : '') +
+        (e.ref_devis_pp ? ' <span class="badge badge-mute">devis cit\u00e9 ' + ech(e.ref_devis_pp) + '</span>' : '') +
         '<div class="p-detail"><b>' + ech(e.client_detecte || e.expediteur || '?') + '</b> \u00b7 ' + ech(e.ref_detectee || 'r\u00e9f non lue') +
         (e.indice_detecte ? ' <code>indice ' + ech(e.indice_detecte) + '</code>' : '') +
         (e.num_commande_client ? ' \u00b7 PO ' + ech(e.num_commande_client) : '') +
@@ -357,9 +359,11 @@ function htmlChoixDevis(exclure) {
   const l = (DIAG ? DIAG.devisListe : []).filter(d => d.nom !== exclure);
   let h = '';
   for (const d of l) {
-    h += '<div class="dl"><span class="ic ' + (d.meme_montant ? 'ok' : 'mute') + '">' + (d.meme_montant ? '=' : '\u00b7') + '</span>' +
+    h += '<div class="dl"><span class="ic ' + (d.cite_au_po || d.meme_montant ? 'ok' : 'mute') + '">' + (d.cite_au_po ? '\u2605' : d.meme_montant ? '=' : '\u00b7') + '</span>' +
       '<span class="lib"><a class="lien" data-choisir-devis="' + ech(d.nom) + '">' + ech(d.nom) + '</a></span>' +
       '<span class="val">' + ech(d.date) + ' \u00b7 <b>' + ech(d.total_texte) + '</b>' + (d.projet ? ' \u00b7 ' + ech(d.projet) : '') +
+      (d.cite_au_po ? ' <span style="color:var(--green)">cit\u00e9 au bon de commande</span>' : '') +
+      (d.etat !== 'draft' && d.etat !== 'sent' ? ' <span style="color:var(--amber)">d\u00e9j\u00e0 ' + ech(d.etat) + '</span>' : '') +
       (d.po_deja_pose ? ' <span style="color:var(--amber)">porte d\u00e9j\u00e0 ' + ech(d.po_deja_pose) + '</span>' : '') + '</span></div>';
   }
   h += '<div class="dl"><span class="ic mute">\u2026</span><span class="lib">Autre devis</span><span class="val" style="display:flex;gap:8px;align-items:center">' +
@@ -379,8 +383,22 @@ function afficherChoixDevis(z) {
   z.innerHTML = '<div class="diag"><div class="diag-tete"><b>' + ech(ent.client_detecte || ent.expediteur || '?') + '</b>' +
     (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') + '<span class="sp"></span>' +
     '<span style="color:var(--amber);font-size:12px">' + ech(DIAG.note || 'Aucun devis ouvert trouv\u00e9 pour ce client : saisir le num\u00e9ro.') + '</span></div>' +
-    htmlChoixDevis(null) + '</div>';
+    htmlChoixDevis(null) +
+    (ent.ref_detectee ? '<div class="dl"><span class="ic mute">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center">' +
+      '<button class="btn-p" id="conf-refab">Cr\u00e9er un devis refab depuis la carte</button>' +
+      '<span class="why">carte <code>' + ech(ent.ref_detectee) + '</code> \u00b7 cadences pr\u00e9-remplies depuis le bon de commande</span></span></div>' : '') +
+    '</div>';
   brancherChoixDevis(z, ent);
+  const refab = z.querySelector('#conf-refab');
+  if (refab) refab.addEventListener('click', function () {
+    /* v6.3 (ch. 149) : commande sans devis = parcours PRODUIT (refab). La feuille
+       de route s ouvre sur la carte, l etape 3 propose le devis avec les
+       cadences du PO. */
+    ENTRANTE = ent; DIAG = null;
+    el('entree').value = ent.ref_detectee;
+    el('entree').dispatchEvent(new Event('input'));
+    diagnostiquer();
+  });
   const champ = z.querySelector('#conf-so'); if (champ) champ.focus();
 }
 
