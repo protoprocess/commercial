@@ -210,6 +210,13 @@
   .entree-resume, .fil-note-print { display: none; }
   .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .fil-metier:first-child { margin-top: 4px; }
+  .f08-cartouche { margin-bottom: 16px; }
+  .f08-cartouche td { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .f08-cartouche .f08-fort { color: var(--pp-blue); }
+  @media print {
+    .f08-cartouche td { background: #fff; border-color: #bbb; color: #1a1a1a; }
+    .f08-cartouche .f08-fort { color: #1f4e9c; }
+  }
   .f08 { border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; background: #fff; color: #1a1a1a; }
   .f08 i { color: #555; font-size: 0.92em; }
   .f08-bandeau { text-align: center; padding: 10px 8px 8px; border-bottom: 1px solid #bbb; }
@@ -400,6 +407,15 @@
     <div class="panneau" id="panRapport">
       <div class="vide" id="rapportVide">Le rapport de fabrication se remplira au fil de la production de votre carte.</div>
 
+      <div id="cartoucheBloc" style="display:none">
+        <table class="f08-t f08-cartouche">
+          <tr><td style="width:26%" class="f08-k" id="cartLOrder"></td><td class="f08-fort" id="cartVOrder"></td></tr>
+          <tr><td class="f08-k" id="cartLClient"></td><td class="f08-fort" id="cartVClient"></td></tr>
+          <tr><td class="f08-k" id="cartLProjet"></td><td class="f08-fort" id="cartVProjet"></td></tr>
+          <tr><td class="f08-k" id="cartLQte"></td><td><span class="f08-fort" id="cartVQte"></span><span class="f08-k" style="margin-left:24px" id="cartLSerie"></span> <span class="f08-fort" id="cartVSerie"></span></td></tr>
+        </table>
+      </div>
+
       <div id="photosBloc" style="display:none">
         <div class="sec-titre"><span>Photos de la carte</span></div>
         <div class="carte photos-carte">
@@ -433,7 +449,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.35";
+const APP_VERSION = "0.36";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -448,17 +464,20 @@ document.getElementById("btnImprimer").addEventListener("click", function () { w
     const contenu = document.getElementById("contenu");
     const hist = document.getElementById("panHistorique"), rap = document.getElementById("panRapport");
     if (!contenu || !hist || !rap || ordreEcran) return;
-    ordreEcran = { photos: document.getElementById("photosBloc"), photosSuivant: null };
-    const ph = ordreEcran.photos;
+    ordreEcran = { photos: document.getElementById("photosBloc"), photosSuivant: null, cart: document.getElementById("cartoucheBloc"), cartSuivant: null };
+    const ph = ordreEcran.photos, ca = ordreEcran.cart;
     ordreEcran.photosSuivant = ph ? ph.nextSibling : null;
-    /* photos juste apres le hero */
-    if (ph) contenu.insertBefore(ph, document.getElementById("hero").nextSibling);
+    ordreEcran.cartSuivant = ca ? ca.nextSibling : null;
+    /* cartouche F08 puis photos, juste apres le hero */
+    if (ca) contenu.insertBefore(ca, document.getElementById("hero").nextSibling);
+    if (ph) contenu.insertBefore(ph, ca ? ca.nextSibling : document.getElementById("hero").nextSibling);
     /* historique avant le rapport : deja le cas dans le DOM */
   }
   function apres() {
     if (!ordreEcran) return;
     const rap = document.getElementById("panRapport");
     if (ordreEcran.photos && rap) rap.insertBefore(ordreEcran.photos, ordreEcran.photosSuivant);
+    if (ordreEcran.cart && rap) rap.insertBefore(ordreEcran.cart, ordreEcran.cartSuivant);
     ordreEcran = null;
   }
   window.addEventListener("beforeprint", avant);
@@ -488,7 +507,8 @@ function majRapportVide() {
   const ops = document.getElementById("inspectionBloc");
   const conf = document.getElementById("conformiteBloc");
   const ph = document.getElementById("photosBloc");
-  const unVisible = (ops && ops.style.display !== "none") || (conf && conf.style.display !== "none") || (ph && ph.style.display !== "none");
+  const cart = document.getElementById("cartoucheBloc");
+  const unVisible = (ops && ops.style.display !== "none") || (conf && conf.style.display !== "none") || (ph && ph.style.display !== "none") || (cart && cart.style.display !== "none");
   vide.style.display = unVisible ? "none" : "block";
 }
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
@@ -520,6 +540,7 @@ const T = {
     onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
     resume_cable: "\u00c9quivalent {P} mont\u00e9 en lieu et place de {R}{X} \u2014 valid\u00e9 par vos soins le {D}.",
     resume_pas_cable: "{R}{X} non mont\u00e9 \u2014 d\u00e9cision valid\u00e9e par vos soins le {D}.",
+    cart_order: "Commande", cart_client: "Client", cart_projet: "Projet", cart_qte: "Quantit\u00e9s", cart_serie: "N\u00b0 de s\u00e9rie :", form_f08: "Formulaire F08/B",
     resume_rep: "rep. ", fil_note_print: "Le d\u00e9tail des \u00e9changes reste consultable dans votre historique en ligne.",
     historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
@@ -573,6 +594,7 @@ const T = {
     onglet_historique: "History", onglet_rapport: "Production report",
     resume_cable: "Equivalent {P} fitted in place of {R}{X} \u2014 approved by you on {D}.",
     resume_pas_cable: "{R}{X} not fitted \u2014 decision approved by you on {D}.",
+    cart_order: "Order", cart_client: "Customer", cart_projet: "Project", cart_qte: "Quantities", cart_serie: "Serial N\u00b0:", form_f08: "Formulaire F08/B",
     resume_rep: "des. ", fil_note_print: "The full exchanges remain available in your online history.",
     historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
@@ -869,6 +891,7 @@ async function chargerStatut() {
     rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
     rendreInspection(r && r.ok ? r.inspection : null);
     if (r && r.ok && r.conformite) { r.conformite.so = r.conformite.so || r.so || ""; if (r.conformite.qte == null) r.conformite.qte = r.qte_cmd; }
+    rendreCartouche(r && r.ok ? r : null);
     rendreConformite(r && r.ok ? r.conformite : null);
   } catch (e) {
     rendreJalons(null, null);
@@ -911,6 +934,30 @@ function rendreInspection(pts) {
         '<span class="op-etat">' + (p.conforme ? t("conforme") : t("a_controler")) + "</span></div>";
     })
     .join("");
+  bloc.style.display = "block";
+  majRapportVide();
+}
+
+/* ch.137 (F08/B) : cartouche d en-tete du rapport, comme la page 1 du
+   formulaire : Order / Customer / Project / Quantities + Serial N. Affiche
+   des qu un SO est connu. */
+function rendreCartouche(r) {
+  const bloc = document.getElementById("cartoucheBloc");
+  if (!bloc) return;
+  const p = (DONNEES && DONNEES.produit) || {};
+  if (!r || !r.so) { bloc.style.display = "none"; majRapportVide(); return; }
+  document.getElementById("cartLOrder").textContent = t("cart_order");
+  document.getElementById("cartVOrder").textContent = r.so;
+  document.getElementById("cartLClient").textContent = t("cart_client");
+  document.getElementById("cartVClient").textContent = p.nom_client || "";
+  document.getElementById("cartLProjet").textContent = t("cart_projet");
+  document.getElementById("cartVProjet").textContent = [p.ref_carte || p.cle_produit, p.libelle_carte].filter(Boolean).join(" \u2014 ");
+  document.getElementById("cartLQte").textContent = t("cart_qte");
+  document.getElementById("cartVQte").textContent = (r.qte_cmd != null ? r.qte_cmd : "");
+  const c = r.conformite || {};
+  const plage = c.n_serie_debut ? (c.n_serie_debut === c.n_serie_fin ? c.n_serie_debut : c.n_serie_debut + t("a") + c.n_serie_fin) : "";
+  document.getElementById("cartLSerie").textContent = plage ? t("cart_serie") : "";
+  document.getElementById("cartVSerie").textContent = plage;
   bloc.style.display = "block";
   majRapportVide();
 }
@@ -996,7 +1043,7 @@ function rendreHero(r) {
   const dateEdit = String(auj.getDate()).padStart(2, "0") + "/" + String(auj.getMonth() + 1).padStart(2, "0") + "/" + auj.getFullYear();
   document.getElementById("printTitre").textContent = t("titre_rapport");
   document.getElementById("printSous").textContent = [p.nom_client, refPourTitre, p.libelle_carte, r.indice_courant ? (t("indice") + r.indice_courant) : null].filter(Boolean).join("  \u00b7  ");
-  document.getElementById("printDate").textContent = t("print_edite") + dateEdit;
+  document.getElementById("printDate").innerHTML = esc(t("print_edite") + dateEdit) + '<div>' + esc(t("form_f08")) + '</div>';
   document.getElementById("printPied").textContent = "Proto Process \u00b7 766 chemin des Houches, 74500 Maxilly-sur-L\u00e9man \u00b7 +33 (0)4 50 92 19 54 \u00b7 " + t("print_page") + " " + [p.nom_client, refPourTitre].filter(Boolean).join(" ");
   if (r.indice_courant) {
     const b = document.getElementById("heroIndice");
