@@ -207,7 +207,7 @@
   .photos-carte img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; display: block; }
   .photos-carte figcaption { text-align: center; font-size: 12px; color: var(--text3); margin-top: 6px; }
   @media (max-width: 560px) { .photos-carte { grid-template-columns: 1fr; } }
-  .entree-resume { display: none; }
+  .entree-resume, .fil-note-print { display: none; }
   .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .fil-metier:first-child { margin-top: 4px; }
   .conf-declaration { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); }
@@ -289,6 +289,8 @@
     /* Historique compact, sections metier ; questions resolues resumees */
     .entree-plein { display: none !important; }
     .entree-resume { display: block !important; }
+    .entree-hors-rapport { display: none !important; }
+    .fil-note-print { display: block !important; font-size: 8.5pt; color: #777; font-style: italic; margin-top: 8px; }
     .fil-metier { font-size: 9.5pt; color: #444; margin: 12px 0 5px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
     .entree { padding: 8px 12px; font-size: 10pt; page-break-inside: avoid; }
     .entree-texte, .point-texte { font-size: 10pt; }
@@ -414,7 +416,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.31";
+const APP_VERSION = "0.32";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -499,9 +501,9 @@ const T = {
     points_titre: "En attente de votre r\u00e9ponse", points_sous: "Votre r\u00e9ponse d\u00e9bloque directement la pr\u00e9paration de votre carte.",
     points_fait: "Tous les points sont trait\u00e9s \u2014 merci\u00a0!",
     onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
-    resume_cable: "C\u00e2bl\u00e9 {P} en lieu et place de {R}", resume_pas_cable: "Non c\u00e2bl\u00e9 : {R} \u2014 valid\u00e9 client",
-    resume_fourni: "{R} fourni par le client", resume_attente: "{R} : attente r\u00e9appro valid\u00e9e",
-    resume_detail: " \u2014 d\u00e9tail dans l\u2019historique en ligne.", resume_rep: "rep. ",
+    resume_cable: "\u00c9quivalent {P} mont\u00e9 en lieu et place de {R}{X} \u2014 valid\u00e9 par vos soins le {D}.",
+    resume_pas_cable: "{R}{X} non mont\u00e9 \u2014 d\u00e9cision valid\u00e9e par vos soins le {D}.",
+    resume_rep: "rep. ", fil_note_print: "Le d\u00e9tail des \u00e9changes reste consultable dans votre historique en ligne.",
     historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
@@ -552,9 +554,9 @@ const T = {
     points_titre: "Awaiting your reply", points_sous: "Your reply directly unblocks the preparation of your board.",
     points_fait: "All points are settled \u2014 thank you!",
     onglet_historique: "History", onglet_rapport: "Production report",
-    resume_cable: "Fitted {P} in place of {R}", resume_pas_cable: "Not fitted: {R} \u2014 approved by customer",
-    resume_fourni: "{R} supplied by the customer", resume_attente: "{R}: wait for restock agreed",
-    resume_detail: " \u2014 see the online history for details.", resume_rep: "des. ",
+    resume_cable: "Equivalent {P} fitted in place of {R}{X} \u2014 approved by you on {D}.",
+    resume_pas_cable: "{R}{X} not fitted \u2014 decision approved by you on {D}.",
+    resume_rep: "des. ", fil_note_print: "The full exchanges remain available in your online history.",
     historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
@@ -1349,6 +1351,9 @@ function rendreFil(r) {
   });
   fil.innerHTML = "";
   let metierCourant = null;
+  const notePrint = document.createElement("div");
+  notePrint.className = "fil-note-print";
+  notePrint.textContent = t("fil_note_print");
   racines.forEach(function (e) {
     const m = METIERS.indexOf(e.metier) >= 0 ? e.metier : "ASSEMBLAGE";
     if (m !== metierCourant) {
@@ -1390,19 +1395,32 @@ function rendreFil(r) {
        depuis les donnees structurees (PROPOSITION / mpn / repere + choix
        retenu). L ecran garde tout. Sans donnees structurees : texte complet. */
     const resume = resumeImprime(e, reponsesDe[e.id] || []);
-    if (resume) {
+    if (resume && resume.cacher) {
+      bloc.classList.add("entree-hors-rapport");
+      bloc.innerHTML = plein;
+    } else if (resume && resume.texte) {
       bloc.innerHTML = '<div class="entree-plein">' + plein + "</div>" +
         '<div class="entree-resume">' + '<div class="entree-tete">' + chips.join("") +
         '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
-        '<div class="entree-texte">' + esc(resume) + "</div></div>";
+        '<div class="entree-texte">' + esc(resume.texte) + "</div></div>";
     } else {
       bloc.innerHTML = plein;
     }
     fil.appendChild(bloc);
   });
+  fil.appendChild(notePrint);
 }
 
-/* Conclusion en une ligne d une question resolue a choix fermes (PDF). */
+/* Conclusion d une question resolue a choix fermes, pour le PDF (ch.137,
+   formulations ACTEES par Olivier le 01/09) :
+   - equivalent accepte  -> "Equivalent P monte en lieu et place de R (rep. X)
+                            -- valide par vos soins le D."
+   - ne pas cabler       -> "R (rep. X) non monte -- decision validee par vos
+                            soins le D."
+   - fourni par le client / attente reappro -> SANS OBJET sur un rapport de
+     fabrication : l entree est RETIREE du PDF (elle reste a l ecran).
+   Retour {texte: ...} pour resumer, {cacher: true} pour retirer, null pour
+   laisser tel quel. */
 function resumeImprime(e, reponses) {
   if (!e || e.type !== "question_client" || e.etat !== "resolu") return null;
   if (!e.enveloppe || !Array.isArray(e.enveloppe.choix)) return null;
@@ -1412,19 +1430,17 @@ function resumeImprime(e, reponses) {
   const rtxt = norm(repClient.texte);
   const P = e.enveloppe.proposition || null;
   const R = e.mpn || "";
-  const repere = e.repere ? " (" + t("resume_rep") + e.repere + ")" : "";
-  let phrase = null;
+  const X = e.repere ? " (" + t("resume_rep") + e.repere + ")" : "";
+  const D = fmtDate(repClient.cree_le);
+  if (rtxt.indexOf("je fournis") >= 0 || rtxt.indexOf("fournis ce composant") >= 0) return { cacher: true };
+  if (rtxt.indexOf("attendre") >= 0 && rtxt.indexOf("stock") >= 0) return { cacher: true };
   if (P && rtxt.indexOf("propos") >= 0 && rtxt.indexOf("accept") >= 0) {
-    phrase = t("resume_cable").replace("{P}", P).replace("{R}", R);
-  } else if (rtxt.indexOf("pas cabler") >= 0 || rtxt.indexOf("ne pas cabler") >= 0) {
-    phrase = t("resume_pas_cable").replace("{R}", R);
-  } else if (rtxt.indexOf("je fournis") >= 0 || rtxt.indexOf("fournis ce composant") >= 0) {
-    phrase = t("resume_fourni").replace("{R}", R);
-  } else if (rtxt.indexOf("attendre") >= 0 && rtxt.indexOf("stock") >= 0) {
-    phrase = t("resume_attente").replace("{R}", R);
+    return { texte: t("resume_cable").replace("{P}", P).replace("{R}", R).replace("{X}", X).replace("{D}", D) };
   }
-  if (!phrase) return null;
-  return phrase + repere + t("resume_detail");
+  if (rtxt.indexOf("pas cabler") >= 0 || rtxt.indexOf("ne pas cabler") >= 0) {
+    return { texte: t("resume_pas_cable").replace("{R}", R).replace("{X}", X).replace("{D}", D) };
+  }
+  return null;
 }
 
 charger();
