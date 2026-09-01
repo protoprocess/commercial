@@ -207,6 +207,8 @@
   .photos-carte img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; display: block; }
   .photos-carte figcaption { text-align: center; font-size: 12px; color: var(--text3); margin-top: 6px; }
   @media (max-width: 560px) { .photos-carte { grid-template-columns: 1fr; } }
+  .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .fil-metier:first-child { margin-top: 4px; }
   .conf-declaration { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); }
   .conf-visa { align-items: center; }
   .conf-visa-img { max-width: 170px; max-height: 80px; width: auto; height: auto; display: block; }
@@ -283,7 +285,8 @@
     .photos-carte { grid-template-columns: 1fr 1fr !important; gap: 10px; }
     .photos-carte img { max-height: 88mm; width: auto; max-width: 100%; margin: 0 auto; border: 1px solid #ddd; }
     .photos-carte figcaption { font-size: 9pt; color: #555; }
-    /* Historique compact */
+    /* Historique compact, sections metier */
+    .fil-metier { font-size: 9.5pt; color: #444; margin: 12px 0 5px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
     .entree { padding: 8px 12px; font-size: 10pt; page-break-inside: avoid; }
     .entree-texte, .point-texte { font-size: 10pt; }
     .reponse-bloc { page-break-inside: avoid; }
@@ -408,7 +411,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.29";
+const APP_VERSION = "0.30";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -493,7 +496,7 @@ const T = {
     points_titre: "En attente de votre r\u00e9ponse", points_sous: "Votre r\u00e9ponse d\u00e9bloque directement la pr\u00e9paration de votre carte.",
     points_fait: "Tous les points sont trait\u00e9s \u2014 merci\u00a0!",
     onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
-    historique_titre: "Historique de votre carte",
+    historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
     inspection_titre: "Inspection avant emballage", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous",
@@ -543,7 +546,7 @@ const T = {
     points_titre: "Awaiting your reply", points_sous: "Your reply directly unblocks the preparation of your board.",
     points_fait: "All points are settled \u2014 thank you!",
     onglet_historique: "History", onglet_rapport: "Production report",
-    historique_titre: "Your board\u2019s history",
+    historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
     inspection_titre: "Pre-packing inspection", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side",
@@ -1326,9 +1329,26 @@ function rendreFil(r) {
     fil.innerHTML = '<div class="vide">' + esc(t("historique_vide")) + '</div>';
     return;
   }
-  racines.sort(function (a, b) { return new Date(b.cree_le) - new Date(a.cree_le); });
+  /* ch.137 (01/09, spec Olivier) : le fil est decoupe en 4 sections METIER
+     (BOM / PCB / Assemblage / Reclamation), portees par ref_etapes cote API ;
+     dans une section, ordre chronologique (plus recent en premier). */
+  const METIERS = ["BOM", "PCB", "ASSEMBLAGE", "RECLAMATION"];
+  racines.sort(function (a, b) {
+    const ma = METIERS.indexOf(a.metier), mb = METIERS.indexOf(b.metier);
+    if (ma !== mb) return (ma < 0 ? 9 : ma) - (mb < 0 ? 9 : mb);
+    return new Date(b.cree_le) - new Date(a.cree_le);
+  });
   fil.innerHTML = "";
+  let metierCourant = null;
   racines.forEach(function (e) {
+    const m = METIERS.indexOf(e.metier) >= 0 ? e.metier : "ASSEMBLAGE";
+    if (m !== metierCourant) {
+      metierCourant = m;
+      const titre = document.createElement("div");
+      titre.className = "fil-metier";
+      titre.textContent = t("metier_" + m.toLowerCase());
+      fil.appendChild(titre);
+    }
     const bloc = document.createElement("div");
     bloc.className = "carte entree" + (e.type === "indice" ? " indice-evt" : "");
     const chips = [];
