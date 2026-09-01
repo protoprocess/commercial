@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.3";
+const APP_VERSION = "6.4";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -329,9 +329,14 @@ async function diagnostiquerEntrante(ent, bouton) {
   DIAG = { ent: ent, devisListe: (liste && liste.ok) ? (liste.devis || []) : [], note: liste ? liste.note : null, so: null, conf: null, applique: null };
   ENTRANTE = ent;
   if (bouton) { bouton.disabled = false; bouton.textContent = 'Diagnostiquer'; }
+  /* v6.4 : l appli PROPOSE, l humain TRANCHE (regle du 28/08). Le devis ne
+     s ouvre seul que s il est CITE au bon de commande ou au centime pres ;
+     sinon la liste des candidats, avec le bouton devis refab. Constate le
+     01/09 : un lot HORIBA sans devis avait ete confronte au premier devis
+     ouvert du client, une autre carte. */
   const premier = DIAG.devisListe[0] || null;
-  if (!premier) { afficherChoixDevis(z); return; }
-  await confronter(ent, premier.nom);
+  if (premier && (premier.cite_au_po || premier.meme_montant)) { await confronter(ent, premier.nom); return; }
+  afficherChoixDevis(z);
 }
 
 /* Confronte l entrante a un devis, puis lance la lecture des 5 pieces sur ce
@@ -382,7 +387,7 @@ function afficherChoixDevis(z) {
   const ent = DIAG.ent;
   z.innerHTML = '<div class="diag"><div class="diag-tete"><b>' + ech(ent.client_detecte || ent.expediteur || '?') + '</b>' +
     (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') + '<span class="sp"></span>' +
-    '<span style="color:var(--amber);font-size:12px">' + ech(DIAG.note || 'Aucun devis ouvert trouv\u00e9 pour ce client : saisir le num\u00e9ro.') + '</span></div>' +
+    '<span style="color:var(--amber);font-size:12px">' + ech(DIAG.note || (DIAG.devisListe.length ? 'Aucun devis cit\u00e9 ni au m\u00eame montant : choisir, saisir, ou cr\u00e9er un devis refab.' : 'Aucun devis ouvert trouv\u00e9 pour ce client : saisir le num\u00e9ro ou cr\u00e9er un devis refab.')) + '</span></div>' +
     htmlChoixDevis(null) +
     (ent.ref_detectee ? '<div class="dl"><span class="ic mute">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center">' +
       '<button class="btn-p" id="conf-refab">Cr\u00e9er un devis refab depuis la carte</button>' +
@@ -415,12 +420,15 @@ function htmlEcritures(rep) {
       h += '<div class="dl"><span class="ic mute">\u2709</span><span class="lib">' + ech(a.libelle) + '</span>' +
         '<span class="val" style="color:var(--text3);font-size:12px">re\u00e7oivent l\u2019AR et le fil \u00b7 commercial toujours abonn\u00e9' +
         ((a.a_retirer || []).length ? ' \u00b7 retir\u00e9s : ' + ech(a.a_retirer.map(r => r.nom).join(', ')) : '') + '</span><span class="det"></span></div>';
+      const nbSoc = L.filter(c => c.role === 'fiche soci\u00e9t\u00e9').length;
       L.forEach((c, i) => {
-        h += '<div class="dl" style="padding-left:28px"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
+        const cache = c.role === 'fiche soci\u00e9t\u00e9';
+        h += '<div class="dl' + (cache ? ' soc-cache' : '') + '" style="padding-left:28px' + (cache ? ';display:none' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
           '<span class="lib" style="width:220px">' + ech(c.nom || c.email || '?') + '</span>' +
           '<span class="val">' + (c.email ? '<code>' + ech(c.email) + '</code>' : '<span style="color:var(--text3)">sans mail</span>') + '</span>' +
           '<span class="det">' + (c.deja ? '\u2713 ' : '') + ech(c.role || '') + '</span></div>';
       });
+      if (nbSoc) h += '<div class="dl" style="padding-left:28px;border-bottom:none"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
       if (!L.length) h += '<div class="dl" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
       continue;
     }
@@ -455,6 +463,8 @@ function brancherEcritures(z, rep, ent, actif) {
   };
   z.querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
   majBouton();
+  const vs = z.querySelector('[data-voir-societe]');
+  if (vs) vs.addEventListener('click', function () { z.querySelectorAll('.soc-cache').forEach(x => { x.style.display = ''; }); this.parentElement.parentElement.style.display = 'none'; });
   const b = el('btn-appliquer');
   if (b) b.addEventListener('click', () => appliquer(rep, ent));
 }
