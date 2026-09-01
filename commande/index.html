@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.0";
+const APP_VERSION = "6.1";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -263,8 +263,10 @@ async function chargerEntrantes() {
       const cad = (e.cadences || []).map(c =>
         [c.date, c.qte ? c.qte + ' pcs' : null, (c.prix_unitaire || c.prix_unitaire === 0) ? c.prix_unitaire + ' \u20ac' : null]
         .filter(Boolean).join(' \u00b7 ')).join('  /  ');
-      return '<div class="piece warn" style="margin-top:14px"><div class="p-nom">Mail re\u00e7u</div><div class="p-corps">' +
-        '<span class="badge badge-warn">commande entrante</span>' +
+      const rat = e.etat === 'rattachee';
+      return '<div class="piece ' + (rat ? 'ok' : 'warn') + '" style="margin-top:14px"><div class="p-nom">Mail re\u00e7u</div><div class="p-corps">' +
+        (rat ? '<span class="badge badge-ok">rattach\u00e9e \u00b7 ' + ech(e.odoo_so_name || '') + '</span> <span style="color:var(--text3);font-size:12px">attend la confirmation du devis dans Odoo</span>'
+             : '<span class="badge badge-warn">commande entrante</span>') +
         '<div class="p-detail"><b>' + ech(e.client_detecte || e.expediteur || '?') + '</b> \u00b7 ' + ech(e.ref_detectee || 'r\u00e9f non lue') +
         (e.indice_detecte ? ' <code>indice ' + ech(e.indice_detecte) + '</code>' : '') +
         (e.num_commande_client ? ' \u00b7 PO ' + ech(e.num_commande_client) : '') +
@@ -274,7 +276,7 @@ async function chargerEntrantes() {
         '<button class="btn-p" data-diag-entrante="' + e.id + '">Diagnostiquer</button>' +
         (e.ref_detectee ? '<button class="btn-s" data-ouvrir-entrante="' + e.id + '" title="Les 5 pi\u00e8ces de l\u2019affaire : article, carte FabStory, liens, projet">Affaire</button>' : '') +
         '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="traitee">Marquer trait\u00e9e</button>' +
-        '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="ecartee">\u00c9carter</button>' +
+        (rat ? '' : '<button class="btn-s" data-entrante-etat="' + e.id + '" data-etat="ecartee">\u00c9carter</button>') +
         '</div></div></div>';
     }).join('');
     z.querySelectorAll('[data-ouvrir-entrante]').forEach(b => b.addEventListener('click', function () {
@@ -380,6 +382,21 @@ function htmlEcritures(rep) {
   for (const a of (rep.actions || [])) {
     const off = !a.ecriture;
     let val;
+    if (a.cle === 'abonnes') {
+      /* v6.1 (convention #16) : la liste cochee EST la liste des abonnes. */
+      const L = a.liste || [];
+      h += '<div class="dl"><span class="ic mute">\u2709</span><span class="lib">' + ech(a.libelle) + '</span>' +
+        '<span class="val" style="color:var(--text3);font-size:12px">re\u00e7oivent l\u2019AR et le fil \u00b7 commercial toujours abonn\u00e9' +
+        ((a.a_retirer || []).length ? ' \u00b7 retir\u00e9s : ' + ech(a.a_retirer.map(r => r.nom).join(', ')) : '') + '</span><span class="det"></span></div>';
+      L.forEach((c, i) => {
+        h += '<div class="dl" style="padding-left:28px"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
+          '<span class="lib" style="width:220px">' + ech(c.nom || c.email || '?') + '</span>' +
+          '<span class="val">' + (c.email ? '<code>' + ech(c.email) + '</code>' : '<span style="color:var(--text3)">sans mail</span>') + '</span>' +
+          '<span class="det">' + (c.deja ? '\u2713 ' : '') + ech(c.role || '') + '</span></div>';
+      });
+      if (!L.length) h += '<div class="dl" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
+      continue;
+    }
     if (a.cle === 'date') val = a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide;
     else if (a.cle === 'note') val = a.valeur ? '<span class="aide" title="' + ech((a.liste || []).join('\n')) + '">' + ech(a.valeur) + '</span>' : vide;
     else if (a.cle === 'pj') val = ech(a.valeur);
@@ -424,8 +441,9 @@ async function appliquer(rep, ent) {
   const ecritures = {
     ref: coche('ref') && A.ref ? (A.ref.valeur || null) : null,
     date: coche('date') && dateChamp && dateChamp.value ? dateChamp.value : null,
-    abonner_email: coche('abonner') && A.abonner ? (A.abonner.valeur || null) : null,
-    abonner_nom: coche('abonner') && A.abonner ? (A.abonner.nom || null) : null,
+    abonnes: A.abonnes ? (A.abonnes.liste || []).filter((c, i) => { const x = z.querySelector('[data-abonne="' + i + '"]'); return !!(x && x.checked); })
+      .map(c => ({ partner_id: c.partner_id || null, email: c.email || null, nom: c.nom || null })) : undefined,
+    commercial_id: A.abonnes && A.abonnes.commercial ? A.abonnes.commercial.partner_id : null,
     exigences: coche('note') && A.note ? (A.note.liste || []) : [],
     piece_jointe: coche('pj')
   };
@@ -437,7 +455,7 @@ async function appliquer(rep, ent) {
     if (r.ok) {
       DIAG.applique = r;
       chargerEntrantes();
-      MSG_PERSIST = '\u00c9critures appliqu\u00e9es sur ' + (r.so || rep.devis.nom) + ' (' + r.nb_fait + ' relue(s) dans Odoo).';
+      MSG_PERSIST = '\u00c9critures appliqu\u00e9es sur ' + (r.so || rep.devis.nom) + ' (' + r.nb_fait + ' relue(s) dans Odoo). Entrante rattach\u00e9e : elle dispara\u00eetra \u00e0 la confirmation du devis.';
       diagnostiquer();
     } else {
       afficherJournal(r, el('journal'));
@@ -449,12 +467,14 @@ async function appliquer(rep, ent) {
     m.textContent = 'L\u2019\u00e9criture n\u2019a pas r\u00e9pondu (' + err.message + ').'; m.style.color = 'var(--red)';
   }
 }
-const LIB_JOURNAL = { ref: 'R\u00e9f. client', date: 'Date de livraison', abonner: 'Contact achat', note: 'Note exigences', pj: 'Bon de commande' };
+const LIB_JOURNAL = { ref: 'R\u00e9f. client', date: 'Date de livraison', abonner: 'Contact achat', abonne: 'Abonn\u00e9', desabonnes: 'Retir\u00e9s des abonn\u00e9s', note: 'Note exigences', pj: 'Bon de commande' };
 function htmlJournal(r) {
   return (r.journal || []).map(x => {
     const ic = x.fait === true ? '<span class="ic ok">\u2713</span>' : x.fait === false ? '<span class="ic err">\u2717</span>' : '<span class="ic mute">\u2026</span>';
     let txt = LIB_JOURNAL[x.cle] || x.cle;
     if (x.deja) txt += ' \u2014 d\u00e9j\u00e0 en place';
+    else if (x.cle === 'abonne') txt += ' \u2014 ' + ech(x.nom || '') + (x.cree ? ' (contact cr\u00e9\u00e9)' : '');
+    else if (x.cle === 'desabonnes') txt += ' \u2014 ' + (x.nb || 0) + ' abonn\u00e9(s) retir\u00e9(s) (soci\u00e9t\u00e9, interne, non coch\u00e9s)';
     else if (x.cle === 'abonner' && x.contact) txt += ' \u2014 ' + ech(x.contact.nom) + (x.contact.cree ? ' (contact cr\u00e9\u00e9)' : '');
     else if (x.cle === 'date' && x.avant) txt += ' \u2014 remplace ' + ech(x.avant);
     if (x.motif && x.fait !== true) txt += ' <span style="color:var(--text3)">' + ech(x.motif) + '</span>';
