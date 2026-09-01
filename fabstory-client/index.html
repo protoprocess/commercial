@@ -245,13 +245,64 @@
   /* ---- Impression (ch.137) : la vue ecran devient le rapport telechargeable.
      On masque tout ce qui est interactif ou transitoire (formulaires, boutons,
      questions encore ouvertes) et on garde l identite + l historique complet. ---- */
+  /* ---- Impression : elements reserves au papier, invisibles a l ecran ---- */
+  .print-entete, .print-pied { display: none; }
+
+  /* ---- Impression (ch.137, composition validee 01/09) : la vue ecran devient
+     un document A4. Ordre papier : identite -> photos -> historique ->
+     inspection -> conformite (seule sur sa page). ---- */
   @media print {
-    header, .btn-imprimer, .btn-bom, #bandeauLecture,
-    #pointsTitre, #pointsSous, #points, .rep-form, .onglets { display: none !important; }
-    .panneau { display: block !important; }
+    @page { size: A4; margin: 16mm 14mm 18mm; }
+    html, body { background: #fff; }
+    body { font-size: 11pt; color: #111; padding-bottom: 0; }
+    header, .btn-imprimer, .btn-bom, #bandeauLecture, #pointsTitre, #pointsSous, #points,
+    .rep-form, .onglets, .vide, footer#pied { display: none !important; }
     main { max-width: none; padding: 0; }
-    .carte, .entree, .reponse-bloc { page-break-inside: avoid; }
+    /* Reordonnancement : les panneaux s effacent, leurs blocs remontent au niveau du contenu. */
+    #contenu { display: flex !important; flex-direction: column; }
+    .panneau { display: contents !important; }
+    .print-entete { order: 0; } #hero { order: 1; } #photosBloc { order: 2; }
+    #panHistorique > .sec-titre, #fil { order: 3; }
+    #inspectionBloc { order: 4; } #conformiteBloc { order: 5; }
+    /* En-tete de document */
+    .print-entete { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 2px solid #F07B1F; }
+    .print-entete img { width: 42px; height: 42px; object-fit: contain; }
+    .print-entete-txt { flex: 1; }
+    .print-titre { font-size: 16pt; font-weight: 700; letter-spacing: 0.2px; }
+    .print-sous { font-size: 10pt; color: #555; margin-top: 2px; }
+    .print-date { font-size: 9pt; color: #777; text-align: right; }
+    /* Pied de page repete */
+    .print-pied { display: block; position: fixed; bottom: 0; left: 0; right: 0; font-size: 8pt; color: #888; text-align: center; padding-top: 4px; border-top: 1px solid #ddd; }
+    /* Cartes et sections */
+    .carte { box-shadow: none; border: 1px solid #ddd; border-radius: 4px; padding: 12px 14px; margin-bottom: 10px; page-break-inside: avoid; }
+    .sec-titre { font-size: 12pt; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
+    .sec-titre .compte { display: none; }
+    #hero { border: none; padding: 0 0 6px; }
+    .hero-societe { font-size: 12pt; }
+    .hero-ref { font-size: 15pt; }
     .jalons.attente .pt { animation: none; }
+    .jalons-note { font-size: 9.5pt; }
+    /* Photos : les deux faces cote a cote, hauteur plafonnee pour tenir en page 1 */
+    .photos-carte { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+    .photos-carte img { max-height: 88mm; width: auto; max-width: 100%; margin: 0 auto; border: 1px solid #ddd; }
+    .photos-carte figcaption { font-size: 9pt; color: #555; }
+    /* Historique compact */
+    .entree { padding: 8px 12px; font-size: 10pt; page-break-inside: avoid; }
+    .entree-texte, .point-texte { font-size: 10pt; }
+    .reponse-bloc { page-break-inside: avoid; }
+    .chip { font-size: 8.5pt; }
+    .liens-doc, .piece-tuile { display: none !important; }
+    /* Inspection */
+    .op-ligne { padding: 5px 0; font-size: 10pt; }
+    .op-point { width: 7px; height: 7px; }
+    .op-point.fait { background: #3B6D11; }
+    .op-point:not(.fait) { background: #bbb; }
+    .op-etat { color: #444; }
+    /* Conformite : le certificat commence sur une page neuve */
+    #conformiteBloc { page-break-before: always; }
+    .conf-ligne { padding: 6px 0; font-size: 10pt; }
+    .conf-declaration { font-size: 9.5pt; color: #333; }
+    .conf-visa-img { max-width: 62mm; max-height: 28mm; }
   }
 </style>
 </head>
@@ -279,6 +330,14 @@
   </div>
 
   <div id="contenu" style="display:none">
+    <div class="print-entete">
+      <img src="../shared/picto-pp-fond-clair.png" alt="Proto Process" onerror="this.style.display='none'">
+      <div class="print-entete-txt">
+        <div class="print-titre" id="printTitre">Rapport de fabrication</div>
+        <div class="print-sous" id="printSous"></div>
+      </div>
+      <div class="print-date" id="printDate"></div>
+    </div>
     <section id="hero" class="carte">
       <a class="btn-bom" id="btnBom" style="display:none" target="_blank" rel="noopener">
         <span>Voir la BOM</span>
@@ -341,6 +400,7 @@
 </main>
 
 <footer id="pied"></footer>
+<div class="print-pied" id="printPied"></div>
 
 <script>
 "use strict";
@@ -351,7 +411,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.26";
+const APP_VERSION = "0.27";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -434,7 +494,7 @@ const T = {
     c_observations: "Observations", c_rohs: "Conforme \u00e0 la directive Europ\u00e9enne 2011/65/EC & 2015/863/UE (RoHS)",
     c_fait_par: "Fait par", c_date: "Date", c_visa: "Visa", a: " \u00e0 ",
     c_declaration_texte: "Nous d\u00e9clarons que la fourniture cit\u00e9e est conforme aux exigences du contrat et que, apr\u00e8s v\u00e9rifications et essais, elle r\u00e9pond en tout point aux exigences sp\u00e9cifi\u00e9es, aux normes et r\u00e8glements applicables, sauf exceptions, r\u00e9serves ou d\u00e9rogations \u00e9num\u00e9r\u00e9es dans la pr\u00e9sente d\u00e9claration de conformit\u00e9.",
-    titre_rapport: "Rapport de fabrication",
+    titre_rapport: "Rapport de fabrication", print_edite: "\u00c9dit\u00e9 le ", print_page: "Rapport de fabrication",
     insp: { presence_composants: "Pr\u00e9sence des composants / BOM", polarite: "Polarit\u00e9 / sens des composants", plaquage: "Plaquage des composants",
       alignement_connecteurs: "Alignement des connecteurs", aspect_soudures: "Aspect des soudures et remont\u00e9es", controle_rx: "Contr\u00f4le RX",
       aspect_general: "Aspect g\u00e9n\u00e9ral (rayures PCB, composants endommag\u00e9s\u2026)", proprete: "Propret\u00e9 (soudure traversants\u2026)",
@@ -484,7 +544,7 @@ const T = {
     c_observations: "Observations", c_rohs: "Compliance with European Directive 2011/65/EC & 2015/863/UE (RoHS)",
     c_fait_par: "Issued by", c_date: "Date", c_visa: "Stamp", a: " to ",
     c_declaration_texte: "This is to certify that, unless otherwise provided for and stated hereafter, the supplies described herein fully comply with the contract requirements, that they have been inspected and tested and have been found in every respect in compliance with the relevant requirements as well as with the applicable standards and regulations in force.",
-    titre_rapport: "Production report",
+    titre_rapport: "Production report", print_edite: "Issued on ", print_page: "Production report",
     insp: { presence_composants: "Presence of components / BOM", polarite: "Polarity / components direction", plaquage: "Components seating",
       alignement_connecteurs: "Connectors alignment", aspect_soudures: "Soldering appearance", controle_rx: "X-ray inspection",
       aspect_general: "General appearance (PCB scratches, damaged components\u2026)", proprete: "Cleanliness (THT soldering\u2026)",
@@ -846,6 +906,13 @@ function rendreHero(r) {
   if (p.nom_client || refPourTitre) {
     document.title = [p.nom_client, refPourTitre, t("titre_rapport")].filter(Boolean).join(" ");
   }
+  /* En-tete et pied du document imprime (ch.137). */
+  const auj = new Date();
+  const dateEdit = String(auj.getDate()).padStart(2, "0") + "/" + String(auj.getMonth() + 1).padStart(2, "0") + "/" + auj.getFullYear();
+  document.getElementById("printTitre").textContent = t("titre_rapport");
+  document.getElementById("printSous").textContent = [p.nom_client, refPourTitre, p.libelle_carte, r.indice_courant ? (t("indice") + r.indice_courant) : null].filter(Boolean).join("  \u00b7  ");
+  document.getElementById("printDate").textContent = t("print_edite") + dateEdit;
+  document.getElementById("printPied").textContent = "Proto Process \u00b7 766 chemin des Houches, 74500 Maxilly-sur-L\u00e9man \u00b7 +33 (0)4 50 92 19 54 \u00b7 " + t("print_page") + " " + [p.nom_client, refPourTitre].filter(Boolean).join(" ");
   if (r.indice_courant) {
     const b = document.getElementById("heroIndice");
     b.textContent = t("indice") + r.indice_courant;
