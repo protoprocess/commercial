@@ -157,14 +157,14 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
   <div class="etat-msg" id="etat"></div>
 
   <div class="rapport" id="rapport">
-    <h2>Les 5 pièces de l'affaire</h2>
+    <h2>Les 5 pièces de l'affaire — article, carte FabStory, liens, projet</h2>
     <div id="pieces"></div>
   </div>
 </div>
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "5.1";
+const APP_VERSION = "5.2";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -402,6 +402,14 @@ function afficherDiag(rep, ent) {
   z.querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
   majBouton();
   el('btn-appliquer').addEventListener('click', () => appliquer(rep, ent));
+
+  /* v5.2 (Olivier 01/09) : les 5 pieces de l affaire (article, carte FabStory,
+     liens, projet) s affichent DES le diagnostic, sous les ecritures — pas
+     seulement apres Appliquer. C est la qu on voit "article a creer". */
+  ENTRANTE = ent;
+  el('entree').value = d.nom;
+  el('entree').dispatchEvent(new Event('input'));
+  diagnostiquer();
 }
 
 /* Un seul appel groupe : l API pose tout, relit tout, et rend un journal. */
