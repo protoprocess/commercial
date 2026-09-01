@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.4";
+const APP_VERSION = "6.5";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -362,15 +362,22 @@ async function confronter(ent, so) {
 /* Autres devis candidats + saisie manuelle. */
 function htmlChoixDevis(exclure) {
   const l = (DIAG ? DIAG.devisListe : []).filter(d => d.nom !== exclure);
+  /* v6.5 : seuls les devis PERTINENTS (cites, meme reference produit, meme
+     montant) sont visibles ; les autres devis du client sont replies. */
+  const pert = d => d.cite_au_po || d.meme_ref || d.meme_montant;
+  const nbAutres = l.filter(d => !pert(d)).length;
   let h = '';
   for (const d of l) {
-    h += '<div class="dl"><span class="ic ' + (d.cite_au_po || d.meme_montant ? 'ok' : 'mute') + '">' + (d.cite_au_po ? '\u2605' : d.meme_montant ? '=' : '\u00b7') + '</span>' +
+    const p = pert(d);
+    h += '<div class="dl' + (p ? '' : ' devis-autre') + '"' + (p ? '' : ' style="display:none"') + '><span class="ic ' + (d.cite_au_po || d.meme_montant || d.meme_ref ? 'ok' : 'mute') + '">' + (d.cite_au_po ? '\u2605' : d.meme_montant ? '=' : d.meme_ref ? '\u2261' : '\u00b7') + '</span>' +
       '<span class="lib"><a class="lien" data-choisir-devis="' + ech(d.nom) + '">' + ech(d.nom) + '</a></span>' +
       '<span class="val">' + ech(d.date) + ' \u00b7 <b>' + ech(d.total_texte) + '</b>' + (d.projet ? ' \u00b7 ' + ech(d.projet) : '') +
-      (d.cite_au_po ? ' <span style="color:var(--green)">cit\u00e9 au bon de commande</span>' : '') +
+      (d.cite_au_po ? ' <span style="color:var(--green)">cit\u00e9 au bon de commande</span>' : d.meme_ref ? ' <span style="color:var(--green)">m\u00eame r\u00e9f\u00e9rence</span>' : '') +
+      (d.meme_montant ? ' <span style="color:var(--green)">m\u00eame montant</span>' : '') +
       (d.etat !== 'draft' && d.etat !== 'sent' ? ' <span style="color:var(--amber)">d\u00e9j\u00e0 ' + ech(d.etat) + '</span>' : '') +
       (d.po_deja_pose ? ' <span style="color:var(--amber)">porte d\u00e9j\u00e0 ' + ech(d.po_deja_pose) + '</span>' : '') + '</span></div>';
   }
+  if (nbAutres) h += '<div class="dl" id="voir-autres-devis"><span class="ic mute">\u2026</span><span class="val"><a class="lien" data-voir-devis="1">+ ' + nbAutres + ' autre(s) devis ouvert(s) du client (autres cartes)</a></span></div>';
   h += '<div class="dl"><span class="ic mute">\u2026</span><span class="lib">Autre devis</span><span class="val" style="display:flex;gap:8px;align-items:center">' +
     '<input type="text" id="conf-so" placeholder="SO2608-436" style="max-width:200px;padding:5px 9px;font-size:12.5px">' +
     '<button class="btn-s" id="conf-go">Diagnostiquer</button></span></div>';
@@ -378,6 +385,8 @@ function htmlChoixDevis(exclure) {
 }
 function brancherChoixDevis(z, ent) {
   z.querySelectorAll('[data-choisir-devis]').forEach(b => b.addEventListener('click', function () { confronter(ent, this.dataset.choisirDevis); }));
+  const vd = z.querySelector('[data-voir-devis]');
+  if (vd) vd.addEventListener('click', function () { z.querySelectorAll('.devis-autre').forEach(x => { x.style.display = ''; }); const l = z.querySelector('#voir-autres-devis'); if (l) l.style.display = 'none'; });
   const champ = z.querySelector('#conf-so'), go = z.querySelector('#conf-go');
   const lancer = () => { const v = (champ.value || '').trim(); if (v) confronter(ent, v); else champ.focus(); };
   if (champ) champ.addEventListener('keydown', e => { if (e.key === 'Enter') lancer(); });
@@ -385,13 +394,16 @@ function brancherChoixDevis(z, ent) {
 }
 function afficherChoixDevis(z) {
   const ent = DIAG.ent;
+  const pertinents = DIAG.devisListe.filter(d => d.cite_au_po || d.meme_ref || d.meme_montant).length;
+  const refab = ent.ref_detectee ? '<div class="dl"><span class="ic ' + (pertinents ? 'mute' : 'ok') + '">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<button class="' + (pertinents ? 'btn-s' : 'btn-p') + '" id="conf-refab">Cr\u00e9er un devis refab depuis la carte</button>' +
+      '<span class="why">carte <code>' + ech(ent.ref_detectee) + '</code> \u00b7 cadences pr\u00e9-remplies depuis le bon de commande</span></span></div>' : '';
+  const note = DIAG.note || (pertinents ? 'Plusieurs devis possibles sur cette r\u00e9f\u00e9rence : choisir.' : (DIAG.devisListe.length ? 'Aucun devis ouvert sur cette r\u00e9f\u00e9rence produit : cr\u00e9er un devis refab, ou saisir un num\u00e9ro.' : 'Aucun devis ouvert pour ce client : cr\u00e9er un devis refab, ou saisir un num\u00e9ro.'));
   z.innerHTML = '<div class="diag"><div class="diag-tete"><b>' + ech(ent.client_detecte || ent.expediteur || '?') + '</b>' +
-    (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') + '<span class="sp"></span>' +
-    '<span style="color:var(--amber);font-size:12px">' + ech(DIAG.note || (DIAG.devisListe.length ? 'Aucun devis cit\u00e9 ni au m\u00eame montant : choisir, saisir, ou cr\u00e9er un devis refab.' : 'Aucun devis ouvert trouv\u00e9 pour ce client : saisir le num\u00e9ro ou cr\u00e9er un devis refab.')) + '</span></div>' +
-    htmlChoixDevis(null) +
-    (ent.ref_detectee ? '<div class="dl"><span class="ic mute">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center">' +
-      '<button class="btn-p" id="conf-refab">Cr\u00e9er un devis refab depuis la carte</button>' +
-      '<span class="why">carte <code>' + ech(ent.ref_detectee) + '</code> \u00b7 cadences pr\u00e9-remplies depuis le bon de commande</span></span></div>' : '') +
+    (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') +
+    (ent.ref_detectee ? ' \u00b7 <code>' + ech(ent.ref_detectee) + '</code>' : '') + '<span class="sp"></span>' +
+    '<span style="color:var(--amber);font-size:12px">' + ech(note) + '</span></div>' +
+    (pertinents ? '' : refab) + htmlChoixDevis(null) + (pertinents ? refab : '') +
     '</div>';
   brancherChoixDevis(z, ent);
   const refab = z.querySelector('#conf-refab');
