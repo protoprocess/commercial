@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Photos carte · FabStory Atelier</title>
+<style>
+  :root {
+    --bg: #0a0c12; --surface: #1a2030; --surface2: #161b27; --border: #262e42; --border2: #333d55;
+    --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+    --accent: #F07B1F; --accent-bg: #2a1f10; --pp-blue: #5BC4D8;
+    --green: #86c564; --red: #f09595; --amber: #eab676;
+    --radius: 6px; --radius-lg: 10px;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; -webkit-tap-highlight-color: transparent; }
+  header { background: #0f1117; height: 52px; display: flex; align-items: center; padding: 0 16px; gap: 10px; border-bottom: 1px solid var(--border); }
+  .logo-text { display: flex; align-items: center; font-size: 13px; font-weight: 500; }
+  .logo-text .lt { color: #fff; } .logo-text .ls { color: #444; margin: 0 3px; } .logo-text .lo { color: var(--accent); }
+  .ver { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  main { max-width: 720px; margin: 0 auto; padding: 18px 14px 60px; }
+  .carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
+  .id-client { color: var(--pp-blue); font-weight: 700; font-size: 15px; }
+  .id-ref { font-family: var(--mono); font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .id-lib { color: var(--text2); font-size: 13.5px; margin-top: 2px; }
+  .faces { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .faces { grid-template-columns: 1fr; } }
+  .face { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; }
+  .face h2 { margin: 0 0 10px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .face .apercu { width: 100%; aspect-ratio: 4 / 3; background: var(--surface2); border: 1px dashed var(--border2); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 13px; overflow: hidden; }
+  .face .apercu img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .face .meta { font-size: 12px; color: var(--text3); margin-top: 8px; min-height: 16px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; padding: 14px; border: none; border-radius: var(--radius); background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .btn:active { filter: brightness(0.92); }
+  .btn.sec { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+  .btn:disabled { opacity: 0.5; }
+  .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .msg.err { color: var(--red); } .msg.ok { color: var(--green); }
+  input[type=file] { display: none; }
+  .note { color: var(--text3); font-size: 12.5px; line-height: 1.5; }
+  /* ---- Recadrage plein ecran ---- */
+  #recadrage { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; flex-direction: column; }
+  #recadrage.on { display: flex; }
+  #recadrage .zone { flex: 1; position: relative; overflow: hidden; touch-action: none; }
+  #recadrage canvas { position: absolute; left: 0; top: 0; }
+  #recadrage .barre { display: flex; gap: 10px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); background: #0f1117; border-top: 1px solid var(--border); }
+  #recadrage .barre .btn { margin: 0; }
+  #recadrage .aide { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: #fff; font-size: 13px; text-shadow: 0 1px 3px #000; pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+  <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Photos carte</span></span>
+  <span class="ver" id="ver"></span>
+</header>
+
+<main>
+  <div class="carte" id="identite">
+    <div class="id-client" id="idClient">&nbsp;</div>
+    <div class="id-ref" id="idRef">Chargement…</div>
+    <div class="id-lib" id="idLib"></div>
+  </div>
+
+  <div class="faces">
+    <div class="face" id="faceDessus">
+      <h2>Dessus <span class="note">(composants)</span></h2>
+      <div class="apercu" id="apercuDessus">Aucune photo</div>
+      <div class="meta" id="metaDessus"></div>
+      <button type="button" class="btn" onclick="document.getElementById('inDessus').click()">📷 Photo dessus</button>
+      <input type="file" id="inDessus" accept="image/*" capture="environment">
+      <div class="msg" id="msgDessus"></div>
+    </div>
+    <div class="face" id="faceDessous">
+      <h2>Dessous</h2>
+      <div class="apercu" id="apercuDessous">Aucune photo</div>
+      <div class="meta" id="metaDessous"></div>
+      <button type="button" class="btn" onclick="document.getElementById('inDessous').click()">📷 Photo dessous</button>
+      <input type="file" id="inDessous" accept="image/*" capture="environment">
+      <div class="msg" id="msgDessous"></div>
+    </div>
+  </div>
+
+  <p class="note">Après la prise de vue, recadrez au doigt puis validez. La dernière photo validée par face est celle du rapport de fabrication envoyé au client ; les précédentes sont conservées.</p>
+</main>
+
+<div id="recadrage">
+  <div class="aide">Déplacez le cadre, tirez les coins pour l’ajuster</div>
+  <div class="zone" id="zoneRecadrage"><canvas id="cvRecadrage"></canvas></div>
+  <div class="barre">
+    <button type="button" class="btn sec" id="btnAnnuler">Annuler</button>
+    <button type="button" class="btn" id="btnValider">Valider</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY='pp_access_code', HDR='X-PP-Auth', HOST='protoprocess.app.n8n.cloud';
+  function get(){try{return localStorage.getItem(KEY)||''}catch(e){return ''}}
+  function set(v){try{localStorage.setItem(KEY,v)}catch(e){}}
+  function del(){try{localStorage.removeItem(KEY)}catch(e){}}
+  var _f = window.fetch;
+  window.fetch = function(input, init){
+    var url='';
+    try{url=(typeof input==='string')?input:((input&&input.url)||'')}catch(e){}
+    if(url.indexOf(HOST)===-1){return _f.apply(this,arguments)}
+    init=init||{};
+    try{var h=new Headers(init.headers||{});h.set(HDR,get());init.headers=h}catch(e){}
+    return _f.call(this,input,init).then(function(r){
+      if(r&&(r.status===401||r.status===403)){del();demander("Code d'acces refuse. Ressaisissez-le.")}
+      return r;
+    });
+  };
+  var box=null;
+  function construire(){
+    if(box)return box;
+    box=document.createElement('div');
+    box.id='pp-gate';
+    box.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#0a0c12;display:none;'
+      +'align-items:center;justify-content:center;padding:20px;'
+      +'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
+    box.innerHTML=
+      '<div style="background:#1a2030;border:1px solid #262e42;border-radius:10px;padding:26px;max-width:380px;width:100%">'
+      +'<div style="font-size:13px;font-weight:500;margin-bottom:14px">'
+      +'<span style="color:#fff">PROTO PROCESS</span><span style="color:#444;margin:0 3px">/</span>'
+      +'<span style="color:#F8952D">Acces</span></div>'
+      +'<div style="font-size:12.5px;color:#94a3b8;line-height:1.55;margin-bottom:16px">'
+      +"Saisissez le code d'acces interne. Il ne vous sera demande qu'une fois sur cet appareil.</div>"
+      +'<input id="pp-in" type="password" placeholder="Code d acces" autocomplete="off" '
+      +'style="width:100%;background:#161b27;border:1px solid #262e42;border-radius:6px;color:#e2e8f0;'
+      +'padding:9px 11px;font-size:13px;outline:none;font-family:inherit;box-sizing:border-box">'
+      +'<div id="pp-err" style="font-size:12px;color:#f09595;margin-top:9px;min-height:16px"></div>'
+      +'<button id="pp-btn" style="width:100%;margin-top:12px;padding:9px;background:#F8952D;color:#fff;'
+      +'border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Valider</button>'
+      +'</div>';
+    document.body.appendChild(box);
+    var inp=box.querySelector('#pp-in'),btn=box.querySelector('#pp-btn');
+    btn.addEventListener('click',function(){
+      var v=(inp.value||'').trim();
+      if(!v){box.querySelector('#pp-err').textContent='Code requis.';return}
+      set(v);inp.value='';box.style.display='none';location.reload();
+    });
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){btn.click()}});
+    return box;
+  }
+  function demander(msg){
+    var b=construire();
+    if(msg){b.querySelector('#pp-err').textContent=msg}
+    b.style.display='flex';
+    setTimeout(function(){var i=b.querySelector('#pp-in');if(i)i.focus()},50);
+  }
+  function pret(f){if(document.body){f()}else{document.addEventListener('DOMContentLoaded',f)}}
+  pret(function(){if(!get()){demander('')}});
+  window.__ppDemanderCode=demander;
+})();
+</script>
+
+<script>
+"use strict";
+/* FabStory Atelier — photos carte. Chantier 137 (photos PCBA du rapport de
+   fabrication) + 60 (page atelier atteinte par QR, a venir). Meme mecanisme
+   de stockage que les pieces jointes (ch.61) : URL signee de depot, chemin
+   sous produit/<id>/, compression 1600px JPEG cote navigateur. */
+const APP_VERSION = "1.0";
+const APP_DATE = "01/09/2026";
+const BASE = "https://protoprocess.app.n8n.cloud/webhook";
+const CLE_QUI = "pp_fdv_initiales";
+document.getElementById("ver").textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
+
+const params = new URLSearchParams(location.search);
+const PRODUIT_ID = parseInt(params.get("produit") || "0", 10);
+let P = null;
+
+function el(id) { return document.getElementById(id); }
+function esc(v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function msg(face, texte, type) { const m = el("msg" + face); m.textContent = texte || ""; m.className = "msg" + (type ? " " + type : ""); }
+function qui() { try { return localStorage.getItem(CLE_QUI) || ""; } catch (e) { return ""; } }
+function demanderQui() {
+  let q = qui();
+  if (!q) { q = (prompt("Vos initiales (pour signer les photos) :") || "").trim().toUpperCase().slice(0, 4); if (q) { try { localStorage.setItem(CLE_QUI, q); } catch (e) {} } }
+  return q;
+}
+async function getJson(url) { const r = await fetch(url); return r.json(); }
+async function postJson(url, corps) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+  return r.json();
+}
+function fmtDate(iso) { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("fr-FR") + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
+
+/* ------------------------------ Chargement ------------------------------ */
+async function charger() {
+  if (!(PRODUIT_ID > 0)) { el("idRef").textContent = "Carte non indiqu\u00e9e (?produit=…)"; return; }
+  try {
+    const f = await getJson(BASE + "/fabstory-fiche?produit=" + PRODUIT_ID);
+    if (!f || !f.ok) { el("idRef").textContent = "Carte inconnue"; return; }
+    P = f.produit;
+    el("idClient").textContent = P.nom_client || "";
+    el("idRef").textContent = P.ref_carte || P.cle_produit || "";
+    el("idLib").textContent = (P.libelle_carte || "") + (f.indice_courant ? "  \u00b7  indice " + f.indice_courant : "");
+    document.title = (P.ref_carte || P.cle_produit || "Carte") + " \u00b7 Photos carte";
+  } catch (e) { el("idRef").textContent = "Chargement impossible"; return; }
+  await rafraichir();
+}
+async function rafraichir() {
+  try {
+    const r = await getJson(BASE + "/fabstory-photos-carte?produit_id=" + PRODUIT_ID);
+    ["dessus", "dessous"].forEach(function (face) {
+      const F = face.charAt(0).toUpperCase() + face.slice(1);
+      const p = r && r[face];
+      if (p && p.url) {
+        el("apercu" + F).innerHTML = '<img src="' + esc(p.url) + '" alt="' + face + '">';
+        el("meta" + F).textContent = fmtDate(p.cree_le) + (p.auteur ? " \u00b7 " + p.auteur : "") + (p.so_canonique ? " \u00b7 " + p.so_canonique : "");
+      } else {
+        el("apercu" + F).textContent = "Aucune photo";
+        el("meta" + F).textContent = "";
+      }
+    });
+  } catch (e) { /* silencieux : l apercu reste tel quel */ }
+}
+
+/* ------------------------------ Recadrage ------------------------------ */
+/* Cadre deplacable + 4 poignees, souris et doigt. Le rendu final est decoupe
+   dans l image d ORIGINE (pas dans l affichage reduit) pour garder la nettete. */
+const Recadrage = (function () {
+  const zone = el("zoneRecadrage"), cv = el("cvRecadrage"), ctx = cv.getContext("2d");
+  let img = null, echelle = 1, offX = 0, offY = 0, rect = null, saisie = null, resoudre = null;
+  const POIGNEE = 22;
+  function ajuster() {
+    const W = zone.clientWidth, H = zone.clientHeight;
+    cv.width = W; cv.height = H;
+    echelle = Math.min(W / img.width, H / img.height);
+    offX = (W - img.width * echelle) / 2; offY = (H - img.height * echelle) / 2;
+    if (!rect) {
+      const w = img.width * echelle * 0.86, h = img.height * echelle * 0.86;
+      rect = { x: offX + (img.width * echelle - w) / 2, y: offY + (img.height * echelle - h) / 2, w: w, h: h };
+    }
+    dessiner();
+  }
+  function dessiner() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, offX, offY, img.width * echelle, img.height * echelle);
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, 0, cv.width, rect.y); ctx.fillRect(0, rect.y + rect.h, cv.width, cv.height - rect.y - rect.h);
+    ctx.fillRect(0, rect.y, rect.x, rect.h); ctx.fillRect(rect.x + rect.w, rect.y, cv.width - rect.x - rect.w, rect.h);
+    ctx.strokeStyle = "#F07B1F"; ctx.lineWidth = 2; ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.fillStyle = "#F07B1F";
+    coins().forEach(function (c) { ctx.fillRect(c.x - 8, c.y - 8, 16, 16); });
+  }
+  function coins() {
+    return [{ n: "nw", x: rect.x, y: rect.y }, { n: "ne", x: rect.x + rect.w, y: rect.y },
+            { n: "sw", x: rect.x, y: rect.y + rect.h }, { n: "se", x: rect.x + rect.w, y: rect.y + rect.h }];
+  }
+  function pos(ev) { const r = cv.getBoundingClientRect(); const p = ev.touches ? ev.touches[0] : ev; return { x: p.clientX - r.left, y: p.clientY - r.top }; }
+  function debut(ev) {
+    const p = pos(ev);
+    const c = coins().find(function (c) { return Math.abs(c.x - p.x) < POIGNEE && Math.abs(c.y - p.y) < POIGNEE; });
+    if (c) saisie = { mode: c.n, p: p, r: Object.assign({}, rect) };
+    else if (p.x >= rect.x && p.x <= rect.x + rect.w && p.y >= rect.y && p.y <= rect.y + rect.h) saisie = { mode: "move", p: p, r: Object.assign({}, rect) };
+    else saisie = null;
+    if (saisie) ev.preventDefault();
+  }
+  function bouge(ev) {
+    if (!saisie) return;
+    ev.preventDefault();
+    const p = pos(ev), dx = p.x - saisie.p.x, dy = p.y - saisie.p.y, r0 = saisie.r, MIN = 40;
+    const minX = offX, minY = offY, maxX = offX + img.width * echelle, maxY = offY + img.height * echelle;
+    let n = Object.assign({}, r0);
+    if (saisie.mode === "move") {
+      n.x = Math.min(Math.max(r0.x + dx, minX), maxX - r0.w); n.y = Math.min(Math.max(r0.y + dy, minY), maxY - r0.h);
+    } else {
+      if (saisie.mode.indexOf("w") >= 0) { n.x = Math.min(Math.max(r0.x + dx, minX), r0.x + r0.w - MIN); n.w = r0.x + r0.w - n.x; }
+      if (saisie.mode.indexOf("e") >= 0) { n.w = Math.min(Math.max(r0.w + dx, MIN), maxX - r0.x); }
+      if (saisie.mode.indexOf("n") >= 0) { n.y = Math.min(Math.max(r0.y + dy, minY), r0.y + r0.h - MIN); n.h = r0.y + r0.h - n.y; }
+      if (saisie.mode.indexOf("s") >= 0) { n.h = Math.min(Math.max(r0.h + dy, MIN), maxY - r0.y); }
+    }
+    rect = n; dessiner();
+  }
+  function fin() { saisie = null; }
+  ["mousedown", "touchstart"].forEach(function (e) { cv.addEventListener(e, debut, { passive: false }); });
+  ["mousemove", "touchmove"].forEach(function (e) { cv.addEventListener(e, bouge, { passive: false }); });
+  ["mouseup", "mouseleave", "touchend", "touchcancel"].forEach(function (e) { cv.addEventListener(e, fin); });
+  window.addEventListener("resize", function () { if (img && el("recadrage").classList.contains("on")) { rect = null; ajuster(); } });
+  el("btnAnnuler").addEventListener("click", function () { fermer(null); });
+  el("btnValider").addEventListener("click", function () {
+    const sx = (rect.x - offX) / echelle, sy = (rect.y - offY) / echelle, sw = rect.w / echelle, sh = rect.h / echelle;
+    const out = document.createElement("canvas");
+    const maxCote = 1600, r = Math.min(1, maxCote / Math.max(sw, sh));
+    out.width = Math.round(sw * r); out.height = Math.round(sh * r);
+    out.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    out.toBlob(function (b) { fermer(b); }, "image/jpeg", 0.85);
+  });
+  function fermer(blob) { el("recadrage").classList.remove("on"); const f = resoudre; resoudre = null; img = null; rect = null; if (f) f(blob); }
+  return {
+    ouvrir: function (fichier) {
+      return new Promise(function (res) {
+        resoudre = res;
+        const url = URL.createObjectURL(fichier);
+        const i = new Image();
+        i.onload = function () { URL.revokeObjectURL(url); img = i; rect = null; el("recadrage").classList.add("on"); requestAnimationFrame(ajuster); };
+        i.onerror = function () { URL.revokeObjectURL(url); fermer(null); };
+        i.src = url;
+      });
+    }
+  };
+})();
+
+/* ------------------------------ Depot ------------------------------ */
+async function traiter(face, fichier) {
+  const F = face.charAt(0).toUpperCase() + face.slice(1);
+  if (!fichier || !P) return;
+  const blob = await Recadrage.ouvrir(fichier);
+  if (!blob) { msg(F, "Annul\u00e9.", ""); return; }
+  const auteur = demanderQui();
+  const boutons = document.querySelectorAll(".btn");
+  boutons.forEach(function (b) { b.disabled = true; });
+  msg(F, "Envoi en cours\u2026", "");
+  try {
+    const j = await postJson(BASE + "/fiche-de-vie-piece", { produit_id: P.id, nom: face + ".jpg" });
+    if (!j || !j.url) throw new Error("URL de d\u00e9p\u00f4t non obtenue.");
+    const up = await fetch(j.url, { method: "PUT", headers: { "Content-Type": j.type }, body: blob });
+    if (!up.ok) throw new Error("Envoi refus\u00e9 par le stockage (" + up.status + ").");
+    const r = await postJson(BASE + "/fabstory-photo-carte", { produit_id: P.id, face: face, chemin: j.chemin, auteur: auteur || null });
+    if (!r || !r.ok) throw new Error((r && r.motif) || "Enregistrement refus\u00e9.");
+    msg(F, "Photo enregistr\u00e9e.", "ok");
+    await rafraichir();
+  } catch (e) {
+    msg(F, "\u00c9chec : " + (e && e.message ? e.message : e), "err");
+  } finally {
+    boutons.forEach(function (b) { b.disabled = false; });
+  }
+}
+el("inDessus").addEventListener("change", function (ev) { const f = ev.target.files && ev.target.files[0]; ev.target.value = ""; traiter("dessus", f); });
+el("inDessous").addEventListener("change", function (ev) { const f = ev.target.files && ev.target.files[0]; ev.target.value = ""; traiter("dessous", f); });
+
+charger();
+</script>
+</body>
+</html>

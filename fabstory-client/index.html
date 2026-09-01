@@ -201,6 +201,12 @@
   .conf-ligne:last-child { border-bottom: none; }
   .conf-k { color: var(--text2); flex: none; }
   .conf-v { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+  .photos-carte { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .photos-carte figure { margin: 0; }
+  .photos-carte figure[hidden] { display: none; }
+  .photos-carte img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; display: block; }
+  .photos-carte figcaption { text-align: center; font-size: 12px; color: var(--text3); margin-top: 6px; }
+  @media (max-width: 560px) { .photos-carte { grid-template-columns: 1fr; } }
   .conf-declaration { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); }
   .conf-visa { align-items: center; }
   .conf-visa-img { max-width: 170px; max-height: 80px; width: auto; height: auto; display: block; }
@@ -313,6 +319,14 @@
     <div class="panneau" id="panRapport">
       <div class="vide" id="rapportVide">Le rapport de fabrication se remplira au fil de la production de votre carte.</div>
 
+      <div id="photosBloc" style="display:none">
+        <div class="sec-titre"><span>Photos de la carte</span></div>
+        <div class="carte photos-carte">
+          <figure><img id="photoDessus" alt=""><figcaption id="photoDessusCap">Dessus</figcaption></figure>
+          <figure><img id="photoDessous" alt=""><figcaption id="photoDessousCap">Dessous</figcaption></figure>
+        </div>
+      </div>
+
       <div id="inspectionBloc" style="display:none">
         <div class="sec-titre"><span>Inspection avant emballage</span></div>
         <div class="carte" id="inspectionZone"></div>
@@ -337,7 +351,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.25";
+const APP_VERSION = "0.26";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -360,7 +374,8 @@ function majRapportVide() {
   if (!vide) return;
   const ops = document.getElementById("inspectionBloc");
   const conf = document.getElementById("conformiteBloc");
-  const unVisible = (ops && ops.style.display !== "none") || (conf && conf.style.display !== "none");
+  const ph = document.getElementById("photosBloc");
+  const unVisible = (ops && ops.style.display !== "none") || (conf && conf.style.display !== "none") || (ph && ph.style.display !== "none");
   vide.style.display = unVisible ? "none" : "block";
 }
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
@@ -393,7 +408,7 @@ const T = {
     historique_titre: "Historique de votre carte",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
-    inspection_titre: "Inspection avant emballage", conformite_titre: "Conformit\u00e9",
+    inspection_titre: "Inspection avant emballage", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous",
     statut_lecture: "Statut de fabrication en cours de lecture\u2026", statut_indispo: "Statut de fabrication indisponible pour le moment.",
     statut_actuel: "Statut actuel : ", commande: "commande", indice: "Indice ",
     jalon_devis: "Devis", jalon_preparation: "Pr\u00e9paration", jalon_fabrication: "Fabrication", jalon_expediee: "Exp\u00e9di\u00e9e",
@@ -443,7 +458,7 @@ const T = {
     historique_titre: "Your board\u2019s history",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
-    inspection_titre: "Pre-packing inspection", conformite_titre: "Certificate of conformity",
+    inspection_titre: "Pre-packing inspection", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side",
     statut_lecture: "Reading production status\u2026", statut_indispo: "Production status unavailable for now.",
     statut_actuel: "Current status: ", commande: "order", indice: "Revision ",
     jalon_devis: "Quotation", jalon_preparation: "Preparation", jalon_fabrication: "Production", jalon_expediee: "Shipped",
@@ -508,6 +523,9 @@ function traduireStatique() {
   if (q("#panHistorique .sec-titre span")) q("#panHistorique .sec-titre span").textContent = t("historique_titre");
   document.getElementById("rapportVide").textContent = t("rapport_vide");
   if (q("#inspectionBloc .sec-titre span")) q("#inspectionBloc .sec-titre span").textContent = t("inspection_titre");
+  if (q("#photosBloc .sec-titre span")) q("#photosBloc .sec-titre span").textContent = t("photos_titre");
+  document.getElementById("photoDessusCap").textContent = t("photo_dessus");
+  document.getElementById("photoDessousCap").textContent = t("photo_dessous");
   if (q("#conformiteBloc .sec-titre span")) q("#conformiteBloc .sec-titre span").textContent = t("conformite_titre");
   document.getElementById("jalonsNote").textContent = t("statut_lecture");
   document.title = t("titre_onglet") + " \u00b7 " + APP_NAME + " v" + APP_VERSION;
@@ -710,6 +728,7 @@ async function charger() {
   rendreHero(r);
   rendrePoints(r);
   rendreFil(r);
+  chargerPhotos();
   await chargerStatut();
   /* Le bouton n apparait qu une fois le VRAI statut charge (pas juste le
      contenu principal) : sinon une impression trop rapide fige "Statut de
@@ -736,6 +755,23 @@ async function chargerStatut() {
     rendreInspection(null);
     rendreConformite(null);
   }
+}
+
+/* ch.137 : photos de la carte (dessus/dessous), prises a l atelier. Servies
+   par le jeton via une redirection vers un lien signe (1 h) : jamais d URL de
+   stockage dans la page. Une face sans photo repond 404 -> figure masquee ;
+   aucune photo -> section absente. */
+function chargerPhotos() {
+  const bloc = document.getElementById("photosBloc");
+  let visibles = 0;
+  ["Dessus", "Dessous"].forEach(function (F) {
+    const img = document.getElementById("photo" + F);
+    const fig = img.parentElement;
+    fig.hidden = true;
+    img.onload = function () { fig.hidden = false; visibles++; bloc.style.display = "block"; majRapportVide(); };
+    img.onerror = function () { fig.hidden = true; };
+    img.src = API + "/fabstory-client-photo?jeton=" + encodeURIComponent(JETON) + "&face=" + F.toLowerCase() + "&t=" + Date.now();
+  });
 }
 
 /* ch.137 (spec Olivier 01/09) : INSPECTION AVANT EMBALLAGE -- les points de

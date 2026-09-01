@@ -409,8 +409,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.8';
-const APP_DATE = '31/08/2026';
+const APP_VERSION = '4.9';
+const APP_DATE = '01/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -893,6 +893,7 @@ function rendreFiche(){
     CONCERNES_LISTE.map(c => '<option value="' + c[0] + '"' + (filtreConcerne===c[0]?' selected':'') + '>' + c[1] + '</option>').join('') +
     '</select>' +
     '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
+    '<button class="filtre" onclick="FS.photosCarte()" title="Prendre ou reprendre les photos dessus / dessous de la carte (tablette ou t\u00e9l\u00e9phone), pour le rapport de fabrication.">Photos carte</button>' +
     '<button class="filtre" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, t\u00e9l\u00e9chargeable depuis cette page.">Voir le rapport client</button>' +
     '<button class="btn-mail-client" onclick="FS.mailClient()" title="Cr\u00e9e un brouillon Gmail (commercial@ ou production@ selon vos initiales) avec les questions client en attente et le lien de r\u00e9ponse en ligne. Rien ne part sans vous.">Pr\u00e9parer le mail client</button>' +
     '</div>';
@@ -964,6 +965,11 @@ FS.copierClient = async function(){
 /* ch.137 : acces rapide a la vue client (= rapport de fabrication) depuis
    l appli interne, sans devoir passer par Preparer le mail client. Le jeton
    est cree s il n existe pas encore (meme regle que le circuit mail). */
+/* ch.137 : page atelier des photos carte (dessus/dessous), tablette ou telephone. */
+FS.photosCarte = function(){
+  window.open('../fabstory-atelier/?produit=' + encodeURIComponent(P.id), '_blank');
+};
+
 FS.voirRapportClient = async function(){
   try{
     const r = await getJson(BASE + '/fabstory-jeton?produit_id=' + P.id);
