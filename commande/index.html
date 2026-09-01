@@ -183,7 +183,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.7";
+const APP_VERSION = "6.8";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -785,9 +785,17 @@ function afficher(rep) {
         cadences: cadences,
         num_commande_client: (ENTRANTE && ENTRANTE.num_commande_client) || null,
         entrante_id: (ENTRANTE && ENTRANTE.id) || null
-      }, r => { const e = ENTRANTE; ENTRANTE = null; chargerEntrantes();
+      }, r => {
+        /* v6.8 : le devis refab existe -> la feuille de route BASCULE sur ce SO
+           (etape 3 validee) et, s il vient d une commande entrante, la
+           confrontation s ouvre : etape 6 avec ref client, exigences, abonnes. */
+        const e = ENTRANTE; chargerEntrantes();
+        if (e) { e.etat = 'rattachee'; e.odoo_so_name = r.so_numero; e.odoo_so_id = r.so_id;
+          DIAG = { ent: e, devisListe: [], note: null, so: { nom: r.so_numero, id: r.so_id }, conf: null, applique: null }; }
+        else DIAG = null;
+        el('entree').value = r.so_numero; el('entree').dispatchEvent(new Event('input'));
         return 'Devis ' + r.so_numero + ' cr\u00e9\u00e9 (' + r.cadences + ' cadence(s), ' + r.total + ' \u20ac)' +
-          (e ? ', entrante trait\u00e9e et fil Gmail \u00e9tiquet\u00e9 \u00ab Commande \u00bb' : '') + ' \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.'; });
+          (e ? ', entrante rattach\u00e9e' : '') + ' \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.'; });
     });
   }
 
