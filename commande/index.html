@@ -164,7 +164,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "5.0";
+const APP_VERSION = "5.1";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -426,8 +426,14 @@ async function appliquer(rep, ent) {
     afficherJournal(r);
     if (r.ok) {
       b.textContent = '\u2713 Appliqu\u00e9 sur ' + (r.so || rep.devis.nom);
-      m.textContent = 'Entrante trait\u00e9e. La confirmation du devis reste dans Odoo.';
+      m.textContent = 'Entrante trait\u00e9e. La confirmation du devis reste dans Odoo. Les 5 pi\u00e8ces de l\u2019affaire arrivent dessous\u2026';
       chargerEntrantes();
+      /* v5.1 (Olivier 01/09) : Appliquer enchaine sur les 5 pieces de l affaire
+         (article, carte FabStory, liens, projet) sur le devis rattache. */
+      ENTRANTE = ent;
+      el('entree').value = r.so || rep.devis.nom;
+      el('entree').dispatchEvent(new Event('input'));
+      diagnostiquer();
     } else {
       b.disabled = false; b.textContent = 'R\u00e9essayer';
       m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
