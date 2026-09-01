@@ -409,7 +409,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.9';
+const APP_VERSION = '4.10';
 const APP_DATE = '01/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -972,12 +972,87 @@ FS.photosCarte = function(){
 
 FS.voirRapportClient = async function(){
   try{
+    /* ch.137 (01/09) : garde-fou du rapport. Avant d ouvrir, on verifie les
+       fils resolus SANS ligne de rapport ; ceux qui n ont pas non plus de
+       resume automatique (meme logique que la page client) sont soumis a
+       redaction dans une pop-up. Regle actee : rien en brut dans le PDF. */
+    const m = await getJson(BASE + '/fabstory-rapport-manques?produit_id=' + P.id);
+    const aRediger = ((m && m.fils) || []).filter(f => !resumeAutoPossible(f));
+    if(aRediger.length){
+      const fait = await FS.redigerLignesRapport(aRediger);
+      if(!fait) return; /* annule : on n ouvre pas un rapport incomplet */
+    }
     const r = await getJson(BASE + '/fabstory-jeton?produit_id=' + P.id);
     if(!r || !r.ok || !r.jeton){ alert(r && r.motif ? r.motif : 'Lien indisponible.'); return; }
     window.open('https://protoprocess.github.io/commercial/fabstory-client/?jeton=' + encodeURIComponent(r.jeton), '_blank');
   }catch(err){
     alert('Impossible d\u2019ouvrir le rapport : ' + (err && err.message ? err.message : err));
   }
+};
+
+/* Meme logique que la vue client (resumeImprime) : un fil a un resume
+   automatique si PROPOSITION existe et que la reponse est un cas reconnu. */
+function resumeAutoPossible(f){
+  const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const r = norm(f.reponse);
+  if(!r) return false;
+  if(r.indexOf('je fournis') >= 0 || r.indexOf('fournis ce composant') >= 0) return true; /* retire du PDF, rien a rediger */
+  if(r.indexOf('attendre') >= 0 && r.indexOf('stock') >= 0) return true; /* idem */
+  if(f.proposition && r.indexOf('propos') >= 0 && r.indexOf('accept') >= 0) return true;
+  if(r.indexOf('pas cabler') >= 0) return true;
+  return false;
+}
+
+/* Pop-up de redaction des lignes de rapport. Retourne true si tout est
+   enregistre (ou rien a faire), false si l utilisateur annule. */
+FS.redigerLignesRapport = function(fils){
+  return new Promise(function(resoudre){
+    const fond = document.createElement('div');
+    fond.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+    const boite = document.createElement('div');
+    boite.style.cssText = 'background:var(--surface);border:1px solid var(--border2);border-radius:10px;max-width:680px;width:100%;max-height:86vh;overflow:auto;padding:18px';
+    let html = '<h3 style="margin:0 0 6px;font-size:15px">Lignes de rapport \u00e0 r\u00e9diger</h3>' +
+      '<p style="margin:0 0 14px;color:var(--text2);font-size:12.5px">Ces \u00e9changes r\u00e9solus n\u2019ont pas de formulation automatique. Le rapport n\u2019imprime jamais de texte brut : \u00e9crivez la ligne telle qu\u2019elle doit appara\u00eetre au rapport de fabrication.</p>';
+    fils.forEach(function(f, i){
+      html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">' +
+        (f.repere ? 'Rep ' + esc(f.repere) + ' \u00b7 ' : '') + (f.mpn ? esc(f.mpn) + ' \u00b7 ' : '') +
+        (f.modele_code ? 'mod\u00e8le ' + esc(f.modele_code) : 'hors mod\u00e8le') + '</div>' +
+        '<div style="font-size:12.5px;margin-bottom:4px;white-space:pre-wrap">' + esc((f.question || '').slice(0, 220)) + '</div>' +
+        (f.reponse ? '<div style="font-size:12.5px;color:var(--pp-blue);margin-bottom:8px">R\u00e9ponse client : ' + esc(f.reponse.slice(0, 160)) + '</div>' : '') +
+        '<textarea data-fiche="' + f.id + '" data-modele="' + esc(f.modele_code || '') + '" placeholder="Ligne du rapport (ex. : Retouche valid\u00e9e avec vous le\u2026)" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font:inherit;font-size:13px;padding:8px;min-height:52px"></textarea>' +
+        '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);margin-top:6px"><input type="checkbox" data-proposer="' + f.id + '"' + (f.modele_code ? '' : ' disabled') + '> Proposer comme formulation du mod\u00e8le' + (f.modele_code ? ' ' + esc(f.modele_code) : ' (fil hors mod\u00e8le)') + '</label>' +
+        '</div>';
+    });
+    html += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">' +
+      '<button type="button" class="filtre" id="rlAnnuler">Annuler</button>' +
+      '<button type="button" class="filtre actif" id="rlEnregistrer">Enregistrer et ouvrir le rapport</button></div>' +
+      '<div id="rlErreur" style="color:var(--rouge);font-size:12.5px;margin-top:8px;min-height:16px"></div>';
+    boite.innerHTML = html;
+    fond.appendChild(boite);
+    document.body.appendChild(fond);
+    boite.querySelector('#rlAnnuler').addEventListener('click', function(){ fond.remove(); resoudre(false); });
+    boite.querySelector('#rlEnregistrer').addEventListener('click', async function(){
+      const zones = Array.from(boite.querySelectorAll('textarea[data-fiche]'));
+      const vides = zones.filter(z => !z.value.trim());
+      const err = boite.querySelector('#rlErreur');
+      if(vides.length){ err.textContent = 'Toutes les lignes doivent \u00eatre r\u00e9dig\u00e9es (' + vides.length + ' manquante' + (vides.length > 1 ? 's' : '') + ').'; vides[0].focus(); return; }
+      err.textContent = '';
+      this.disabled = true; this.textContent = 'Enregistrement\u2026';
+      try{
+        for(const z of zones){
+          const id = z.getAttribute('data-fiche');
+          const proposer = !!boite.querySelector('input[data-proposer="' + id + '"]:checked');
+          const rep = await postJson(BASE + '/fabstory-ligne-rapport', { fiche_id: parseInt(id, 10), ligne: z.value.trim(), proposer_modele: proposer, auteur: qui() || null });
+          if(!rep || !rep.ok) throw new Error((rep && rep.motif) || 'Enregistrement refus\u00e9 (fil ' + id + ').');
+        }
+        fond.remove(); resoudre(true);
+      }catch(e2){
+        err.textContent = '\u00c9chec : ' + (e2 && e2.message ? e2.message : e2);
+        this.disabled = false; this.textContent = 'Enregistrer et ouvrir le rapport';
+      }
+    });
+  });
 };
 
 /* v4.4 (chantier 61, 31/08) : brouillon Gmail vers le client depuis la carte.
