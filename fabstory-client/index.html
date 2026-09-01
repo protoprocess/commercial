@@ -201,6 +201,8 @@
   .conf-ligne:last-child { border-bottom: none; }
   .conf-k { color: var(--text2); flex: none; }
   .conf-v { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+  .conf-visa { align-items: center; }
+  .conf-visa-img { max-width: 170px; max-height: 80px; width: auto; height: auto; display: block; }
 
   /* ---- Operations (ch.137) ---- */
   .op-ligne { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
@@ -313,7 +315,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.21";
+const APP_VERSION = "0.22";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -569,7 +571,9 @@ function rendreConformite(c) {
       return '<div class="conf-ligne"><span class="conf-k">' + esc(l[0]) +
         '</span><span class="conf-v">' + esc(l[1]) + "</span></div>";
     })
-    .join("");
+    .join("") +
+    '<div class="conf-ligne conf-visa"><span class="conf-k">Visa</span>' +
+    '<img src="../shared/visa-pp.png" alt="Visa Proto Process" class="conf-visa-img" onerror="this.parentElement.style.display=\'none\'"></div>';
   bloc.style.display = "block";
 }
 
