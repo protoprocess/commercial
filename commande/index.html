@@ -105,6 +105,25 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 .journal { margin-top:8px; }
 .journal .dl { border-bottom:none; padding:3px 0; }
 .aide { cursor:help; border-bottom:1px dotted var(--text3); }
+
+/* ---- Feuille de route (v6.0) ---- */
+.fr { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:6px 16px 10px; }
+.fr .diag-tete { padding:8px 0; }
+.et { display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border); }
+.et:last-child { border-bottom:none; }
+.et .num { flex:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:12px; font-weight:700; border:1.5px solid var(--border2); color:var(--text3); }
+.et.done .num { background:var(--green-bg); color:var(--green-badge); border-color:transparent; }
+.et.active .num { background:var(--accent); color:#fff; border-color:transparent; }
+.et.wait { opacity:.5; }
+.et .lib { flex:none; width:170px; color:var(--text2); font-size:12.5px; padding-top:4px; }
+.et.active .lib { color:var(--text); font-weight:500; }
+.et .corps { flex:1; min-width:0; font-size:12.5px; padding-top:4px; overflow-wrap:anywhere; }
+.et .corps a { color:var(--accent); text-decoration:none; }
+.et .corps code { font-family:var(--mono); font-size:11.5px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+.et .corps .p-actions { margin-top:6px; }
+.et .why { color:var(--text3); font-size:12px; }
+.et .corps .dl { padding:5px 0; }
+.et .corps .dl .lib { width:130px; padding-top:0; }
 </style>
 
 <style>
@@ -157,14 +176,14 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
   <div class="etat-msg" id="etat"></div>
 
   <div class="rapport" id="rapport">
-    <h2>Les 5 pièces de l'affaire — article, carte FabStory, liens, projet</h2>
+    <h2>Feuille de route</h2>
     <div id="pieces"></div>
   </div>
 </div>
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "5.2";
+const APP_VERSION = "6.0";
 const APP_DATE = "01/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -277,14 +296,13 @@ async function chargerEntrantes() {
   } catch (err) { /* silencieux : le bandeau est un plus, jamais un blocage */ }
 }
 chargerEntrantes();
-/* ---- DIAGNOSTIC D UNE COMMANDE ENTRANTE (v5.0, 01/09/2026) ---------------
+/* ---- DIAGNOSTIC D UNE COMMANDE ENTRANTE (v5.0 → v6.0, 01/09/2026) ---------
    Une seule action : Diagnostiquer = chercher les devis ouverts du client,
    retenir le plus probable (meme montant, sinon le plus proche), confronter,
-   et proposer les ECRITURES Odoo cochees par defaut. « Changer de devis »
-   reste a un clic si le rapprochement est faux.
-   Decision Olivier 01/09 : une checklist qui ne fait rien n a pas de valeur ;
-   l appli doit ecrire dans Odoo, la confirmation du devis reste humaine. */
-let DIAG = null; /* { ent, devisListe, note, so } */
+   puis lire les 5 pieces de l affaire. Le tout est rendu dans UNE feuille de
+   route numerotee (v6.0, demande Olivier : l ordre des gestes doit etre
+   evident, sinon « ca va merdouiller »). */
+let DIAG = null; /* { ent, devisListe, note, so: {nom,id}, conf: reponse confronter, applique: journal } */
 
 async function diagnostiquerEntrante(ent, bouton) {
   if (!ent) return;
@@ -295,23 +313,32 @@ async function diagnostiquerEntrante(ent, bouton) {
   el('rapport').classList.remove('visible');
   let liste = null;
   try { liste = await appel('commande-devis-ouverts?entrante=' + encodeURIComponent(ent.id)); } catch (err) { liste = null; }
-  DIAG = { ent: ent, devisListe: (liste && liste.ok) ? (liste.devis || []) : [], note: liste ? liste.note : null, so: null };
+  DIAG = { ent: ent, devisListe: (liste && liste.ok) ? (liste.devis || []) : [], note: liste ? liste.note : null, so: null, conf: null, applique: null };
+  ENTRANTE = ent;
   if (bouton) { bouton.disabled = false; bouton.textContent = 'Diagnostiquer'; }
   const premier = DIAG.devisListe[0] || null;
   if (!premier) { afficherChoixDevis(z); return; }
   await confronter(ent, premier.nom);
 }
 
+/* Confronte l entrante a un devis, puis lance la lecture des 5 pieces sur ce
+   devis : la feuille de route est rendue par afficher() avec les deux. */
 async function confronter(ent, so) {
   const z = el('confrontation');
   z.innerHTML = '<div class="etat-msg chargement"><span class="spin"></span>Confrontation \u00e0 ' + ech(so) + '\u2026</div>';
+  el('rapport').classList.remove('visible');
   try {
     const rep = await appel('commande-confronter?entrante=' + encodeURIComponent(ent.id) + '&so=' + encodeURIComponent(so));
-    afficherDiag(rep, ent);
+    if (!rep || !rep.ok) { z.innerHTML = '<div class="etat-msg err">' + ech((rep && rep.motif) || 'R\u00e9ponse illisible.') + '</div>'; return; }
+    DIAG.so = { nom: rep.devis.nom, id: rep.devis.id };
+    DIAG.conf = rep;
+    DIAG.applique = null;
+    el('entree').value = rep.devis.nom;
+    el('entree').dispatchEvent(new Event('input'));
+    await diagnostiquer(true);
   } catch (err) {
     z.innerHTML = '<div class="etat-msg err">La confrontation n\u2019a pas r\u00e9pondu (' + ech(err.message) + ').</div>';
   }
-  z.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* Autres devis candidats + saisie manuelle. */
@@ -346,26 +373,10 @@ function afficherChoixDevis(z) {
   const champ = z.querySelector('#conf-so'); if (champ) champ.focus();
 }
 
-function afficherDiag(rep, ent) {
-  const z = el('confrontation');
-  if (!rep || !rep.ok) { z.innerHTML = '<div class="etat-msg err">' + ech((rep && rep.motif) || 'R\u00e9ponse illisible.') + '</div>'; return; }
-  DIAG.so = rep.devis;
-  const d = rep.devis, t = rep.totaux;
-  const memeTotal = Math.abs(Number(t.po) - Number(t.devis)) < 0.01;
-  const graves = (rep.ecarts || []).filter(e => e.grave && !e.couvert);
-  const regarder = (rep.ecarts || []).filter(e => !e.grave && !e.couvert);
+/* ---- ETAPE 6 : les ecritures Odoo (confrontation) ------------------------ */
+function htmlEcritures(rep) {
   const vide = '<span style="color:var(--text3)">\u2014</span>';
-
-  let h = '<div class="diag">';
-  h += '<div class="diag-tete"><b>' + ech(d.nom) + '</b> \u00b7 ' + ech(d.client) +
-    ' \u00b7 <span class="badge ' + (memeTotal ? 'badge-ok' : 'badge-err') + '">' +
-    (memeTotal ? 'PO = devis ' + ech(t.devis_texte) : 'PO ' + ech(t.po_texte) + ' \u2260 devis ' + ech(t.devis_texte)) + '</span>' +
-    '<span class="sp"></span>' +
-    '<a class="lien" id="lien-changer">Changer de devis</a>' +
-    '<a class="lien" target="_blank" rel="noopener" href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + d.id + '">Ouvrir dans Odoo \u2197</a></div>';
-  h += '<div class="autres" id="autres">' + htmlChoixDevis(d.nom) + '</div>';
-
-  /* Ecritures : une ligne = une case, cochee par defaut quand elle est sure */
+  let h = '';
   for (const a of (rep.actions || [])) {
     const off = !a.ecriture;
     let val;
@@ -377,8 +388,8 @@ function afficherDiag(rep, ent) {
       '<span class="lib">' + ech(a.libelle) + '</span><span class="val">' + val + '</span>' +
       '<span class="det' + (a.grave ? ' err' : '') + '">' + (a.deja ? '\u2713 ' : '') + ech(a.detail || '') + '</span></div>';
   }
-  /* Constats en lecture seule : ce que l appli ne peut pas ecrire seule */
-  for (const e of graves.concat(regarder)) {
+  const constats = (rep.ecarts || []).filter(e => !e.couvert);
+  for (const e of constats) {
     h += '<div class="dl"><span class="ic ' + (e.grave ? 'err' : 'warn') + '">!</span><span class="lib">' + ech(e.nom) + '</span>' +
       '<span class="val">' + (e.po ? '<b>PO</b> ' + ech(String(e.po).slice(0, 140)) : '') +
       (e.constat ? ' \u2192 <b>' + ech(e.libelle_constat || 'Devis') + '</b> ' + ech(String(e.constat).slice(0, 160)) : '') + '</span>' +
@@ -389,32 +400,24 @@ function afficherDiag(rep, ent) {
       '<span class="val"><span class="aide" title="' + ech(rep.conformes.join('\n')) + '">' + rep.conformes.length + ' point(s) v\u00e9rifi\u00e9(s)</span></span><span class="det"></span></div>';
   }
   h += '<div class="diag-pied"><button class="btn-p" id="btn-appliquer">Appliquer dans Odoo</button><span class="msg" id="diag-msg"></span></div>';
-  h += '<div class="journal" id="journal"></div></div>';
-  z.innerHTML = h;
-
-  el('lien-changer').addEventListener('click', () => el('autres').classList.toggle('visible'));
-  brancherChoixDevis(z, ent);
+  h += '<div class="journal" id="journal"></div>';
+  return h;
+}
+function brancherEcritures(z, rep, ent, actif) {
   const majBouton = () => {
     const n = z.querySelectorAll('[data-action]:checked').length;
-    const b = el('btn-appliquer');
-    b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n;
+    const b = el('btn-appliquer'); if (!b) return;
+    b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n || !actif;
   };
   z.querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
   majBouton();
-  el('btn-appliquer').addEventListener('click', () => appliquer(rep, ent));
-
-  /* v5.2 (Olivier 01/09) : les 5 pieces de l affaire (article, carte FabStory,
-     liens, projet) s affichent DES le diagnostic, sous les ecritures — pas
-     seulement apres Appliquer. C est la qu on voit "article a creer". */
-  ENTRANTE = ent;
-  el('entree').value = d.nom;
-  el('entree').dispatchEvent(new Event('input'));
-  diagnostiquer();
+  const b = el('btn-appliquer');
+  if (b) b.addEventListener('click', () => appliquer(rep, ent));
 }
 
 /* Un seul appel groupe : l API pose tout, relit tout, et rend un journal. */
 async function appliquer(rep, ent) {
-  const z = el('confrontation');
+  const z = el('pieces');
   const coche = c => { const x = z.querySelector('[data-action="' + c + '"]'); return !!(x && x.checked); };
   const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
   const dateChamp = z.querySelector('[data-date]');
@@ -431,18 +434,13 @@ async function appliquer(rep, ent) {
   try {
     const r = await appel('commande-rattacher', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ so_id: rep.devis.id, entrante_id: ent.id, ecritures: ecritures }) });
-    afficherJournal(r);
     if (r.ok) {
-      b.textContent = '\u2713 Appliqu\u00e9 sur ' + (r.so || rep.devis.nom);
-      m.textContent = 'Entrante trait\u00e9e. La confirmation du devis reste dans Odoo. Les 5 pi\u00e8ces de l\u2019affaire arrivent dessous\u2026';
+      DIAG.applique = r;
       chargerEntrantes();
-      /* v5.1 (Olivier 01/09) : Appliquer enchaine sur les 5 pieces de l affaire
-         (article, carte FabStory, liens, projet) sur le devis rattache. */
-      ENTRANTE = ent;
-      el('entree').value = r.so || rep.devis.nom;
-      el('entree').dispatchEvent(new Event('input'));
+      MSG_PERSIST = '\u00c9critures appliqu\u00e9es sur ' + (r.so || rep.devis.nom) + ' (' + r.nb_fait + ' relue(s) dans Odoo).';
       diagnostiquer();
     } else {
+      afficherJournal(r, el('journal'));
       b.disabled = false; b.textContent = 'R\u00e9essayer';
       m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
     }
@@ -452,9 +450,8 @@ async function appliquer(rep, ent) {
   }
 }
 const LIB_JOURNAL = { ref: 'R\u00e9f. client', date: 'Date de livraison', abonner: 'Contact achat', note: 'Note exigences', pj: 'Bon de commande' };
-function afficherJournal(r) {
-  const j = el('journal'); if (!j) return;
-  const lignes = (r.journal || []).map(x => {
+function htmlJournal(r) {
+  return (r.journal || []).map(x => {
     const ic = x.fait === true ? '<span class="ic ok">\u2713</span>' : x.fait === false ? '<span class="ic err">\u2717</span>' : '<span class="ic mute">\u2026</span>';
     let txt = LIB_JOURNAL[x.cle] || x.cle;
     if (x.deja) txt += ' \u2014 d\u00e9j\u00e0 en place';
@@ -462,9 +459,9 @@ function afficherJournal(r) {
     else if (x.cle === 'date' && x.avant) txt += ' \u2014 remplace ' + ech(x.avant);
     if (x.motif && x.fait !== true) txt += ' <span style="color:var(--text3)">' + ech(x.motif) + '</span>';
     return '<div class="dl">' + ic + '<span class="val">' + txt + '</span></div>';
-  });
-  j.innerHTML = lignes.join('');
+  }).join('');
 }
+function afficherJournal(r, cible) { if (cible) cible.innerHTML = htmlJournal(r); }
 
 /* ---- Accueil : retour a la liste des entrantes (demande Olivier 01/09) --- */
 function accueil() {
@@ -478,17 +475,27 @@ function accueil() {
 }
 el('btn-accueil').addEventListener('click', accueil);
 
-async function diagnostiquer() {
+/* sansConf = true quand confronter() vient de rafraichir DIAG.conf : on ne le
+   relit pas une seconde fois. Sinon (apres une action), la confrontation est
+   relue en parallele des 5 pieces, pour que l etape 6 reflete le devis a jour
+   (ex. le constat « article generique » disparait apres le remplacement). */
+async function diagnostiquer(sansConf) {
   const a = analyser(el('entree').value);
   if (!a) { el('etat').textContent = 'Saisir un num\u00e9ro de commande ou un produit.'; el('etat').className = 'etat-msg err'; return; }
   if (!code()) { el('acces').classList.add('visible'); el('code').focus(); return; }
   el('btn-diag').disabled = true;
-  el('etat').innerHTML = '<span class="spin"></span>Diagnostic en cours\u2026';
+  el('etat').innerHTML = '<span class="spin"></span>Lecture de l\u2019affaire\u2026';
   el('etat').className = 'etat-msg chargement';
+  el('confrontation').innerHTML = '';
   el('rapport').classList.remove('visible');
   try {
     const q = (a.mode === 'so' ? 'so=' : 'produit=') + encodeURIComponent(a.valeur);
-    const rep = await appel('commande-diagnostic?' + q);
+    const promesses = [appel('commande-diagnostic?' + q)];
+    const relireConf = !sansConf && DIAG && DIAG.ent && DIAG.so && a.mode === 'so' && a.valeur === DIAG.so.nom;
+    if (relireConf) promesses.push(appel('commande-confronter?entrante=' + encodeURIComponent(DIAG.ent.id) + '&so=' + encodeURIComponent(DIAG.so.nom)).catch(() => null));
+    const res = await Promise.all(promesses);
+    const rep = res[0];
+    if (relireConf && res[1] && res[1].ok) DIAG.conf = res[1];
     DERNIER = { entree: a, rep: rep };
     if (MSG_PERSIST) { el('etat').textContent = '\u2713 ' + MSG_PERSIST; el('etat').className = 'etat-msg'; el('etat').style.color = 'var(--green)'; MSG_PERSIST = null; }
     else { el('etat').textContent = ''; el('etat').style.color = ''; }
@@ -506,174 +513,184 @@ async function diagnostiquer() {
   el('btn-diag').disabled = false;
 }
 
-/* ---- Rendu des 5 pieces ---------------------------------------------- */
-const NOMS = { so: 'Commande', article: 'Article', carte: 'Carte FabStory', liens: 'Liens', projet: 'Projet Odoo' };
+/* ---- FEUILLE DE ROUTE (v6.0) ----------------------------------------------
+   1 carte FabStory → 2 article Odoo → 3 ligne Prototype (ou devis refab) →
+   4 lien article↔carte → 5 projet Odoo (libre) → 6 ecritures Odoo (si PO) →
+   7 rappel manuel Odoo. Une seule etape active (▶) ; 3 et 4 attendent 2 ;
+   5 reste toujours actionnable. */
 const ech = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-function classeEtBadge(p) {
-  const v = p.verdict;
-  if (['trouve', 'present', 'existe', 'existe_hors_so', 'poses'].includes(v))
-    return { cl: p.alerte ? 'warn' : 'ok', badge: p.alerte ? 'badge-warn' : 'badge-ok', lib: { trouve: 'trouv\u00e9', present: 'pr\u00e9sent', existe: 'existe', existe_hors_so: 'existe', poses: 'pos\u00e9s' }[v] };
-  if (['a_poser', 'a_creer', 'introuvable', 'attend_la_carte', 'plusieurs'].includes(v))
-    return { cl: v === 'plusieurs' ? 'err' : 'warn', badge: v === 'plusieurs' ? 'badge-err' : 'badge-warn',
-             lib: { a_poser: '\u00e0 poser', a_creer: '\u00e0 cr\u00e9er', introuvable: 'introuvable', attend_la_carte: 'attend la carte', plusieurs: 'plusieurs' }[v] };
-  return { cl: 'mute', badge: 'badge-mute', lib: v === 'non_demande' ? 'sans objet' : v };
-}
+const INP = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px';
+const ODOO = 'https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/';
 
 function afficher(rep) {
   if (!rep || !rep.pieces) { el('etat').textContent = 'R\u00e9ponse illisible.'; el('etat').className = 'etat-msg err'; return; }
-  const z = el('pieces'); z.innerHTML = '';
-  for (const p of rep.pieces) {
-    const m = classeEtBadge(p);
-    let d = '', actions = '';
-    if (p.piece === 'so') {
-      if (p.verdict === 'trouve') {
-        d = '<a href="https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/' + ech(p.so_id || '') + '" target="_blank" rel="noopener">' + ech(p.so) + '</a>' +
-            ' \u2014 \u00e9tat <code>' + ech(p.etat) + '</code>' +
-            (p.code_client ? ' \u00b7 ' + ech(p.code_client) : '') +
-            (p.ref_projet ? ' \u00b7 ' + ech(p.ref_projet) : '');
-        if (p.alerte) d += '<br>\u26a0 ' + ech(p.alerte);
-      } else d = ech(p.detail || '');
-    }
-    if (p.piece === 'article') {
-      const carteP = rep.pieces.find(x => x.piece === 'carte') || {};
-      if (p.article) d = ech(p.article.nom) + ' <code>#' + p.article.id + '</code>' +
-        (p.verdict === 'existe_hors_so' ? ' \u2014 existe, pas encore sur ce SO' : '');
-      else if (p.verdict === 'plusieurs') d = 'Arbitrage requis : ' + p.candidats.map(c => ech(c.nom)).join(' / ');
-      else {
-        d = 'Aucun article r\u00e9el.';
-        if (carteP.verdict === 'existe') {
-          actions = '<div style="display:flex;gap:6px;width:100%;max-width:560px;flex-wrap:wrap;align-items:center">' +
-            '<input type="text" class="fa-nom" value="' + ech(carteP.carte.cle_produit + (carteP.carte.indice ? ' ' + carteP.carte.indice : '')) + '" ' +
-            'style="flex:1;min-width:260px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-            '<button class="btn-p" data-creer-article="' + carteP.carte.id + '">Cr\u00e9er l\u2019article</button>' +
-            '<span style="color:var(--text3);font-size:12px;width:100%">nom \u00e9ditable \u2014 doit commencer par ' + ech(carteP.carte.cle_produit) + ' \u00b7 cat\u00e9gorie Protos \u00b7 liens pos\u00e9s d\u2019office</span></div>';
-        } else d += ' Cr\u00e9er d\u2019abord la carte ci-dessous.';
-      }
-      if (p.ligne_prototype) {
-        const soP = rep.pieces.find(x => x.piece === 'so') || {};
-        d += '<br>\u26a0 ' + p.ligne_prototype.nb + ' ligne(s) \u00ab Prototype \u00bb sur le devis.';
-        if (p.article && soP.confirmable) {
-          const tout = p.ligne_prototype.lignes.map(l => l.id).join(',');
-          actions = (actions || '') +
-            (p.ligne_prototype.lignes.length > 1 ?
-              '<button class="btn-p" data-remplacer-tout="' + tout + '" data-article="' + p.article.id + '">Remplacer les ' + p.ligne_prototype.lignes.length + ' lignes</button>' : '') +
-            p.ligne_prototype.lignes.map(l =>
-            '<button class="btn-s" data-remplacer-ligne="' + l.id + '" data-article="' + p.article.id + '">' +
-            'Remplacer la ligne ' + ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte) + '</button>').join('') +
-            '<span style="color:var(--text3);font-size:12px;width:100%">prix, quantit\u00e9 et date conserv\u00e9s \u2014 preuve avant/apr\u00e8s au retour, ligne par ligne</span>';
-        } else if (p.article && !soP.confirmable) {
-          d += ' SO confirm\u00e9 : remplacement verrouill\u00e9 (des livraisons existent derri\u00e8re) \u2014 geste manuel dans Odoo si vraiment n\u00e9cessaire.';
-        } else {
-          d += ' Cr\u00e9er l\u2019article d\u2019abord, les boutons de remplacement appara\u00eetront.';
-        }
-      }
-    }
-    if (p.piece === 'carte') {
-      if (p.verdict === 'existe') d = ech(p.carte.cle_produit) + (p.carte.indice ? ' <code>indice ' + ech(p.carte.indice) + '</code>' : '') + (p.carte.libelle_carte ? ' \u00b7 ' + ech(p.carte.libelle_carte) : '') +
-        ' \u2014 <a href="' + ech(p.url) + '" target="_blank" rel="noopener">ouvrir la carte</a>';
-      else if (p.verdict === 'plusieurs') {
-        d = 'Plusieurs cartes candidates \u2014 choisir la bonne :';
-        actions = p.candidats.map(c =>
-          '<button class="btn-s" data-choisir="' + c.id + '" data-cle="' + ech(c.cle_produit) + '">' +
-          ech(c.cle_produit) + (c.libelle_carte ? ' \u00b7 ' + ech(c.libelle_carte) : '') + '</button>').join('') +
-          '<span class="choix-note" style="color:var(--text3);font-size:12px"></span>';
-      }
-      else {
-        if (p.proposition) {
-          const pr = p.proposition;
-          d = 'Aucune carte \u2014 proposition pr\u00e9-remplie depuis le SO, <b>\u00e0 v\u00e9rifier</b> (la carte porte la r\u00e9f FAMILLE, l\u2019indice \u00e0 part) :';
-          actions = '<div class="form-carte" data-client="' + ech(pr.nom_client || '') + '" style="display:grid;grid-template-columns:110px 1fr 90px;gap:6px;width:100%;max-width:560px">' +
-            '<input type="text" class="fc-code" value="' + ech(pr.code_client) + '" placeholder="CLIxxx" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-            '<input type="text" class="fc-ref" value="' + ech(pr.ref_carte) + '" placeholder="R\u00e9f famille (sans indice)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-            '<input type="text" class="fc-indice" value="' + ech(pr.indice) + '" placeholder="Indice" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-            '<input type="text" class="fc-libelle" value="" placeholder="Libell\u00e9 (optionnel)" style="grid-column:1/3;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12.5px">' +
-            '<button class="btn-p" data-creer-carte="1">Cr\u00e9er la carte</button></div>';
-        } else {
-          /* Pas de proposition venue du SO : on tente celle de la commande
-             entrante, qui porte la reference lue dans le bon de commande. */
-          const pe = propositionDepuisEntrante();
-          if (pe) {
-            d = 'Aucune carte \u2014 proposition pr\u00e9-remplie depuis <b>le bon de commande</b>, ' +
-                '<b>\u00e0 v\u00e9rifier</b> (la carte porte la r\u00e9f FAMILLE, l\u2019indice \u00e0 part) :';
-            actions = '<div class="form-carte" data-client="' + ech(pe.nom_client) + '" style="display:grid;grid-template-columns:110px 1fr 90px;gap:6px;width:100%;max-width:560px">' +
-              '<input type="text" class="fc-code" value="' + ech(pe.code_client) + '" placeholder="CLIxxx" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-              '<input type="text" class="fc-ref" value="' + ech(pe.ref_carte) + '" placeholder="R\u00e9f famille (sans indice)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-              '<input type="text" class="fc-indice" value="' + ech(pe.indice) + '" placeholder="Indice" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:12.5px">' +
-              '<input type="text" class="fc-libelle" value="" placeholder="Libell\u00e9 (optionnel)" style="grid-column:1/3;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12.5px">' +
-              '<button class="btn-p" data-creer-carte="1">Cr\u00e9er la carte</button></div>' +
-              '<span style="color:var(--text3);font-size:12px;width:100%">valeurs lues dans le PO : v\u00e9rifiez le code client et la r\u00e9f famille avant de cr\u00e9er</span>';
-          } else {
-            d = 'Aucune carte pour ce produit.';
-            actions = '<a class="btn-p" style="text-decoration:none;display:inline-block" ' +
-              'href="https://protoprocess.github.io/commercial/fabstory/" target="_blank" rel="noopener">Cr\u00e9er la carte dans FabStory</a>' +
-              '<span style="color:var(--text3);font-size:12px">puis relancer le diagnostic</span>';
-          }
-        }
-      }
-    }
-    if (p.piece === 'liens') {
-      if (p.verdict === 'poses') d = 'PP Produit ID <code>' + ech(p.pp_produit_id) + '</code>' +
-        (p.fabstory ? ' \u00b7 <a href="' + ech(p.fabstory) + '" target="_blank" rel="noopener">lien FabStory sur l\u2019article</a>' : '');
-      else if (p.verdict === 'a_poser') {
-        d = 'L\u2019article et la carte existent mais ne sont pas reli\u00e9s.';
-        const pid = (p.action || '').match(/produit_id=(\d+)/);
-        if (pid) actions = '<button class="btn-p" data-lier="' + pid[1] + '">Relier maintenant</button>';
-      }
-      else d = ech(p.detail || 'En attente des pi\u00e8ces pr\u00e9c\u00e9dentes.');
-    }
-    if (p.piece === 'projet') {
-      if (p.verdict === 'trouve') d = ech(p.projet.name) + ' <code>#' + p.projet.id + '</code> \u2014 la colonne A du Planning pointera dessus';
-      else if (p.verdict === 'plusieurs') d = 'Plusieurs projets au nom attendu : ' + p.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 trancher \u00e0 la main dans Odoo';
-      else if (p.verdict === 'candidats') {
-        d = ech(p.detail || '') + '<br>Nom attendu : <code>' + ech(p.nom_attendu) + '</code>';
-        actions = p.candidats.map(c =>
-          '<button class="btn-s" data-projet-renommer="' + c.id + '" data-nom="' + ech(p.nom_attendu) + '">Renommer \u00ab ' + ech(c.name) + ' \u00bb</button>').join('') +
-          '<button class="btn-s" data-projet-creer="1" data-nom="' + ech(p.nom_attendu) + '" data-so="' + ech(p.so_numero || '') + '">Aucun : cr\u00e9er le projet</button>';
-      }
-      else if (p.verdict === 'introuvable') {
-        d = ech(p.detail || '') + '<br>Nom attendu : <code class="copiable" title="Cliquer pour copier">' + ech(p.nom_attendu) + '</code>';
-        actions = '<button class="btn-p" data-projet-creer="1" data-nom="' + ech(p.nom_attendu) + '" data-so="' + ech(p.so_numero || '') + '">Cr\u00e9er le projet</button>' +
-          (p.so_numero ? '<span style="color:var(--text3);font-size:12px">avec l\u2019\u00e9tape ' + ech(p.so_numero) + '</span>' : '');
-      }
-      else d = ech(p.detail || '');
-    }
-    const carte = document.createElement('div');
-    carte.className = 'piece ' + m.cl;
-    carte.innerHTML = '<div class="p-nom">' + NOMS[p.piece] + '</div>' +
-      '<div class="p-corps"><span class="badge ' + m.badge + '">' + ech(m.lib) + '</span>' +
-      (d ? '<div class="p-detail">' + d + '</div>' : '') +
-      (actions ? '<div class="p-actions">' + actions + '</div>' : '') + '</div>';
-    z.appendChild(carte);
+  const P = {}; rep.pieces.forEach(p => { P[p.piece] = p; });
+  const so = P.so || {}, art = P.article || {}, carte = P.carte || {}, liens = P.liens || {}, proj = P.projet || {};
+  const conf = (DIAG && DIAG.conf && DIAG.so && so.so === DIAG.so.nom) ? DIAG.conf : null;
+  const ent = conf ? DIAG.ent : null;
+  const parProduit = so.verdict === 'non_demande';
+
+  /* --- calcul de l etat de chaque etape --- */
+  const E = []; /* { n, lib, etat: done|active|wait|info, corps, dep } */
+  // 1. carte
+  const carteOk = carte.verdict === 'existe';
+  E.push({ n: 1, lib: 'Carte FabStory', done: carteOk, bloque: false });
+  // 2. article
+  const artOk = !!art.article;
+  E.push({ n: 2, lib: 'Article Odoo', done: artOk, bloque: !carteOk && !artOk && art.verdict !== 'plusieurs', dep: 1 });
+  // 3. ligne prototype / devis refab
+  let e3;
+  if (parProduit) e3 = { n: 3, lib: 'Devis refab', done: false, bloque: !(artOk && carteOk), dep: 2 };
+  else {
+    const lp = art.ligne_prototype;
+    e3 = { n: 3, lib: 'Ligne Prototype', done: !lp, bloque: !!lp && !artOk, dep: 2, verrou: !!lp && artOk && !so.confirmable };
   }
-  // Entree par produit, tout est en place -> proposer le devis refab
-  const soP0 = rep.pieces.find(x => x.piece === 'so') || {};
-  const artP0 = rep.pieces.find(x => x.piece === 'article') || {};
-  const carteP0 = rep.pieces.find(x => x.piece === 'carte') || {};
-  if (soP0.verdict === 'non_demande' && artP0.article && carteP0.verdict === 'existe') {
-    const refDef = (carteP0.carte.ref_carte || '') + (carteP0.carte.indice ? ' ' + carteP0.carte.indice : '');
-    const bloc = document.createElement('div');
-    bloc.className = 'piece warn';
-    bloc.innerHTML = '<div class="p-nom">Devis refab</div><div class="p-corps">' +
-      '<span class="badge badge-warn">\u00e0 cr\u00e9er</span>' +
-      '<div class="p-detail">Article ' + ech(artP0.article.nom) + ' \u00b7 une ligne par cadence \u00b7 jamais de PP-0001 \u00b7 na\u00eet brouillon, envoi et confirmation dans Odoo.</div>' +
+  E.push(e3);
+  // 4. liens
+  const liensOk = liens.verdict === 'poses';
+  E.push({ n: 4, lib: 'Lien article \u2194 carte', done: liensOk, bloque: !liensOk && liens.verdict !== 'a_poser', dep: 2 });
+  // 5. projet (libre)
+  const projOk = proj.verdict === 'trouve';
+  E.push({ n: 5, lib: 'Projet Odoo', done: projOk, bloque: false, libre: true });
+  // 6. ecritures (si PO)
+  if (conf) E.push({ n: 6, lib: '\u00c9critures Odoo', done: !!(DIAG.applique && DIAG.applique.ok), bloque: false });
+  // 7. manuel
+  E.push({ n: 7, lib: 'Dans Odoo', done: false, manuel: true });
+
+  /* etape active = premiere non faite, hors libre et manuel, et hors verrou */
+  const courante = E.find(e => !e.done && !e.libre && !e.manuel && !e.verrou);
+  const nCourante = courante ? courante.n : null;
+  const etat = e => e.done ? 'done' : (e.manuel ? 'info' : (e.libre ? 'active' : (e.n === nCourante ? 'active' : 'wait')));
+
+  /* --- corps de chaque etape --- */
+  const attente = e => e.dep ? '<span class="why">attend l\u2019\u00e9tape ' + e.dep + '</span>' : '';
+  const corps = {};
+
+  // 1
+  if (carteOk) corps[1] = ech(carte.carte.cle_produit) + (carte.carte.indice ? ' <code>indice ' + ech(carte.carte.indice) + '</code>' : '') +
+    (carte.carte.libelle_carte ? ' \u00b7 ' + ech(carte.carte.libelle_carte) : '') + ' \u2014 <a href="' + ech(carte.url) + '" target="_blank" rel="noopener">ouvrir la carte</a>';
+  else if (carte.verdict === 'plusieurs') corps[1] = 'Plusieurs cartes candidates, choisir la bonne (rattachement) :<div class="p-actions">' +
+    carte.candidats.map(c => '<button class="btn-s" data-choisir="' + c.id + '" data-cle="' + ech(c.cle_produit) + '">' + ech(c.cle_produit) + (c.libelle_carte ? ' \u00b7 ' + ech(c.libelle_carte) : '') + '</button>').join('') +
+    '<span class="choix-note why"></span></div>';
+  else {
+    const pr = carte.proposition || propositionDepuisEntrante();
+    if (pr) corps[1] = 'Aucune carte : cr\u00e9er depuis ' + (carte.proposition ? 'le SO' : 'le bon de commande') + ' (la carte porte la r\u00e9f <b>famille</b>, l\u2019indice \u00e0 part) :' +
+      '<div class="p-actions"><div class="form-carte" data-client="' + ech(pr.nom_client || '') + '" style="display:grid;grid-template-columns:110px 1fr 90px;gap:6px;width:100%;max-width:560px">' +
+      '<input type="text" class="fc-code" value="' + ech(pr.code_client) + '" placeholder="CLIxxx" style="' + INP + '">' +
+      '<input type="text" class="fc-ref" value="' + ech(pr.ref_carte) + '" placeholder="R\u00e9f famille (sans indice)" style="' + INP + '">' +
+      '<input type="text" class="fc-indice" value="' + ech(pr.indice) + '" placeholder="Indice" style="' + INP + '">' +
+      '<input type="text" class="fc-libelle" value="" placeholder="Libell\u00e9 (optionnel)" style="grid-column:1/3;' + INP + ';font-family:inherit">' +
+      '<button class="btn-p" data-creer-carte="1">Cr\u00e9er la carte</button></div></div>';
+    else corps[1] = 'Aucune carte pour ce produit. <a class="btn-s" style="text-decoration:none;display:inline-block" href="https://protoprocess.github.io/commercial/fabstory/" target="_blank" rel="noopener">Cr\u00e9er la carte dans FabStory</a> <span class="why">puis relancer</span>';
+  }
+
+  // 2
+  if (artOk) corps[2] = ech(art.article.nom) + ' <code>#' + art.article.id + '</code>' + (art.verdict === 'existe_hors_so' ? ' \u2014 existe, pas encore sur ce SO' : '');
+  else if (art.verdict === 'plusieurs') corps[2] = 'Arbitrage requis : ' + art.candidats.map(c => ech(c.nom)).join(' / ');
+  else if (carteOk) corps[2] = 'Aucun article r\u00e9el : le cr\u00e9er depuis la carte (cat\u00e9gorie Protos, liens pos\u00e9s d\u2019office).' +
+    '<div class="p-actions" style="max-width:560px"><input type="text" class="fa-nom" value="' + ech(carte.carte.cle_produit + (carte.carte.indice ? ' ' + carte.carte.indice : '')) + '" style="flex:1;min-width:260px;' + INP + '">' +
+    '<button class="btn-p" data-creer-article="' + carte.carte.id + '">Cr\u00e9er l\u2019article</button>' +
+    '<span class="why" style="width:100%">nom \u00e9ditable \u2014 doit commencer par ' + ech(carte.carte.cle_produit) + '</span></div>';
+  else corps[2] = 'Aucun article r\u00e9el. ' + attente(E[1]);
+
+  // 3
+  if (parProduit) {
+    if (artOk && carteOk) corps[3] = '__REFAB__';
+    else corps[3] = 'Le devis refab sera cr\u00e9\u00e9 depuis l\u2019article. ' + attente(e3);
+  } else if (!art.ligne_prototype) corps[3] = 'Aucune ligne \u00ab Prototype \u00bb sur le devis.';
+  else {
+    const lp = art.ligne_prototype;
+    if (!artOk) corps[3] = lp.nb + ' ligne(s) \u00ab Prototype \u00bb \u00e0 remplacer par l\u2019article d\u00e9di\u00e9. ' + attente(e3);
+    else if (!so.confirmable) corps[3] = lp.nb + ' ligne(s) \u00ab Prototype \u00bb, mais SO ' + ech(so.etat) + ' : remplacement verrouill\u00e9 (des livraisons existent derri\u00e8re), geste manuel dans Odoo si vraiment n\u00e9cessaire.';
+    else {
+      const tout = lp.lignes.map(l => l.id).join(',');
+      corps[3] = lp.nb + ' ligne(s) \u00ab Prototype \u00bb \u00e0 remplacer par <b>' + ech(art.article.nom) + '</b> (prix, quantit\u00e9, date conserv\u00e9s, preuve au retour).<div class="p-actions">' +
+        (lp.lignes.length > 1 ? '<button class="btn-p" data-remplacer-tout="' + tout + '" data-article="' + art.article.id + '">Remplacer les ' + lp.lignes.length + ' lignes</button>' : '') +
+        lp.lignes.map(l => '<button class="' + (lp.lignes.length > 1 ? 'btn-s' : 'btn-p') + '" data-remplacer-ligne="' + l.id + '" data-article="' + art.article.id + '">Remplacer la ligne ' + ech(l.prix) + ' \u20ac \u00d7 ' + ech(l.qte) + '</button>').join('') + '</div>';
+    }
+  }
+
+  // 4
+  if (liensOk) corps[4] = 'PP Produit ID <code>' + ech(liens.pp_produit_id) + '</code>' + (liens.fabstory ? ' \u00b7 <a href="' + ech(liens.fabstory) + '" target="_blank" rel="noopener">lien FabStory sur l\u2019article</a>' : '');
+  else if (liens.verdict === 'a_poser') {
+    const pid = (liens.action || '').match(/produit_id=(\d+)/);
+    corps[4] = 'L\u2019article et la carte existent mais ne sont pas reli\u00e9s.' + (pid ? '<div class="p-actions"><button class="btn-p" data-lier="' + pid[1] + '">Relier maintenant</button></div>' : '');
+  } else corps[4] = ech(liens.detail || 'En attente.') + ' ' + attente(E[3]);
+
+  // 5
+  if (projOk) corps[5] = ech(proj.projet.name) + ' <code>#' + proj.projet.id + '</code>';
+  else if (proj.verdict === 'plusieurs') corps[5] = 'Plusieurs projets au nom attendu : ' + proj.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 trancher dans Odoo';
+  else if (proj.verdict === 'candidats') corps[5] = ech(proj.detail || '') + ' Nom attendu : <code>' + ech(proj.nom_attendu) + '</code><div class="p-actions">' +
+    proj.candidats.map(c => '<button class="btn-s" data-projet-renommer="' + c.id + '" data-nom="' + ech(proj.nom_attendu) + '">Renommer \u00ab ' + ech(c.name) + ' \u00bb</button>').join('') +
+    '<button class="btn-s" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Aucun : cr\u00e9er le projet</button></div>';
+  else if (proj.verdict === 'introuvable') corps[5] = 'Introuvable \u2014 nom attendu <code class="copiable" title="Cliquer pour copier">' + ech(proj.nom_attendu) + '</code><div class="p-actions">' +
+    '<button class="btn-p" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Cr\u00e9er le projet</button>' +
+    (proj.so_numero ? '<span class="why">avec l\u2019\u00e9tape ' + ech(proj.so_numero) + '</span>' : '') + '</div>';
+  else corps[5] = ech(proj.detail || '');
+
+  // 6
+  if (conf) {
+    if (DIAG.applique && DIAG.applique.ok) corps[6] = '<div class="journal">' + htmlJournal(DIAG.applique) + '</div>';
+    else corps[6] = htmlEcritures(conf);
+  }
+
+  // 7
+  const ancienne = conf ? (conf.ecarts || []).filter(e => e.nom === 'Ligne ancienne rest\u00e9e ouverte') : [];
+  corps[7] = (so.so ? '<a href="' + ODOO + ech(so.so_id) + '" target="_blank" rel="noopener">Ouvrir ' + ech(so.so) + '</a> : ' : '') +
+    'v\u00e9rifier, confirmer le devis, envoyer l\u2019AR.' +
+    (ancienne.length ? ' <b>Puis seulement</b> neutraliser (quantit\u00e9 0) ' + ancienne.map(e => ech(String(e.constat).split(' : ')[0])).join(', ') + '.' : '');
+
+  /* --- rendu --- */
+  const z = el('pieces'); z.innerHTML = '';
+  let tete = '';
+  if (conf) {
+    const d = conf.devis, t = conf.totaux;
+    const meme = Math.abs(Number(t.po) - Number(t.devis)) < 0.01;
+    tete = '<div class="diag-tete"><b>' + ech(d.nom) + '</b> \u00b7 ' + ech(d.client) +
+      ' \u00b7 <span class="badge ' + (meme ? 'badge-ok' : 'badge-err') + '">' + (meme ? 'PO = devis ' + ech(t.devis_texte) : 'PO ' + ech(t.po_texte) + ' \u2260 devis ' + ech(t.devis_texte)) + '</span>' +
+      '<span class="sp"></span><a class="lien" id="lien-changer">Changer de devis</a>' +
+      '<a class="lien" target="_blank" rel="noopener" href="' + ODOO + d.id + '">Ouvrir dans Odoo \u2197</a></div>' +
+      '<div class="autres" id="autres">' + htmlChoixDevis(d.nom) + '</div>';
+  } else if (so.so) {
+    tete = '<div class="diag-tete"><b>' + ech(so.so) + '</b> \u00b7 ' + ech(so.client || '') + ' \u00b7 <code>' + ech(so.etat) + '</code>' +
+      (so.alerte ? ' <span style="color:var(--amber)">\u26a0 ' + ech(so.alerte) + '</span>' : '') +
+      '<span class="sp"></span><a class="lien" target="_blank" rel="noopener" href="' + ODOO + so.so_id + '">Ouvrir dans Odoo \u2197</a></div>';
+  } else if (so.verdict === 'introuvable') {
+    tete = '<div class="diag-tete"><span style="color:var(--red)">' + ech(so.detail || 'SO introuvable') + '</span></div>';
+  } else {
+    tete = '<div class="diag-tete"><b>Refab</b> \u00b7 ' + ech((DERNIER && DERNIER.entree.valeur) || '') + '<span class="sp"></span></div>';
+  }
+  const fr = document.createElement('div'); fr.className = 'fr';
+  let h = tete;
+  for (const e of E) {
+    const st = etat(e);
+    const ico = st === 'done' ? '\u2713' : (st === 'active' ? '\u25b6' : String(e.n));
+    let c = corps[e.n] || '';
+    if (c === '__REFAB__') c = '';
+    h += '<div class="et ' + st + '" data-etape="' + e.n + '"><span class="num">' + ico + '</span><span class="lib">' + e.n + '. ' + e.lib + '</span><div class="corps">' + c + '</div></div>';
+  }
+  fr.innerHTML = h;
+  z.appendChild(fr);
+
+  /* bloc refab (etape 3 par produit) : formulaire cadences */
+  if (parProduit && corps[3] === '__REFAB__') {
+    const cible = fr.querySelector('[data-etape="3"] .corps');
+    const refDef = (carte.carte.ref_carte || '') + (carte.carte.indice ? ' ' + carte.carte.indice : '');
+    cible.innerHTML = 'Article ' + ech(art.article.nom) + ' \u00b7 une ligne par cadence \u00b7 jamais de PP-0001 \u00b7 na\u00eet brouillon.' +
       '<div class="p-actions" style="flex-direction:column;align-items:stretch;max-width:560px">' +
-      '<input type="text" class="fd-ref" value="' + ech(refDef) + '" placeholder="R\u00e9f projet (colonne F)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-size:12.5px">' +
+      '<input type="text" class="fd-ref" value="' + ech(refDef) + '" placeholder="R\u00e9f projet (colonne F)" style="' + INP + ';font-family:inherit">' +
       '<div class="fd-cadences"></div>' +
       '<div style="display:flex;gap:8px"><button class="btn-s" data-cadence-plus="1">+ cadence</button>' +
-      '<button class="btn-p" data-creer-devis="' + carteP0.carte.id + '">Cr\u00e9er le devis brouillon</button></div></div></div>';
-    z.appendChild(bloc);
-    const zone = bloc.querySelector('.fd-cadences');
+      '<button class="btn-p" data-creer-devis="' + carte.carte.id + '">Cr\u00e9er le devis brouillon</button></div></div>';
+    const zone = cible.querySelector('.fd-cadences');
     const ligneCadence = () => {
       const r = document.createElement('div');
       r.style.cssText = 'display:grid;grid-template-columns:150px 1fr 1fr;gap:6px;margin-bottom:6px';
-      r.innerHTML = '<input type="date" class="fd-date" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 8px;font-size:12.5px;color-scheme:dark">' +
-        '<input type="number" class="fd-qte" min="1" placeholder="Quantit\u00e9" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 10px;font-size:12.5px">' +
-        '<input type="number" class="fd-prix" min="0" step="0.01" placeholder="Prix unitaire \u20ac" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:6px 10px;font-size:12.5px">';
+      r.innerHTML = '<input type="date" class="fd-date" style="' + INP + ';color-scheme:dark">' +
+        '<input type="number" class="fd-qte" min="1" placeholder="Quantit\u00e9" style="' + INP + '">' +
+        '<input type="number" class="fd-prix" min="0" step="0.01" placeholder="Prix unitaire \u20ac" style="' + INP + '">';
       zone.appendChild(r);
     };
-    /* Pre-remplissage depuis la commande entrante choisie (mail) : une ligne
-       par cadence lue, valeurs A VERIFIER par l'humain avant creation. */
     const cadEntrante = (ENTRANTE && Array.isArray(ENTRANTE.cadences)) ? ENTRANTE.cadences : [];
     if (cadEntrante.length) {
       for (const c of cadEntrante) {
@@ -683,12 +700,10 @@ function afficher(rep) {
         if (c.qte) r.querySelector('.fd-qte').value = c.qte;
         if (c.prix_unitaire || c.prix_unitaire === 0) r.querySelector('.fd-prix').value = c.prix_unitaire;
       }
-      bloc.querySelector('.p-detail').innerHTML += '<br>\u26a0 Cadences pr\u00e9-remplies depuis le mail \u2014 v\u00e9rifiez chaque date, quantit\u00e9 et prix contre le PDF client.';
-    } else {
-      ligneCadence();
-    }
-    bloc.querySelector('[data-cadence-plus]').addEventListener('click', ligneCadence);
-    bloc.querySelector('[data-creer-devis]').addEventListener('click', function () {
+      cible.insertAdjacentHTML('afterbegin', '<div class="why">\u26a0 Cadences pr\u00e9-remplies depuis le mail : v\u00e9rifier chaque date, quantit\u00e9 et prix contre le PDF client.</div>');
+    } else ligneCadence();
+    cible.querySelector('[data-cadence-plus]').addEventListener('click', ligneCadence);
+    cible.querySelector('[data-creer-devis]').addEventListener('click', function () {
       const cadences = Array.from(zone.children).map(r => ({
         date: r.querySelector('.fd-date').value,
         qte: parseFloat(r.querySelector('.fd-qte').value),
@@ -696,16 +711,24 @@ function afficher(rep) {
       })).filter(c => c.date || c.qte || c.prix);
       agir(this, 'commande-creer-devis', {
         produit_id: parseInt(this.dataset.creerDevis, 10),
-        ref_projet: bloc.querySelector('.fd-ref').value.trim() || null,
+        ref_projet: cible.querySelector('.fd-ref').value.trim() || null,
         cadences: cadences,
         num_commande_client: (ENTRANTE && ENTRANTE.num_commande_client) || null,
         entrante_id: (ENTRANTE && ENTRANTE.id) || null
       }, r => { const e = ENTRANTE; ENTRANTE = null; chargerEntrantes();
         return 'Devis ' + r.so_numero + ' cr\u00e9\u00e9 (' + r.cadences + ' cadence(s), ' + r.total + ' \u20ac)' +
-          (e ? ', entrante trait\u00e9e et fil Gmail \u00e9tiquet\u00e9 \u00ab Commande \u00bb' : '') +
-          ' \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.'; });
+          (e ? ', entrante trait\u00e9e et fil Gmail \u00e9tiquet\u00e9 \u00ab Commande \u00bb' : '') + ' \u2014 \u00e0 v\u00e9rifier et envoyer dans Odoo.'; });
     });
   }
+
+  /* une seule etape active : les boutons des etapes en attente sont desactives */
+  fr.querySelectorAll('.et.wait button, .et.wait input').forEach(b => { b.disabled = true; });
+
+  /* branchements */
+  const lc = fr.querySelector('#lien-changer');
+  if (lc) { lc.addEventListener('click', () => fr.querySelector('#autres').classList.toggle('visible')); brancherChoixDevis(fr, ent); }
+  if (conf && !(DIAG.applique && DIAG.applique.ok)) brancherEcritures(fr, conf, ent, etat(E.find(e => e.n === 6)) === 'active');
+
   z.querySelectorAll('[data-remplacer-tout]').forEach(b => b.addEventListener('click', async function () {
     const ids = this.dataset.remplacerTout.split(',').map(x => parseInt(x, 10)).filter(x => x > 0);
     const article = parseInt(this.dataset.article, 10);
@@ -715,14 +738,12 @@ function afficher(rep) {
     for (let i = 0; i < ids.length; i++) {
       this.textContent = 'Ligne ' + (i + 1) + '/' + ids.length + '\u2026';
       try {
-        const r = await appel('commande-remplacer-ligne', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ligne_id: ids[i], article_id: article })
-        });
+        const r = await appel('commande-remplacer-ligne', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ligne_id: ids[i], article_id: article }) });
         bilans.push(r.ok ? (r.apres.prix + ' \u20ac \u00d7 ' + r.apres.qte + (r.prix_conserve && r.qte_conservee ? ' \u2713' : ' ECART !')) : 'refus\u00e9e (' + (r.motif || '?') + ')');
       } catch (err) { bilans.push('sans r\u00e9ponse (' + err.message + ')'); }
     }
-    el('etat').textContent = ids.length + ' ligne(s) trait\u00e9e(s) : ' + bilans.join(' \u00b7 ') + ' \u2014 diagnostic relanc\u00e9\u2026';
+    el('etat').textContent = ids.length + ' ligne(s) trait\u00e9e(s) : ' + bilans.join(' \u00b7 ') + ' \u2014 relecture\u2026';
     el('etat').className = bilans.some(x => x.indexOf('ECART') >= 0 || x.indexOf('refus') >= 0 || x.indexOf('sans') >= 0) ? 'etat-msg err' : 'etat-msg';
     this.textContent = texte;
     diagnostiquer();
@@ -761,20 +782,15 @@ function afficher(rep) {
     this.style.borderColor = 'var(--accent)'; this.style.color = 'var(--accent)';
     const note = this.parentElement.querySelector('.choix-note');
     const article = (DERNIER && DERNIER.rep.pieces.find(x => x.piece === 'article')) || {};
-    if (article.article) {
-      // L'article existe : le choix permet de relier tout de suite.
-      this.dataset.lier = this.dataset.choisir;
-      if (note) note.textContent = '';
-      relier(this);
-    } else if (note) {
-      note.textContent = 'Choix retenu : ' + this.dataset.cle + ' \u2014 servira \u00e0 cr\u00e9er l\u2019article (phase 2).';
-    }
+    if (article.article) { this.dataset.lier = this.dataset.choisir; if (note) note.textContent = ''; relier(this); }
+    else if (note) note.textContent = 'Choix retenu : ' + this.dataset.cle + ' \u2014 servira \u00e0 cr\u00e9er l\u2019article.';
   }));
   z.querySelectorAll('.copiable').forEach(c => c.addEventListener('click', function () {
     navigator.clipboard && navigator.clipboard.writeText(this.textContent);
     this.style.borderColor = 'var(--accent)';
   }));
   el('rapport').classList.add('visible');
+  if (DIAG && DIAG.conf) el('rapport').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ---- Action generique : POST garde, message, re-diagnostic --------------- */
