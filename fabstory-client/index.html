@@ -202,6 +202,14 @@
   .conf-k { color: var(--text2); flex: none; }
   .conf-v { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
 
+  /* ---- Operations (ch.137) ---- */
+  .op-ligne { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .op-ligne:last-child { border-bottom: none; }
+  .op-point { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--border2); }
+  .op-point.fait { background: var(--green); }
+  .op-nom { flex: 1; }
+  .op-etat { font-size: 12px; color: var(--text3); flex: none; }
+
   /* ---- Page entiere en refus / chargement ---- */
   #chargement, #refus { text-align: center; padding: 70px 20px; color: var(--text2); }
   #refus h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
@@ -282,6 +290,11 @@
     <div class="sec-titre"><span>Historique de votre carte</span></div>
     <div class="fil" id="fil"></div>
 
+    <div id="operationsBloc" style="display:none">
+      <div class="sec-titre"><span>Opérations</span></div>
+      <div class="carte" id="operationsZone"></div>
+    </div>
+
     <div id="conformiteBloc" style="display:none">
       <div class="sec-titre"><span>Conformité</span></div>
       <div class="carte" id="conformiteZone"></div>
@@ -300,7 +313,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.20";
+const APP_VERSION = "0.21";
 const APP_DATE = "31/08/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -503,11 +516,31 @@ async function chargerStatut() {
     const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + "&partie=statut");
     const r = await rep.json();
     rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
+    rendreOperations(r && r.ok ? r.operations : null);
     rendreConformite(r && r.ok ? r.conformite : null);
   } catch (e) {
     rendreJalons(null, null);
+    rendreOperations(null);
     rendreConformite(null);
   }
+}
+
+/* ch.137 : section Operations, meme liste et meme regle "fait" que la frise
+   de jalons (Odoo, endpoint fabstory-statut) -- une seule verite, deux usages.
+   N apparait que si des taches existent pour le SO courant. */
+function rendreOperations(ops) {
+  const bloc = document.getElementById("operationsBloc");
+  const zone = document.getElementById("operationsZone");
+  if (!bloc || !zone) return;
+  if (!ops || !ops.length) { bloc.style.display = "none"; return; }
+  zone.innerHTML = ops
+    .map(function (o) {
+      return '<div class="op-ligne"><span class="op-point' + (o.fait ? " fait" : "") + '"></span>' +
+        '<span class="op-nom">' + esc(o.nom) + "</span>" +
+        '<span class="op-etat">' + (o.fait ? "Fait" : "En cours") + "</span></div>";
+    })
+    .join("");
+  bloc.style.display = "block";
 }
 
 /* ch.137 : section Conformite, calculee cote serveur (N de serie, N de
