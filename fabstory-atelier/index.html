@@ -164,7 +164,7 @@
    fabrication) + 60 (page atelier atteinte par QR, a venir). Meme mecanisme
    de stockage que les pieces jointes (ch.61) : URL signee de depot, chemin
    sous produit/<id>/, compression 1600px JPEG cote navigateur. */
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 const APP_DATE = "01/09/2026";
 const BASE = "https://protoprocess.app.n8n.cloud/webhook";
 const CLE_QUI = "pp_fdv_initiales";
@@ -288,7 +288,7 @@ const Recadrage = (function () {
   el("btnValider").addEventListener("click", function () {
     const sx = (rect.x - offX) / echelle, sy = (rect.y - offY) / echelle, sw = rect.w / echelle, sh = rect.h / echelle;
     const out = document.createElement("canvas");
-    const maxCote = 1600, r = Math.min(1, maxCote / Math.max(sw, sh));
+    const maxCote = 2400, r = Math.min(1, maxCote / Math.max(sw, sh)); /* 2400 px (02/09) : zoom confortable meme sur les grandes cartes (300x300) */
     out.width = Math.round(sw * r); out.height = Math.round(sh * r);
     out.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, out.width, out.height);
     out.toBlob(function (b) { fermer(b); }, "image/jpeg", 0.85);
