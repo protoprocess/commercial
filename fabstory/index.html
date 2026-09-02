@@ -427,7 +427,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.11';
+const APP_VERSION = '4.12';
 const APP_DATE = '02/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1255,6 +1255,7 @@ FS.voletRepondre = async function(){
       produit_id: P.id, repond_a: e.id, auteur, texte_brut: texte,
       type: e.type === 'question_client' ? 'reponse_client' : 'reponse_interne',
       etape_code: e.etape_code || null,
+      so_canonique: e.so_canonique || soCourant(),
       portee_validation: (e.type === 'question_client' && porteeBtn) ? porteeBtn.dataset.portee : null,
       source: 'fabstory',
       differer_notif: true
@@ -1393,6 +1394,9 @@ const DOMAINES_LIBELLES = { appro:'Approvisionnement', devis:'Devis / dossier', 
 const INITIALES_COMMERCIAL = ['AC','OC','DG','MM'];   /* mapping expéditeur (Olivier 08/08) */
 
 function ctxDeduit(){ return (STATUT && STATUT.statut === 'devis') ? 'devis' : 'commande'; }
+/* v4.12 (probleme 139) : SO courant de la carte, tel que resolu par fabstory-statut.
+   Envoye a chaque saisie pour que l historique soit rattache a la bonne fabrication. */
+function soCourant(){ return (STATUT && STATUT.so) ? String(STATUT.so).trim() || null : null; }
 function etapePourModele(m){
   if(m.code === 'M4') return 'PCB';
   return { appro:'APPRO', devis:'DEVIS', production:'CMS', logistique:'DIVERS_PROD' }[m.domaine] || 'DIVERS_PROD';
@@ -2200,6 +2204,7 @@ async function envoyerNote(){
     produit_id: P.id, type: saisie.type, texte_brut: texte, auteur,
     poles: cs,
     etape_code: saisie.etape || null,
+    so_canonique: soCourant(),
     repere: estNote ? ((el('note-repere')||{}).value||'').trim() || null : (assistant.vals.REP || null),
     mpn: estNote ? ((el('note-mpn')||{}).value||'').trim() || null : (assistant.vals.REF || null),
     lien: estNote ? null : (assistant.vals.LIEN || null),
