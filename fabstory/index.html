@@ -651,7 +651,7 @@ async function chargerStatut(){
   /* v4.15 (probleme 139) : le fil est groupe par SO courant, qui n est connu qu ici.
      Si un SO arrive et qu aucune saisie n est en cours, on re-rend toute la fiche
      (le volet ouvert est conserve) ; sinon on ne touche qu au bandeau. */
-  if(STATUT && STATUT.so && FICHE && !saisie){
+  if(STATUT && STATUT.so && FICHE && assistant.ecran === 0){
     rendreFiche();
     if(choisieId && entree(choisieId)) ouvrirVolet(choisieId);
     return;
