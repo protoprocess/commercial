@@ -131,6 +131,11 @@ textarea{resize:vertical;min-height:64px}
 .tl-src{font-size:11px;color:var(--text3);margin-top:5px}
 label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;margin:8px 0 4px}
 .reps{margin:-3px 0 9px 26px}
+/* v4.13 (probleme 139) : separateurs de commande dans le fil */
+.fil-so{display:flex;align-items:center;gap:8px;margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
+.fil-so::after{content:'';flex:1;height:1px;background:var(--border)}
+.fil-so.courant{color:var(--accent)}
+.fil-so .n{font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0}
 .reps > summary{cursor:pointer;list-style:none;font-size:12px;color:var(--info-txt);margin-bottom:6px}
 .reps > summary::before{content:'\21b3 '}
 .dropzone{border:2px dashed var(--border2);border-radius:var(--radius);padding:14px;text-align:center;font-size:12.5px;color:var(--text2);cursor:pointer}
@@ -427,7 +432,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.12';
+const APP_VERSION = '4.13';
 const APP_DATE = '02/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -919,7 +924,20 @@ function rendreFiche(){
     html += '<p class="hint" style="margin:0">' + (racines.length ? 'Rien ne passe ce filtre.' :
       'Rien encore \u2014 la premi\u00e8re note lance l\u2019histoire de cette carte.') + '</p>';
   } else {
-    html += visibles.map(e => {
+    /* v4.13 (probleme 139, decision Olivier 02/09) : TOUT reste visible (la connaissance
+       "comme precedente prod" doit survivre a la refab), mais GROUPE par commande :
+       SO courant en tete, autres SO par recence, "sans commande" (avant rattachement) en dernier. */
+    const soCur = soCourant();
+    const groupes = {};
+    visibles.forEach(e => { const k = e.so_canonique || ''; (groupes[k] = groupes[k] || []).push(e); });
+    const cles = Object.keys(groupes).sort((a, b) => {
+      if(a === soCur) return -1; if(b === soCur) return 1;
+      if(a === '') return 1; if(b === '') return -1;
+      const da = Math.max(...groupes[a].map(e => new Date(e.cree_le).getTime()));
+      const db = Math.max(...groupes[b].map(e => new Date(e.cree_le).getTime()));
+      return db - da;
+    });
+    const rendreBloc = e => {
       const reps = enfants[e.id] || [];
       let bloc = htmlEntree(e);
       if(reps.length){
@@ -927,6 +945,14 @@ function rendreFiche(){
           reps.map(r => htmlEntree(r)).join('') + '</details>';
       }
       return bloc;
+    };
+    const multi = cles.length > 1 || (cles.length === 1 && cles[0] !== '');
+    html += cles.map(k => {
+      const titre = k ? (k === soCur ? 'Commande en cours \u2014 ' + esc(k) : 'Commande ' + esc(k))
+                      : 'Sans commande (avant rattachement)';
+      const tete = multi ? '<div class="fil-so' + (k === soCur ? ' courant' : '') + '">' + titre +
+        ' <span class="n">(' + groupes[k].length + ')</span></div>' : '';
+      return tete + groupes[k].map(rendreBloc).join('');
     }).join('');
   }
   html += '</div>';
