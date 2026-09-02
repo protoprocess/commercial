@@ -473,8 +473,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.39";
-const APP_DATE = "01/09/2026";
+const APP_VERSION = "0.40";
+const APP_DATE = "02/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -542,6 +542,22 @@ document.title = "Suivi des projets · " + APP_NAME + " v" + APP_VERSION;
 const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
 const SO_AVANT = (params.get("so") || "").trim();
+/* v0.40 (probleme 139, decision Olivier 02/09) : le rapport client ne montre que la
+   fabrication COURANTE. SO cible = &so= du lien, sinon le SO courant rendu par le
+   statut. Les entrees d une autre commande, ou SANS commande (historique d avant
+   le rattachement), sont cachees. Sans aucun SO connu (devis) : pas de filtre. */
+let SO_CIBLE = SO_AVANT || "";
+function filtreSo(entrees) {
+  if (!SO_CIBLE) return entrees;
+  const parId = {};
+  entrees.forEach(function (e) { parId[e.id] = e; });
+  const garde = function (e) {
+    if (e.so_canonique === SO_CIBLE) return true;
+    const q = e.repond_a ? parId[e.repond_a] : null;
+    return !!(q && q.so_canonique === SO_CIBLE);
+  };
+  return entrees.filter(garde);
+}
 
 /* ch.148 (01/09) : langue de la page. Priorite : ?lang=fr|en (tests, surcharge),
    sinon produits.langue (miroir de la langue du client Odoo, synchronise chaque
@@ -914,6 +930,11 @@ async function chargerStatut() {
   try {
     const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + "&partie=statut");
     const r = await rep.json();
+    /* v0.40 : sans &so= dans le lien, le SO courant vient du statut -> on re-filtre. */
+    if (!SO_CIBLE && r && r.ok && r.so) {
+      SO_CIBLE = String(r.so).trim();
+      if (DONNEES) { rendrePoints(DONNEES); rendreFil(DONNEES); }
+    }
     rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
     rendreInspection(r && r.ok ? r.inspection : null);
     if (r && r.ok && r.conformite) { r.conformite.so = r.conformite.so || r.so || ""; if (r.conformite.qte == null) r.conformite.qte = r.qte_cmd; }
@@ -1117,7 +1138,7 @@ function rendreJalons(statut, so, enAttente) {
 
 /* -------------------------- Points a trancher --------------------- */
 function rendrePoints(r) {
-  const attente = (r.entrees || []).filter(function (e) { return e.a_repondre; });
+  const attente = filtreSo(r.entrees || []).filter(function (e) { return e.a_repondre; });
   /* Les points de la commande du lien (&so=) passent en tete (decision 07/08). */
   attente.sort(function (a, b) {
     const aSo = SO_AVANT && a.so_canonique === SO_AVANT ? 0 : 1;
@@ -1443,7 +1464,7 @@ function majCompte() {
 /* ------------------------------- Fil ------------------------------ */
 function rendreFil(r) {
   const fil = document.getElementById("fil");
-  const entrees = (r.entrees || []).slice();
+  const entrees = filtreSo(r.entrees || []).slice();
   /* Les questions encore ouvertes vivent dans la section du haut ;
      le fil raconte le reste, reponses rangees SOUS leur question. */
   const parId = {};
