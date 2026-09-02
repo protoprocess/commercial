@@ -218,12 +218,12 @@
     .f08-inspection .f08-fort { color: #1f4e9c; }
     .f08-obs-cell { color: #888; }
   }
-  .f08-cartouche { margin-bottom: 16px; }
-  .f08-cartouche td { background: var(--surface2); border-color: var(--border2); color: var(--text); }
-  .f08-cartouche .f08-fort { color: var(--pp-blue); }
+  .cartouche { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 16px; }
+  .cart-k { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; }
+  .cart-v { font-weight: 700; color: var(--pp-blue); font-size: 14.5px; }
   @media print {
-    .f08-cartouche td { background: #fff; border-color: #bbb; color: #1a1a1a; }
-    .f08-cartouche .f08-fort { color: #1f4e9c; }
+    .cart-k { color: #777; }
+    .cart-v { color: #1f4e9c; }
   }
   .f08 { border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; background: #fff; color: #1a1a1a; }
   .f08 i { color: #555; font-size: 0.92em; }
@@ -422,10 +422,12 @@
       <div class="vide" id="rapportVide">Le rapport de fabrication se remplira au fil de la production de votre carte.</div>
 
       <div id="cartoucheBloc" style="display:none">
-        <table class="f08-t f08-cartouche">
-          <tr><td style="width:20%" class="f08-k" id="cartLOrder"></td><td style="width:30%" class="f08-fort" id="cartVOrder"></td><td style="width:24%" class="f08-k" id="cartLRefClient"></td><td class="f08-fort" id="cartVRefClient"></td></tr>
-          <tr><td class="f08-k" id="cartLQte"></td><td class="f08-fort" id="cartVQte"></td><td class="f08-k" id="cartLSerie"></td><td class="f08-fort" id="cartVSerie"></td></tr>
-        </table>
+        <div class="carte cartouche">
+          <div class="cart-item"><span class="cart-k" id="cartLOrder"></span><span class="cart-v" id="cartVOrder"></span></div>
+          <div class="cart-item"><span class="cart-k" id="cartLRefClient"></span><span class="cart-v" id="cartVRefClient"></span></div>
+          <div class="cart-item"><span class="cart-k" id="cartLQte"></span><span class="cart-v" id="cartVQte"></span></div>
+          <div class="cart-item"><span class="cart-k" id="cartLSerie"></span><span class="cart-v" id="cartVSerie"></span></div>
+        </div>
       </div>
 
       <div id="photosBloc" style="display:none">
@@ -443,9 +445,9 @@
             <div class="print-titre">Rapport d’inspection avant emballage</div>
             <div class="print-sous" id="inspSous"></div>
           </div>
-          <div class="print-date">Formulaire F08/B</div>
           <img class="print-certif" src="/brand/certifs/afaq-9001.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
           <img class="print-certif" src="/brand/certifs/ipc-a-610.png" alt="IPC-A-610" onerror="this.style.display='none'">
+          <div class="print-date" id="inspDate"></div>
         </div>
         <div class="sec-titre"><span>Inspection avant emballage</span></div>
         <div class="carte" id="inspectionZone"></div>
@@ -471,7 +473,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.38";
+const APP_VERSION = "0.39";
 const APP_DATE = "01/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -567,7 +569,7 @@ const T = {
     historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
-    inspection_titre: "Inspection avant emballage", insp_col_item: "Points inspect\u00e9s", insp_col_comment: "Commentaires", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous",
+    inspection_titre: "Inspection avant emballage", insp_col_item: "Points inspect\u00e9s", insp_col_conf: "Conformit\u00e9", insp_col_comment: "Commentaires", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous",
     statut_lecture: "Statut de fabrication en cours de lecture\u2026", statut_indispo: "Statut de fabrication indisponible pour le moment.",
     statut_actuel: "Statut actuel : ", commande: "commande", indice: "Indice ",
     jalon_devis: "Devis", jalon_preparation: "Pr\u00e9paration", jalon_fabrication: "Fabrication", jalon_expediee: "Exp\u00e9di\u00e9e",
@@ -621,7 +623,7 @@ const T = {
     historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
-    inspection_titre: "Pre-packing inspection", insp_col_item: "Inspected items", insp_col_comment: "Comments", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side",
+    inspection_titre: "Pre-packing inspection", insp_col_item: "Inspected items", insp_col_conf: "Conformity", insp_col_comment: "Comments", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side",
     statut_lecture: "Reading production status\u2026", statut_indispo: "Production status unavailable for now.",
     statut_actuel: "Current status: ", commande: "order", indice: "Revision ",
     jalon_devis: "Quotation", jalon_preparation: "Preparation", jalon_fabrication: "Production", jalon_expediee: "Shipped",
@@ -956,12 +958,12 @@ function rendreInspection(pts) {
      est pointe ; sinon l etat "a controler" en commentaire. */
   zone.innerHTML = '<table class="f08-t f08-inspection"><tr>' +
     '<th>' + esc(t("insp_col_item")) + '</th>' +
-    '<th style="width:10%; text-align:center">Ok</th>' +
-    '<th style="width:30%">' + esc(t("insp_col_comment")) + '</th></tr>' +
+    '<th style="width:16%; text-align:center">' + esc(t("insp_col_conf")) + '</th>' +
+    '<th style="width:28%">' + esc(t("insp_col_comment")) + '</th></tr>' +
     pts.map(function (p) {
       return '<tr><td>' + esc(tInsp(p.code, p.libelle)) + '</td>' +
-        '<td style="text-align:center" class="f08-fort">' + (p.conforme ? "X" : "") + '</td>' +
-        '<td class="f08-obs-cell">' + (p.conforme ? "" : esc(t("a_controler"))) + '</td></tr>';
+        '<td style="text-align:center" class="f08-fort">' + (p.conforme ? esc(t("conforme")) : "") + '</td>' +
+        '<td class="f08-obs-cell"></td></tr>';
     }).join("") + '</table>';
   bloc.style.display = "block";
   majRapportVide();
@@ -985,14 +987,7 @@ function rendreCartouche(r) {
   const plage = c.n_serie_debut ? (c.n_serie_debut === c.n_serie_fin ? c.n_serie_debut : c.n_serie_debut + t("a") + c.n_serie_fin) : "";
   document.getElementById("cartLSerie").textContent = plage ? t("cart_serie").replace(" :", "").replace(":", "") : "";
   document.getElementById("cartVSerie").textContent = plage;
-  /* En-tete de la page inspection : sous-ligne au modele de la page 1,
-     completee du SO et du numero de commande client. */
-  const inspSous = document.getElementById("inspSous");
-  if (inspSous) {
-    inspSous.textContent = [document.getElementById("printSous").textContent, r.so,
-      r.client_order_ref ? (t("cart_ref_client") + " " + r.client_order_ref) : null]
-      .filter(Boolean).join("  \u00b7  ");
-  }
+  
   bloc.style.display = "block";
   majRapportVide();
 }
@@ -1079,6 +1074,9 @@ function rendreHero(r) {
   document.getElementById("printTitre").textContent = t("titre_rapport");
   document.getElementById("printSous").textContent = [p.nom_client, refPourTitre, p.libelle_carte, r.indice_courant ? (t("indice") + r.indice_courant) : null].filter(Boolean).join("  \u00b7  ");
   document.getElementById("printDate").innerHTML = esc(t("print_edite") + dateEdit) + '<div>' + esc(t("form_f08")) + '</div>';
+  /* En-tete P2 = STRICTEMENT celui de P1, seul l intitule change. */
+  document.getElementById("inspSous").textContent = document.getElementById("printSous").textContent;
+  document.getElementById("inspDate").innerHTML = document.getElementById("printDate").innerHTML;
   document.getElementById("printPied").textContent = "Proto Process \u00b7 766 chemin des Houches, 74500 Maxilly-sur-L\u00e9man \u00b7 +33 (0)4 50 92 19 54 \u00b7 " + t("print_page") + " " + [p.nom_client, refPourTitre].filter(Boolean).join(" ");
   if (r.indice_courant) {
     const b = document.getElementById("heroIndice");
