@@ -432,7 +432,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.13';
+const APP_VERSION = '4.14';
 const APP_DATE = '02/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -946,7 +946,8 @@ function rendreFiche(){
       }
       return bloc;
     };
-    const multi = cles.length > 1 || (cles.length === 1 && cles[0] !== '');
+    /* v4.14 : titres toujours affiches des qu un SO courant est connu. */
+    const multi = !!soCur || cles.length > 1 || (cles.length === 1 && cles[0] !== '');
     html += cles.map(k => {
       const titre = k ? (k === soCur ? 'Commande en cours \u2014 ' + esc(k) : 'Commande ' + esc(k))
                       : 'Sans commande (avant rattachement)';
