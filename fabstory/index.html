@@ -36,6 +36,14 @@ header{background:#0f1117;height:52px;display:flex;align-items:center;padding:0 
 .logo-text{display:flex;align-items:center;font-size:13px;font-weight:500}
 .logo-text .lt{color:#fff}.logo-text .ls{color:#444;margin:0 3px}.logo-text .lo{color:var(--accent)}
 #hdr-version{margin-left:auto;font-size:11px;color:#64748b}
+/* ---- Recadrage plein ecran (repris de fabstory-atelier, v4.11) ---- */
+#recadrage{position:fixed;inset:0;background:#000;z-index:1000;display:none;flex-direction:column}
+#recadrage.on{display:flex}
+#recadrage .zone{flex:1;position:relative;overflow:hidden;touch-action:none}
+#recadrage canvas{position:absolute;left:0;top:0}
+#recadrage .barre{display:flex;gap:10px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:#0f1117;border-top:1px solid var(--border)}
+#recadrage .barre .btn,#recadrage .barre .btn-s{margin:0;flex:1}
+#recadrage .aide{position:absolute;top:10px;left:0;right:0;text-align:center;color:#fff;font-size:13px;text-shadow:0 1px 3px #000;pointer-events:none}
 .wrap{max-width:min(96vw,900px);margin:0 auto;padding:18px 14px 80px}
 body.fiche-ouverte .wrap{max-width:min(96vw,1800px)}
 .page{display:flex;gap:14px;align-items:flex-start}
@@ -406,11 +414,21 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </dialog>
 
+<!-- Recadrage plein ecran (v4.11, repris de fabstory-atelier) -->
+<div id="recadrage">
+  <div class="aide">Déplacez le cadre, tirez les coins pour l’ajuster</div>
+  <div class="zone" id="zoneRecadrage"><canvas id="cvRecadrage"></canvas></div>
+  <div class="barre">
+    <button type="button" class="btn-s" id="btnAnnulerRecadrage">Annuler</button>
+    <button type="button" class="btn" id="btnValiderRecadrage">Valider</button>
+  </div>
+</div>
+
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.10';
-const APP_DATE = '01/09/2026';
+const APP_VERSION = '4.11';
+const APP_DATE = '02/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1605,6 +1623,8 @@ function htmlEcranCompleter(){
     (pjOuverte ? ' <span class="mini">(attendu pour ce type de question)</span>' : '') + '</summary>' +
     '<div class="dropzone" id="drop-piece">Glissez un fichier ici, ou cliquez pour parcourir' +
     '<input type="file" id="note-piece" accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.zip" style="display:none"></div>' +
+    '<button type="button" class="btn-s" id="btn-piece-photo" style="margin-top:6px">📷 Photo (avec recadrage)</button>' +
+    '<input type="file" id="note-piece-photo" accept="image/*" capture="environment" style="display:none">' +
     '<div id="zone-pieces"></div></details>';
 
   /* concernés + initiales */
@@ -1853,6 +1873,10 @@ function brancherSaisie(){
     }
     const np = el('note-piece');
     if(np) np.onchange = deposerPiece;
+    const npp = el('note-piece-photo');
+    if(npp) npp.onchange = deposerPiecePhoto;
+    const bpp = el('btn-piece-photo');
+    if(bpp) bpp.onclick = () => el('note-piece-photo').click();
     const dz = el('drop-piece');
     if(dz){
       dz.onclick = () => el('note-piece').click();
@@ -1922,6 +1946,92 @@ function rendreAmorces(){
     ta.focus();
   });
 }
+/* ----- Recadrage (v4.11, repris tel quel de fabstory-atelier/index.html) -----
+   Cadre deplacable + 4 poignees, souris et doigt. Le rendu final est decoupe
+   dans l image d ORIGINE (pas dans l affichage reduit) pour garder la nettete. */
+const Recadrage = (function(){
+  const zone = el('zoneRecadrage'), cv = el('cvRecadrage'), ctx = cv.getContext('2d');
+  let img=null, echelle=1, offX=0, offY=0, rect=null, saisie=null, resoudre=null;
+  const POIGNEE = 22;
+  function ajuster(){
+    const W = zone.clientWidth, H = zone.clientHeight;
+    cv.width = W; cv.height = H;
+    echelle = Math.min(W/img.width, H/img.height);
+    offX = (W - img.width*echelle)/2; offY = (H - img.height*echelle)/2;
+    if(!rect){
+      const w = img.width*echelle*0.86, h = img.height*echelle*0.86;
+      rect = { x: offX+(img.width*echelle-w)/2, y: offY+(img.height*echelle-h)/2, w:w, h:h };
+    }
+    dessiner();
+  }
+  function dessiner(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.drawImage(img, offX, offY, img.width*echelle, img.height*echelle);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0,0,cv.width,rect.y); ctx.fillRect(0,rect.y+rect.h,cv.width,cv.height-rect.y-rect.h);
+    ctx.fillRect(0,rect.y,rect.x,rect.h); ctx.fillRect(rect.x+rect.w,rect.y,cv.width-rect.x-rect.w,rect.h);
+    ctx.strokeStyle = '#F07B1F'; ctx.lineWidth = 2; ctx.strokeRect(rect.x,rect.y,rect.w,rect.h);
+    ctx.fillStyle = '#F07B1F';
+    coins().forEach(c => ctx.fillRect(c.x-8, c.y-8, 16, 16));
+  }
+  function coins(){
+    return [{n:'nw',x:rect.x,y:rect.y},{n:'ne',x:rect.x+rect.w,y:rect.y},
+            {n:'sw',x:rect.x,y:rect.y+rect.h},{n:'se',x:rect.x+rect.w,y:rect.y+rect.h}];
+  }
+  function pos(ev){ const r = cv.getBoundingClientRect(); const p = ev.touches ? ev.touches[0] : ev; return {x:p.clientX-r.left, y:p.clientY-r.top}; }
+  function debut(ev){
+    const p = pos(ev);
+    const c = coins().find(c => Math.abs(c.x-p.x)<POIGNEE && Math.abs(c.y-p.y)<POIGNEE);
+    if(c) saisie = { mode:c.n, p:p, r:Object.assign({},rect) };
+    else if(p.x>=rect.x && p.x<=rect.x+rect.w && p.y>=rect.y && p.y<=rect.y+rect.h) saisie = { mode:'move', p:p, r:Object.assign({},rect) };
+    else saisie = null;
+    if(saisie) ev.preventDefault();
+  }
+  function bouge(ev){
+    if(!saisie) return;
+    ev.preventDefault();
+    const p = pos(ev), dx = p.x-saisie.p.x, dy = p.y-saisie.p.y, r0 = saisie.r, MIN = 40;
+    const minX = offX, minY = offY, maxX = offX+img.width*echelle, maxY = offY+img.height*echelle;
+    let n = Object.assign({}, r0);
+    if(saisie.mode === 'move'){
+      n.x = Math.min(Math.max(r0.x+dx, minX), maxX-r0.w); n.y = Math.min(Math.max(r0.y+dy, minY), maxY-r0.h);
+    } else {
+      if(saisie.mode.indexOf('w')>=0){ n.x = Math.min(Math.max(r0.x+dx, minX), r0.x+r0.w-MIN); n.w = r0.x+r0.w-n.x; }
+      if(saisie.mode.indexOf('e')>=0){ n.w = Math.min(Math.max(r0.w+dx, MIN), maxX-r0.x); }
+      if(saisie.mode.indexOf('n')>=0){ n.y = Math.min(Math.max(r0.y+dy, minY), r0.y+r0.h-MIN); n.h = r0.y+r0.h-n.y; }
+      if(saisie.mode.indexOf('s')>=0){ n.h = Math.min(Math.max(r0.h+dy, MIN), maxY-r0.y); }
+    }
+    rect = n; dessiner();
+  }
+  function fin(){ saisie = null; }
+  ['mousedown','touchstart'].forEach(e => cv.addEventListener(e, debut, {passive:false}));
+  ['mousemove','touchmove'].forEach(e => cv.addEventListener(e, bouge, {passive:false}));
+  ['mouseup','mouseleave','touchend','touchcancel'].forEach(e => cv.addEventListener(e, fin));
+  window.addEventListener('resize', () => { if(img && el('recadrage').classList.contains('on')){ rect = null; ajuster(); } });
+  el('btnAnnulerRecadrage').addEventListener('click', () => fermer(null));
+  el('btnValiderRecadrage').addEventListener('click', () => {
+    const sx = (rect.x-offX)/echelle, sy = (rect.y-offY)/echelle, sw = rect.w/echelle, sh = rect.h/echelle;
+    const out = document.createElement('canvas');
+    const maxCote = 2400, r = Math.min(1, maxCote/Math.max(sw,sh)); /* meme reglage que fabstory-atelier (02/09) */
+    out.width = Math.round(sw*r); out.height = Math.round(sh*r);
+    out.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    out.toBlob(b => fermer(b), 'image/jpeg', 0.85);
+  });
+  function fermer(blob){ el('recadrage').classList.remove('on'); const f = resoudre; resoudre = null; img = null; rect = null; if(f) f(blob); }
+  return {
+    ouvrir: function(fichier){
+      return new Promise(res => {
+        resoudre = res;
+        const url = URL.createObjectURL(fichier);
+        const i = new Image();
+        i.onload = () => { URL.revokeObjectURL(url); img = i; rect = null; el('recadrage').classList.add('on'); requestAnimationFrame(ajuster); };
+        i.onerror = () => { URL.revokeObjectURL(url); fermer(null); };
+        i.src = url;
+      });
+    }
+  };
+})();
+
 /* ----- pieces jointes (mecanisme eprouve de l ancienne appli, reutilise) ---- */
 function compresser(file, maxCote, qualite){
   maxCote = maxCote || 1600; qualite = qualite || 0.8;
@@ -1945,6 +2055,31 @@ async function deposerPiece(ev){
   const fichier = ev.target.files && ev.target.files[0];
   ev.target.value = '';
   traiterPiece(fichier);
+}
+async function deposerPiecePhoto(ev){
+  const fichier = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!fichier) return;
+  const blob = await Recadrage.ouvrir(fichier);
+  if(!blob) return; /* recadrage annule */
+  traiterPieceRecadree(blob);
+}
+/* v4.11 : variante de traiterPiece pour une photo deja recadree/compressee (2400px, q0.85)
+   par le module Recadrage -- pas de second passage dans compresser(), sinon double compression
+   inutile qui degraderait l image sans raison. */
+async function traiterPieceRecadree(blob){
+  if(envoiPiece) return;
+  envoiPiece = true; rendrePieces();
+  try{
+    const nom = 'photo-' + Date.now() + '.jpg';
+    const j = await postJson(BASE + '/fiche-de-vie-piece', { produit_id: P.id, nom: nom });
+    const up = await fetch(j.url, { method: 'PUT', headers: { 'Content-Type': j.type }, body: blob });
+    if(!up.ok) throw new Error('Envoi refusé par le stockage (' + up.status + ').');
+    piecesSaisie.push({ chemin: j.chemin, nom: nom, type: j.type });
+    envoiPiece = false; rendrePieces();
+  }catch(e){
+    envoiPiece = false; rendrePieces('Photo non déposée : ' + e.message);
+  }
 }
 async function traiterPiece(fichier){
   if(!fichier || envoiPiece) return;
@@ -2275,6 +2410,5 @@ FS.poserIndice = async function(){
   };
 })();
 </script>
-
 </body>
 </html>
