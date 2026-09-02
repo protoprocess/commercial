@@ -194,17 +194,71 @@
    debut, invisible tant qu on reste sur l onglet Cartes.
    ========================================================================= */
 const APP_NAME = "FabStory Mes cartes";
-const APP_VERSION = "0.3";
-const APP_DATE = "13/08/2026";
+const APP_VERSION = "0.4";
+const APP_DATE = "02/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 const JOURS_ARCHIVAGE = 15;
 
 document.getElementById("verBadge").textContent = "v" + APP_VERSION;
-document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
-document.title = "Mes cartes · " + APP_NAME + " v" + APP_VERSION;
 
 const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
+const LANG_FORCEE = (params.get("lang") || "").trim().toLowerCase(); // ?lang=en pour les tests
+
+// ch.148 (02/09) : dictionnaire FR/EN, meme esprit que fabstory-client (T = FR = EN, cle par cle).
+const T = {
+  fr: {
+    titre: "Mes cartes",
+    chargement: "Chargement de vos cartes\u2026",
+    refusTitre: "Ce lien n\u2019est pas ou plus valide",
+    refusTexte: "Le lien que vous avez ouvert n\u2019est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.",
+    refusIndispo: "Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.",
+    videTitre: "Aucune carte pour le moment",
+    videTexte: "D\u00e8s qu\u2019une carte sera lanc\u00e9e chez Proto Process, elle appara\u00eetra ici.",
+    heroSousPlusieurs: "Retrouvez ici le suivi de chacune de vos cartes.",
+    heroSousUne: "Retrouvez ici le suivi de votre carte.",
+    recherchePlaceholder: "Rechercher une r\u00e9f\u00e9rence, un projet\u2026",
+    ongletCartes: "Projets", ongletDevis: "Devis", ongletCommandes: "Commandes", ongletFactures: "Factures en retard",
+    archiveesPlur: n => n + " cartes archiv\u00e9es (exp\u00e9di\u00e9es depuis plus de " + JOURS_ARCHIVAGE + " jours)",
+    archiveesSing: n => n + " carte archiv\u00e9e (exp\u00e9di\u00e9e depuis plus de " + JOURS_ARCHIVAGE + " jours)",
+    suiviBientot: "Suivi bient\u00f4t disponible",
+    chargementDocs: "Chargement des documents\u2026",
+    aucunResultat: "Aucun document ne correspond \u00e0 la recherche.",
+    aucuneFacture: "Aucune facture en retard \u2014 tout est \u00e0 jour.",
+    rienAAfficher: "Rien \u00e0 afficher ici pour le moment.",
+    projet: "Projet",
+    suiviUps: n => "Suivi UPS : " + n,
+    pied: (nom, v, d) => nom + " v" + v + " \u2014 " + d + " \u00b7 Proto Process"
+  },
+  en: {
+    titre: "My boards",
+    chargement: "Loading your boards\u2026",
+    refusTitre: "This link is no longer valid",
+    refusTexte: "The link you opened is no longer active. To receive a new link, please contact your Proto Process representative.",
+    refusIndispo: "Tracking is temporarily unavailable. Please try again in a few minutes.",
+    videTitre: "No board yet",
+    videTexte: "As soon as a board is started at Proto Process, it will appear here.",
+    heroSousPlusieurs: "Track each of your boards here.",
+    heroSousUne: "Track your board here.",
+    recherchePlaceholder: "Search a reference, a project\u2026",
+    ongletCartes: "Projects", ongletDevis: "Quotes", ongletCommandes: "Orders", ongletFactures: "Overdue invoices",
+    archiveesPlur: n => n + " archived boards (shipped more than " + JOURS_ARCHIVAGE + " days ago)",
+    archiveesSing: n => n + " archived board (shipped more than " + JOURS_ARCHIVAGE + " days ago)",
+    suiviBientot: "Tracking coming soon",
+    chargementDocs: "Loading documents\u2026",
+    aucunResultat: "No document matches your search.",
+    aucuneFacture: "No overdue invoices \u2014 everything is up to date.",
+    rienAAfficher: "Nothing to show here yet.",
+    projet: "Project",
+    suiviUps: n => "UPS tracking: " + n,
+    pied: (nom, v, d) => nom + " v" + v + " \u2014 " + d + " \u00b7 Proto Process"
+  }
+};
+let LANG = "fr"; // ajuste dans charger() une fois la langue du client connue (ou ?lang= en surcharge)
+let t = T.fr;
+
+document.getElementById("pied").textContent = t.pied(APP_NAME, APP_VERSION, APP_DATE);
+document.title = t.titre + " \u00b7 " + APP_NAME + " v" + APP_VERSION;
 
 const etat = {
   cartes: [],
@@ -215,12 +269,14 @@ const etat = {
   ongletActif: "cartes"
 };
 
-const ONGLETS = [
-  { cle: "cartes", titre: "Projets" },
-  { cle: "devis", titre: "Devis" },
-  { cle: "commandes", titre: "Commandes" },
-  { cle: "factures", titre: "Factures en retard" }
-];
+function ONGLETS_TRADUITS() {
+  return [
+    { cle: "cartes", titre: t.ongletCartes },
+    { cle: "devis", titre: t.ongletDevis },
+    { cle: "commandes", titre: t.ongletCommandes },
+    { cle: "factures", titre: t.ongletFactures }
+  ];
+}
 
 function esc(v) {
   return String(v == null ? "" : v)
@@ -237,7 +293,7 @@ function formatDate(v) {
 function formatMontant(v) {
   const n = Number(v);
   if (!isFinite(n)) return "";
-  return n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+  return n.toLocaleString(LANG === "en" ? "en-GB" : "fr-FR", { style: "currency", currency: "EUR" });
 }
 
 function joursDepuis(v) {
@@ -269,23 +325,35 @@ function carteEstArchivee(carte) {
 }
 
 async function charger() {
+  if (LANG_FORCEE === "en" || LANG_FORCEE === "fr") { LANG = LANG_FORCEE; t = T[LANG]; }
   if (!JETON) { montrerRefus(); return; }
   let r;
   try {
     const rep = await fetch(API + "/fabstory-client-liste?jeton=" + encodeURIComponent(JETON));
     r = await rep.json();
   } catch (e) {
-    montrerRefus("Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.");
+    montrerRefus(t.refusIndispo);
     return;
   }
   if (!r || !r.ok) { montrerRefus(); return; }
+  LANG = (LANG_FORCEE === "en" || LANG_FORCEE === "fr") ? LANG_FORCEE : ((r.langue === "en") ? "en" : "fr");
+  t = T[LANG];
+  document.documentElement.setAttribute("lang", LANG);
+  document.getElementById("pied").textContent = t.pied(APP_NAME, APP_VERSION, APP_DATE);
+  document.title = t.titre + " \u00b7 " + APP_NAME + " v" + APP_VERSION;
+  document.getElementById("recherche").placeholder = t.recherchePlaceholder;
   document.getElementById("chargement").style.display = "none";
   const cartes = r.cartes || [];
-  if (!cartes.length) { document.getElementById("vide").style.display = "block"; return; }
+  if (!cartes.length) {
+    document.getElementById("vide").querySelector("h1").textContent = t.videTitre;
+    document.getElementById("vide").querySelector("p").textContent = t.videTexte;
+    document.getElementById("vide").style.display = "block";
+    return;
+  }
   document.getElementById("contenu").style.display = "block";
   document.getElementById("heroSociete").textContent = r.nom_client || "";
   document.getElementById("heroSous").textContent =
-    cartes.length > 1 ? "Retrouvez ici le suivi de chacune de vos cartes." : "Retrouvez ici le suivi de votre carte.";
+    cartes.length > 1 ? t.heroSousPlusieurs : t.heroSousUne;
   etat.cartes = cartes;
 
   document.getElementById("recherche").addEventListener("input", function (e) {
@@ -319,8 +387,9 @@ async function chargerOdoo() {
 function montrerRefus(message) {
   document.getElementById("chargement").style.display = "none";
   const refus = document.getElementById("refus");
+  refus.querySelector("h1").textContent = t.refusTitre;
+  refus.querySelector("p").textContent = message || t.refusTexte;
   refus.style.display = "block";
-  if (message) refus.querySelector("p").textContent = message;
 }
 
 function texteCorrespond(hay) {
@@ -337,7 +406,7 @@ function rendreTout() {
 function rendreOnglets() {
   const zone = document.getElementById("onglets");
   zone.innerHTML = "";
-  ONGLETS.forEach(function (o) {
+  ONGLETS_TRADUITS().forEach(function (o) {
     const el = document.createElement("div");
     el.className = "onglet" + (etat.ongletActif === o.cle ? " actif" : "");
     let n;
@@ -389,7 +458,7 @@ function rendrePage() {
   if (!etat.odooCharge) {
     const p = document.createElement("div");
     p.className = "patiente";
-    p.textContent = "Chargement des documents\u2026";
+    p.textContent = t.chargementDocs;
     zone.appendChild(p);
     return;
   }
@@ -416,9 +485,8 @@ function pageCartes() {
   if (!rechercheActive && archivees.length) {
     const toggle = document.createElement("div");
     toggle.className = "repli-toggle";
-    toggle.innerHTML = '<span class="chevron">&#9656;</span><span>' + archivees.length +
-      (archivees.length > 1 ? " cartes archiv\u00e9es (exp\u00e9di\u00e9es depuis plus de " + JOURS_ARCHIVAGE + " jours)"
-                             : " carte archiv\u00e9e (exp\u00e9di\u00e9e depuis plus de " + JOURS_ARCHIVAGE + " jours)") + "</span>";
+    toggle.innerHTML = '<span class="chevron">&#9656;</span><span>' +
+      (archivees.length > 1 ? t.archiveesPlur(archivees.length) : t.archiveesSing(archivees.length)) + "</span>";
     const corps = document.createElement("div");
     corps.className = "liste-cartes repli-corps";
     archivees.forEach(function (c) { corps.appendChild(carteEl(c)); });
@@ -443,7 +511,7 @@ function carteEl(c) {
       (c.libelle_carte ? '<div class="lib">' + esc(c.libelle_carte) + "</div>" : "") +
       '<div class="cle">' + esc(c.cle_produit || "") + "</div>" +
     "</div>" +
-    (dispo ? '<span class="fleche">&rarr;</span>' : '<span class="chip-attente">Suivi bient\u00f4t disponible</span>');
+    (dispo ? '<span class="fleche">&rarr;</span>' : '<span class="chip-attente">' + esc(t.suiviBientot) + '</span>');
   return el;
 }
 
@@ -458,8 +526,8 @@ function pageDocs(cle) {
   if (!items.length) {
     const p = document.createElement("div");
     p.className = "aucun-resultat";
-    p.textContent = (etat.recherche || etat.filtreStatut) ? "Aucun document ne correspond \u00e0 la recherche."
-      : (cle === "factures" ? "Aucune facture en retard \u2014 tout est \u00e0 jour." : "Rien \u00e0 afficher ici pour le moment.");
+    p.textContent = (etat.recherche || etat.filtreStatut) ? t.aucunResultat
+      : (cle === "factures" ? t.aucuneFacture : t.rienAAfficher);
     return p;
   }
   const liste = document.createElement("div");
@@ -481,10 +549,9 @@ function pageDocs(cle) {
         '<span class="montant">' + formatMontant(it.montant) + "</span></span>";
     }
     html += "</div>";
-    if (it.ref_projet) html += '<div class="produits">Projet ' + esc(it.ref_projet) + "</div>";
+    if (it.ref_projet) html += '<div class="produits">' + esc(t.projet) + ' ' + esc(it.ref_projet) + "</div>";
     if (cle === "commandes" && it.tracking_url) {
-      html += '<div class="produits"><a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">Suivi UPS : ' +
-        esc(it.tracking_ref || "") + " &rarr;</a></div>";
+      html += '<div class="produits"><a href="' + esc(it.tracking_url) + '" target="_blank" rel="noopener">' + esc(t.suiviUps(it.tracking_ref || "")) + " &rarr;</a></div>";
     }
     ligne.innerHTML = html;
     liste.appendChild(ligne);
