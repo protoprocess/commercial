@@ -210,6 +210,13 @@
   .entree-resume, .fil-note-print { display: none; }
   .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .fil-metier:first-child { margin-top: 4px; }
+  /* v0.41 (probleme 139) : l historique web est complet, groupe par commande ;
+     le PDF ne garde que la commande en cours (.hors-so masque a l impression). */
+  .fil-so { display: flex; align-items: center; gap: 10px; margin: 22px 0 6px; font-size: 13px; font-weight: 700; color: var(--text2); }
+  .fil-so::after { content: ""; flex: 1; height: 2px; background: var(--border2); }
+  .fil-so.courant { color: var(--accent-fonce); }
+  .fil-so.courant::after { background: var(--accent); }
+  .fil-so .n { font-weight: 400; color: var(--text3); font-size: 12px; }
   .f08-inspection td, .f08-inspection th { background: var(--surface2); border-color: var(--border2); color: var(--text); }
   .f08-inspection .f08-fort { color: var(--pp-blue); }
   .f08-obs-cell { color: var(--text3); font-size: 11.5px; font-style: italic; }
@@ -320,7 +327,7 @@
     /* Historique compact, sections metier ; questions resolues resumees */
     .entree-plein { display: none !important; }
     .entree-resume { display: block !important; }
-    .entree-hors-rapport { display: none !important; }
+    .entree-hors-rapport, .hors-so, .fil-so { display: none !important; }
     .fil-note-print { display: block !important; font-size: 8.5pt; color: #777; font-style: italic; margin-top: 8px; }
     .fil-metier { font-size: 9.5pt; color: #444; margin: 12px 0 5px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
     .entree { padding: 8px 12px; font-size: 10pt; page-break-inside: avoid; }
@@ -473,7 +480,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.40";
+const APP_VERSION = "0.41";
 const APP_DATE = "02/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -542,22 +549,11 @@ document.title = "Suivi des projets · " + APP_NAME + " v" + APP_VERSION;
 const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
 const SO_AVANT = (params.get("so") || "").trim();
-/* v0.40 (probleme 139, decision Olivier 02/09) : le rapport client ne montre que la
-   fabrication COURANTE. SO cible = &so= du lien, sinon le SO courant rendu par le
-   statut. Les entrees d une autre commande, ou SANS commande (historique d avant
-   le rattachement), sont cachees. Sans aucun SO connu (devis) : pas de filtre. */
+/* v0.41 (probleme 139, decision Olivier 02/09) : SO cible = &so= du lien, sinon le SO
+   courant rendu par le statut. A l ECRAN l historique est complet, groupe par commande
+   (SO cible en tete). Dans le PDF, seule la commande en cours reste (.hors-so masque).
+   Sans aucun SO connu (devis) : un seul groupe, pas de titre, rien de masque. */
 let SO_CIBLE = SO_AVANT || "";
-function filtreSo(entrees) {
-  if (!SO_CIBLE) return entrees;
-  const parId = {};
-  entrees.forEach(function (e) { parId[e.id] = e; });
-  const garde = function (e) {
-    if (e.so_canonique === SO_CIBLE) return true;
-    const q = e.repond_a ? parId[e.repond_a] : null;
-    return !!(q && q.so_canonique === SO_CIBLE);
-  };
-  return entrees.filter(garde);
-}
 
 /* ch.148 (01/09) : langue de la page. Priorite : ?lang=fr|en (tests, surcharge),
    sinon produits.langue (miroir de la langue du client Odoo, synchronise chaque
@@ -578,6 +574,7 @@ const T = {
     points_titre: "En attente de votre r\u00e9ponse", points_sous: "Votre r\u00e9ponse d\u00e9bloque directement la pr\u00e9paration de votre carte.",
     points_fait: "Tous les points sont trait\u00e9s \u2014 merci\u00a0!",
     onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
+    so_en_cours: "Commande en cours \u2014", so_sans: "Historique ant\u00e9rieur (sans commande rattach\u00e9e)",
     resume_cable: "\u00c9quivalent {P} mont\u00e9 en lieu et place de {R}{X} \u2014 valid\u00e9 par vos soins le {D}.",
     resume_pas_cable: "{R}{X} non mont\u00e9 \u2014 d\u00e9cision valid\u00e9e par vos soins le {D}.",
     cart_order: "Commande", cart_ref_client: "Votre commande", cart_qte: "Quantit\u00e9s", cart_serie: "N\u00b0 de s\u00e9rie", form_f08: "Formulaire F08/B", insp_page_titre: "Rapport d\u2019inspection avant emballage",
@@ -632,6 +629,7 @@ const T = {
     points_titre: "Awaiting your reply", points_sous: "Your reply directly unblocks the preparation of your board.",
     points_fait: "All points are settled \u2014 thank you!",
     onglet_historique: "History", onglet_rapport: "Production report",
+    so_en_cours: "Current order \u2014", so_sans: "Earlier history (no linked order)",
     resume_cable: "Equivalent {P} fitted in place of {R}{X} \u2014 approved by you on {D}.",
     resume_pas_cable: "{R}{X} not fitted \u2014 decision approved by you on {D}.",
     cart_order: "Order", cart_ref_client: "Your order", cart_qte: "Quantities", cart_serie: "Serial N\u00b0", form_f08: "Formulaire F08/B", insp_page_titre: "Pre-packing inspection report",
@@ -1138,7 +1136,7 @@ function rendreJalons(statut, so, enAttente) {
 
 /* -------------------------- Points a trancher --------------------- */
 function rendrePoints(r) {
-  const attente = filtreSo(r.entrees || []).filter(function (e) { return e.a_repondre; });
+  const attente = (r.entrees || []).filter(function (e) { return e.a_repondre; });
   /* Les points de la commande du lien (&so=) passent en tete (decision 07/08). */
   attente.sort(function (a, b) {
     const aSo = SO_AVANT && a.so_canonique === SO_AVANT ? 0 : 1;
@@ -1464,7 +1462,7 @@ function majCompte() {
 /* ------------------------------- Fil ------------------------------ */
 function rendreFil(r) {
   const fil = document.getElementById("fil");
-  const entrees = filtreSo(r.entrees || []).slice();
+  const entrees = (r.entrees || []).slice();
   /* Les questions encore ouvertes vivent dans la section du haut ;
      le fil raconte le reste, reponses rangees SOUS leur question. */
   const parId = {};
@@ -1484,31 +1482,66 @@ function rendreFil(r) {
     fil.innerHTML = '<div class="vide">' + esc(t("historique_vide")) + '</div>';
     return;
   }
+  /* v0.41 (probleme 139, decision Olivier 02/09) : l historique WEB est complet,
+     groupe par COMMANDE (SO cible en tete, autres SO par recence, sans commande en
+     dernier). Le PDF ne garde que la commande en cours : les autres groupes portent
+     .hors-so (masque a l impression). Sans SO cible connu : un seul groupe, sans titre. */
+  const cleSo = function (e) { return e.so_canonique || ""; };
+  const recence = {};
+  racines.forEach(function (e) {
+    const k = cleSo(e), d = new Date(e.cree_le).getTime();
+    if (!recence[k] || d > recence[k]) recence[k] = d;
+  });
+  const rangSo = function (k) {
+    if (SO_CIBLE && k === SO_CIBLE) return 0;
+    if (k === "") return 2;
+    return 1;
+  };
   /* ch.137 (01/09, spec Olivier) : le fil est decoupe en 4 sections METIER
      (BOM / PCB / Assemblage / Reclamation), portees par ref_etapes cote API ;
      dans une section, ordre chronologique (plus recent en premier). */
   const METIERS = ["BOM", "PCB", "ASSEMBLAGE", "RECLAMATION"];
   racines.sort(function (a, b) {
+    const ka = cleSo(a), kb = cleSo(b);
+    const ra = rangSo(ka), rb = rangSo(kb);
+    if (ra !== rb) return ra - rb;
+    if (ka !== kb) return (recence[kb] || 0) - (recence[ka] || 0);
     const ma = METIERS.indexOf(a.metier), mb = METIERS.indexOf(b.metier);
     if (ma !== mb) return (ma < 0 ? 9 : ma) - (mb < 0 ? 9 : mb);
     return new Date(b.cree_le) - new Date(a.cree_le);
   });
+  const nbSo = Object.keys(recence).length;
+  const multi = nbSo > 1 || (nbSo === 1 && !recence.hasOwnProperty(""));
+  const compte = {};
+  racines.forEach(function (e) { compte[cleSo(e)] = (compte[cleSo(e)] || 0) + 1; });
   fil.innerHTML = "";
+  let soCourantGrp = null;
   let metierCourant = null;
   const notePrint = document.createElement("div");
   notePrint.className = "fil-note-print";
   notePrint.textContent = t("fil_note_print");
   racines.forEach(function (e) {
+    const k = cleSo(e);
+    const horsSo = !!(SO_CIBLE && k !== SO_CIBLE);
+    if (multi && k !== soCourantGrp) {
+      soCourantGrp = k;
+      metierCourant = null;
+      const sep = document.createElement("div");
+      sep.className = "fil-so" + ((SO_CIBLE && k === SO_CIBLE) ? " courant" : "");
+      sep.innerHTML = esc(k ? ((SO_CIBLE && k === SO_CIBLE) ? t("so_en_cours") + " " + k : t("commande") + " " + k) : t("so_sans")) +
+        ' <span class="n">(' + compte[k] + ")</span>";
+      fil.appendChild(sep);
+    }
     const m = METIERS.indexOf(e.metier) >= 0 ? e.metier : "ASSEMBLAGE";
     if (m !== metierCourant) {
       metierCourant = m;
       const titre = document.createElement("div");
-      titre.className = "fil-metier";
+      titre.className = "fil-metier" + (horsSo ? " hors-so" : "");
       titre.textContent = t("metier_" + m.toLowerCase());
       fil.appendChild(titre);
     }
     const bloc = document.createElement("div");
-    bloc.className = "carte entree" + (e.type === "indice" ? " indice-evt" : "");
+    bloc.className = "carte entree" + (e.type === "indice" ? " indice-evt" : "") + (horsSo ? " hors-so" : "");
     const chips = [];
     if (e.etape_libelle) chips.push('<span class="chip chip-etape">' + esc(e.etape_libelle) + "</span>");
     if (e.so_canonique) chips.push('<span class="chip chip-etape">' + esc(e.so_canonique) + "</span>");
