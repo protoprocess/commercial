@@ -432,7 +432,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.14';
+const APP_VERSION = '4.15';
 const APP_DATE = '02/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -647,6 +647,14 @@ async function chargerStatut(){
       '&libelle=' + encodeURIComponent(P.libelle_carte || ''));
   }catch(e){
     STATUT = { erreur: e.message };
+  }
+  /* v4.15 (probleme 139) : le fil est groupe par SO courant, qui n est connu qu ici.
+     Si un SO arrive et qu aucune saisie n est en cours, on re-rend toute la fiche
+     (le volet ouvert est conserve) ; sinon on ne touche qu au bandeau. */
+  if(STATUT && STATUT.so && FICHE && !saisie){
+    rendreFiche();
+    if(choisieId && entree(choisieId)) ouvrirVolet(choisieId);
+    return;
   }
   const zone = el('zone-statut');
   if(zone) zone.outerHTML = htmlStatut();
