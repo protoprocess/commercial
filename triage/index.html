@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triage boîte commerciale</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+:root {
+  --bg: #0a0c12;
+  --surface: #1a2030;
+  --surface2: #161b27;
+  --border: #262e42;
+  --border2: #333d55;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --accent: #F07B1F;
+  --accent-bg: #2a1f10;
+  --green: #86c564;  --green-bg: #EAF3DE;  --green-badge: #3B6D11;
+  --amber: #eab676;  --amber-bg: #FAEEDA;  --amber-badge: #854F0B;
+  --red: #f09595;    --red-bg: #FCEBEB;    --red-badge: #A32D2D;
+  --pink: #ED93B1;   --pink-bg: #FBEAF0;   --pink-badge: #993556;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+
+header {
+  background: #0f1117; height: 52px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo-text { display: flex; align-items: center; gap: 0; font-size: 13px; font-weight: 500; }
+.logo-text .lt { color: #fff; }
+.logo-text .ls { color: #444; margin: 0 3px; }
+.logo-text .lo { color: var(--accent); }
+.meta { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--text3); font-family: var(--mono); }
+.btn-p { padding: 6px 13px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 12px; font-weight: 500; cursor: pointer; font-family: var(--sans); }
+.btn-p:disabled { opacity: .5; cursor: default; }
+
+main { max-width: min(96vw, 1800px); margin: 0 auto; padding: 22px 0 60px; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+.filter-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text2); border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: var(--sans); }
+.filter-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+.toolbar .count { margin-left: auto; color: var(--text3); font-size: 12px; }
+
+.group { margin-bottom: 26px; }
+.group-title { display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px 4px; font-size: 13px; font-weight: 600; }
+.group-title .n { color: var(--text3); font-weight: 400; font-family: var(--mono); font-size: 12px; }
+.group.haute .group-title { color: var(--red); }
+.group.moyenne .group-title { color: var(--amber); }
+.group.basse .group-title { color: var(--green); }
+
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+th { text-align: left; font-size: 11px; font-weight: 500; color: var(--text3); padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); white-space: nowrap; }
+td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr.fil { cursor: pointer; }
+tr.fil:hover td { background: rgba(255,255,255,.02); }
+.group.haute td:first-child { box-shadow: inset 3px 0 0 var(--red-badge); }
+.group.moyenne td:first-child { box-shadow: inset 3px 0 0 var(--amber-badge); }
+.group.basse td:first-child { box-shadow: inset 3px 0 0 var(--green-badge); }
+
+.col-age { width: 70px; white-space: nowrap; font-family: var(--mono); font-size: 12px; color: var(--text2); }
+.col-age.vieux { color: var(--red); font-weight: 600; }
+.col-type { width: 100px; }
+.col-client { width: 220px; }
+.client { font-weight: 600; }
+.client .mail { display: block; color: var(--text3); font-weight: 400; font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.objet { color: var(--text); margin-bottom: 4px; }
+.resume { color: var(--text2); line-height: 1.45; max-width: 78ch; }
+.motif { color: var(--text3); font-size: 12px; margin-top: 5px; display: none; }
+tr.ouvert .motif { display: block; }
+.col-act { width: 40px; text-align: right; }
+.col-act a { color: var(--text3); font-size: 18px; text-decoration: none; }
+.col-act a:hover { color: var(--accent); }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-devis { background: var(--amber-bg); color: var(--amber-badge); }
+.badge-commande { background: var(--green-bg); color: var(--green-badge); }
+.badge-reclamation { background: var(--red-bg); color: var(--red-badge); }
+.badge-relance { background: var(--pink-bg); color: var(--pink-badge); }
+.badge-autre { background: var(--border2); color: var(--text); }
+
+.etat { padding: 40px; text-align: center; color: var(--text3); }
+.etat.err { color: var(--red); }
+
+@media (max-width: 800px) {
+  th.col-type, td.col-type { display: none; }
+  .col-client { width: auto; }
+  .client .mail { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Triage boîte commerciale</span></span>
+  </div>
+  <div class="meta">
+    <span id="maj">—</span>
+    <span id="version"></span>
+    <button class="btn-p" id="btn-refresh" onclick="charger()"><i class="ti ti-refresh"></i> Actualiser</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar" id="filtres">
+    <button class="filter-btn active" data-type="tous">Tous</button>
+    <button class="filter-btn" data-type="devis">Devis</button>
+    <button class="filter-btn" data-type="commande">Commandes</button>
+    <button class="filter-btn" data-type="reclamation">Réclamations</button>
+    <button class="filter-btn" data-type="relance">Relances</button>
+    <button class="filter-btn" data-type="autre">Autres</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div id="contenu"><div class="etat">Chargement…</div></div>
+</main>
+
+<script>
+const APP_VERSION = "1.0";
+const APP_DATE = "03/09/2026";
+const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
+
+document.title = `Triage boîte commerciale v${APP_VERSION}`;
+document.getElementById('version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
+let donnees = [];
+let filtre = 'tous';
+
+const LIB_TYPE = { devis: 'Devis', commande: 'Commande', reclamation: 'Réclamation', relance: 'Relance', autre: 'Autre' };
+const LIB_URG = { haute: 'À traiter en priorité', moyenne: 'À traiter', basse: 'Peut attendre' };
+
+function echapper(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function parseClient(raw) {
+  const m = String(raw || '').match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  if (m) return { nom: m[1].trim() || m[2], mail: m[2] };
+  return { nom: String(raw || '').replace(/[<>]/g, '').trim() || '—', mail: '' };
+}
+
+function age(j) {
+  const n = Number(j);
+  if (isNaN(n)) return '—';
+  if (n <= 0) return "auj.";
+  if (n === 1) return "hier";
+  return `${n} j`;
+}
+
+function heureLocale(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function rendre() {
+  const cont = document.getElementById('contenu');
+  const visibles = donnees.filter(f => filtre === 'tous' || f.type === filtre);
+  document.getElementById('count').textContent = `${visibles.length} fil${visibles.length > 1 ? 's' : ''} non lu${visibles.length > 1 ? 's' : ''}`;
+
+  if (!visibles.length) {
+    cont.innerHTML = '<div class="etat">Rien à trier dans cette catégorie.</div>';
+    return;
+  }
+
+  const groupes = { haute: [], moyenne: [], basse: [] };
+  for (const f of visibles) (groupes[f.urgence] || groupes.moyenne).push(f);
+
+  let html = '';
+  for (const urg of ['haute', 'moyenne', 'basse']) {
+    const liste = groupes[urg];
+    if (!liste.length) continue;
+    html += `<section class="group ${urg}">
+      <h2 class="group-title">${LIB_URG[urg]} <span class="n">${liste.length}</span></h2>
+      <table>
+        <thead><tr>
+          <th class="col-age">Attente</th>
+          <th class="col-client">Client</th>
+          <th class="col-type">Type</th>
+          <th>Objet et résumé</th>
+          <th class="col-act"></th>
+        </tr></thead>
+        <tbody>`;
+    for (const f of liste) {
+      const c = parseClient(f.client);
+      const j = Number(f.jours_sans_reponse);
+      const t = f.type || 'autre';
+      const resume = f.resume ? echapper(f.resume) : '<em style="color:var(--text3)">Résumé indisponible</em>';
+      const motif = f.motif_urgence ? `<div class="motif"><i class="ti ti-info-circle"></i> ${echapper(f.motif_urgence)}</div>` : '';
+      html += `<tr class="fil" onclick="this.classList.toggle('ouvert')">
+        <td class="col-age ${j >= 5 ? 'vieux' : ''}">${age(j)}</td>
+        <td class="col-client"><div class="client">${echapper(c.nom)}<span class="mail" title="${echapper(c.mail)}">${echapper(c.mail)}</span></div></td>
+        <td class="col-type"><span class="badge badge-${t}">${LIB_TYPE[t] || t}</span></td>
+        <td><div class="objet">${echapper(f.objet)}</div><div class="resume">${resume}</div>${motif}</td>
+        <td class="col-act"><a href="https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(f.thread_id)}" target="_blank" title="Ouvrir dans Gmail" onclick="event.stopPropagation()"><i class="ti ti-external-link"></i></a></td>
+      </tr>`;
+    }
+    html += '</tbody></table></section>';
+  }
+  cont.innerHTML = html;
+}
+
+async function charger() {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  try {
+    const r = await fetch(API, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    donnees = Array.isArray(data.fils) ? data.fils : [];
+    const dernier = donnees.reduce((m, f) => f.maj_le > m ? f.maj_le : m, '');
+    document.getElementById('maj').textContent = dernier ? `scan ${heureLocale(dernier)}` : 'aucun scan';
+    rendre();
+  } catch (e) {
+    document.getElementById('contenu').innerHTML = `<div class="etat err">Impossible de charger le triage (${echapper(e.message)}). Vérifier que le workflow n8n de lecture est actif.</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('filtres').addEventListener('click', e => {
+  const b = e.target.closest('.filter-btn');
+  if (!b) return;
+  document.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  filtre = b.dataset.type;
+  rendre();
+});
+
+charger();
+</script>
+</body>
+</html>
