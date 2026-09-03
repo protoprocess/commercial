@@ -71,6 +71,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 .copiable { cursor:pointer; }
 .etat-msg { margin-top:14px; font-size:12.5px; }
 .etat-msg.err { color:var(--red); }
+.etat-msg.warn { color:var(--amber); }
 .etat-msg.chargement { color:var(--text2); }
 .spin { display:inline-block; width:11px; height:11px; border:2px solid var(--border2);
   border-top-color:var(--accent); border-radius:50%; animation:r .8s linear infinite; vertical-align:-1px; margin-right:6px; }
@@ -183,8 +184,8 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.9";
-const APP_DATE = "01/09/2026";
+const APP_VERSION = "6.10";
+const APP_DATE = "03/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
 
@@ -526,7 +527,13 @@ async function appliquer(rep, ent) {
     } else {
       afficherJournal(r, el('journal'));
       b.disabled = false; b.textContent = 'R\u00e9essayer';
+      /* v6.10 (03/09) — refus \u00ab article generique \u00bb : le serveur bloque
+         toute la pose tant que le devis porte un [PP-0002]/[PP-0003]. On liste
+         les lignes en cause pour que l humain sache quoi remplacer. */
       m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
+      if (r.generiques && r.generiques.length) {
+        m.textContent += ' \u2014 ' + r.generiques.map(g => 'ligne ' + g.ligne_id + ' : ' + (g.article || '?') + ' \u00d7' + g.qte).join(' ; ');
+      }
     }
   } catch (err) {
     b.disabled = false; b.textContent = 'R\u00e9essayer';
@@ -584,7 +591,7 @@ async function diagnostiquer(sansConf) {
     const rep = res[0];
     if (relireConf && res[1] && res[1].ok) DIAG.conf = res[1];
     DERNIER = { entree: a, rep: rep };
-    if (MSG_PERSIST) { el('etat').textContent = '\u2713 ' + MSG_PERSIST; el('etat').className = 'etat-msg'; el('etat').style.color = 'var(--green)'; MSG_PERSIST = null; }
+    if (MSG_PERSIST) { el('etat').textContent = '\u2713 ' + MSG_PERSIST; el('etat').className = 'etat-msg'; el('etat').style.color = MSG_PERSIST.indexOf('\u26a0') >= 0 ? 'var(--amber)' : 'var(--green)'; MSG_PERSIST = null; }
     else { el('etat').textContent = ''; el('etat').style.color = ''; }
     afficher(rep);
   } catch (err) {
@@ -900,9 +907,12 @@ async function agir(bouton, chemin, corps, messageOk) {
       body: JSON.stringify(corps)
     });
     if (rep.ok) {
-      MSG_PERSIST = messageOk(rep);
-      el('etat').textContent = messageOk(rep) + ' Diagnostic relanc\u00e9\u2026';
-      el('etat').className = 'etat-msg';
+      /* v6.10 (03/09) — avertissement NON bloquant du serveur (ex. carte ou
+         article cree SANS indice, convention 21) : il reste affiche apres le
+         re-diagnostic, en orange, pour que l humain le voie et corrige. */
+      MSG_PERSIST = messageOk(rep) + (rep.avertissement ? ' \u26a0 ' + rep.avertissement : '');
+      el('etat').textContent = MSG_PERSIST + ' Diagnostic relanc\u00e9\u2026';
+      el('etat').className = 'etat-msg' + (rep.avertissement ? ' warn' : '');
       diagnostiquer();
     } else {
       el('etat').textContent = 'Refus\u00e9 : ' + (rep.motif || 'motif inconnu') +
