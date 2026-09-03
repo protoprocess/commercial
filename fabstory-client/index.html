@@ -480,8 +480,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.42";
-const APP_DATE = "02/09/2026";
+const APP_VERSION = "0.43";
+const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -1608,25 +1608,35 @@ function resumeImprime(e, reponses) {
   const repClient = reponses.filter(function (x) { return x.emetteur === "client"; })[0];
   if (!e.enveloppe || !Array.isArray(e.enveloppe.choix)) return { cacher: true };
   if (!repClient || !repClient.texte) return { cacher: true };
+  /* v0.25 (ch.111, 03/09) : la formulation vient de pb_soluce (cle
+     formulation_rapport, copiee sur chaque choix de l enveloppe a l envoi de
+     la question) -- generique a TOUS les modeles Mx, plus de phrases en dur
+     par modele. Le choix retenu est identifie par son libelle, present tel
+     quel dans le texte de la reponse client. Anciennes questions (envoyees
+     avant le 03/09, enveloppe sans formulation_rapport) : aucune ligne
+     n est imprimee, comme pour toute reponse libre -- 3-4 fiches concernees,
+     reprises au cas par cas via ligne_rapport si besoin (regle actee 01/09,
+     inchangee). */
   const norm = function (s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); };
   const rtxt = norm(repClient.texte);
-  const P = e.enveloppe.proposition || null;
-  const R = e.mpn || "";
-  const X = e.repere ? " (" + t("resume_rep") + e.repere + ")" : "";
-  const D = fmtDate(repClient.cree_le);
-  if (rtxt.indexOf("je fournis") >= 0 || rtxt.indexOf("fournis ce composant") >= 0) return { cacher: true };
-  if (rtxt.indexOf("attendre") >= 0 && rtxt.indexOf("stock") >= 0) return { cacher: true };
-  if (P && rtxt.indexOf("propos") >= 0 && rtxt.indexOf("accept") >= 0) {
-    return { texte: t("resume_cable").replace("{P}", P).replace("{R}", R).replace("{X}", X).replace("{D}", D) };
-  }
-  if (rtxt.indexOf("pas cabler") >= 0 || rtxt.indexOf("ne pas cabler") >= 0) {
-    return { texte: t("resume_pas_cable").replace("{R}", R).replace("{X}", X).replace("{D}", D) };
-  }
-  /* Aucune formulation disponible (reponse libre, ancienne question sans
-     donnees structurees) : REGLE ACTEE 01/09 -- le PDF n imprime RIEN plutot
-     que du texte brut. Le fil complet reste a l ecran. Les formulations par
-     modele Mx et la redaction guidee cote interne viendront ensuite. */
-  return { cacher: true };
+  const choix = e.enveloppe.choix.find(function (c) { return c.libelle && rtxt.indexOf(norm(c.libelle)) >= 0; });
+  if (!choix || !choix.formulation_rapport) return { cacher: true };
+  const vars = {
+    "{REF}": e.mpn || "",
+    "{PROPOSITION}": e.enveloppe.proposition || "",
+    "{REPERE}": e.repere || "",
+    "{DATE}": fmtDate(repClient.cree_le)
+  };
+  /* Si une variable utilisee par la formulation n est pas renseignee (ex.
+     M2 choix 1 : reference suggeree par le client en texte libre, jamais
+     structuree dans enveloppe.proposition), on se tait plutot que d imprimer
+     un trou -- la ligne se redige alors a la main (pop-up "Voir le rapport
+     client", champ ligne_rapport, prioritaire de toute facon). */
+  const manquant = Object.keys(vars).some(function (k) { return choix.formulation_rapport.indexOf(k) >= 0 && !vars[k]; });
+  if (manquant) return { cacher: true };
+  let texte = choix.formulation_rapport;
+  Object.keys(vars).forEach(function (k) { texte = texte.split(k).join(vars[k]); });
+  return { texte: texte };
 }
 
 charger();
