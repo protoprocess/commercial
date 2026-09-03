@@ -480,7 +480,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.43";
+const APP_VERSION = "0.44";
 const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -1605,6 +1605,9 @@ function resumeImprime(e, reponses) {
   /* Une ligne redigee en interne (pop-up "Voir le rapport client") gagne
      toujours sur le resume automatique. */
   if (e.ligne_rapport) return { texte: e.ligne_rapport };
+  /* v0.44 (ch.111, 03/09) : marque explicite "ne pas imprimer" posee depuis le
+     pop-up interne -- gagne sur toute tentative de resume automatique. */
+  if (e.rapport_ignore) return { cacher: true };
   const repClient = reponses.filter(function (x) { return x.emetteur === "client"; })[0];
   if (!e.enveloppe || !Array.isArray(e.enveloppe.choix)) return { cacher: true };
   if (!repClient || !repClient.texte) return { cacher: true };
