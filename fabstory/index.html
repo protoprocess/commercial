@@ -432,8 +432,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.15';
-const APP_DATE = '02/09/2026';
+const APP_VERSION = '4.16';
+const APP_DATE = '03/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1170,6 +1170,11 @@ function ouvrirVolet(id){
       '<button class="btn" onclick="FS.voletRepondre()">Enregistrer la r\u00e9ponse</button>' +
       '<p class="mini" style="margin:7px 0 0">Enregistrez vos r\u00e9ponses et validez le tout quand vous \u00eates pr\u00eat.</p>' +
       '</details>';
+    if(e.type === 'question_client'){
+      h += '<details class="v-sec"><summary><i class="ti ti-wand"></i> Remouler avec un mod\u00e8le</summary>' +
+        '<p class="hint" style="margin:0 0 8px">Repart de la biblioth\u00e8que (M1, M2\u2026) pour r\u00e9\u00e9crire cette question avant l\u2019envoi client. Le texte d\u2019origine reste en trace.</p>' +
+        '<button class="btn-s" onclick="FS.remoulerOuvrir(' + e.id + ')"><i class="ti ti-wand"></i> Choisir un mod\u00e8le\u2026</button></details>';
+    }
   }
 
   if(e.type !== 'indice'){
@@ -1406,6 +1411,10 @@ FS.voletRetirer = async function(){
    modifié ne change jamais une question déjà partie. */
 
 let assistant = { produit:null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true };
+/* v4.16 : remoulage d'une question client EXISTANTE (en_attente) avec un modele —
+   le parcours assistant est reutilise, l'enregistrement met a jour la question
+   (texte_reformule : le brut d'origine reste en trace) au lieu d'en creer une. */
+let remoulage = null;
 const AUTO_VARS = ['DATE','LIEN','DATASHEET'];
 const VAR_LABELS = {
   REF:           ['Référence concernée', 'Servira aussi de MPN sur la fiche.'],
@@ -1470,7 +1479,8 @@ function htmlSaisie(){
   let corps;
   if(assistant.ecran === 0) corps = htmlSaisieFermee();
   else {
-    corps = '<div class="stepper" aria-hidden="true">' +
+    corps = (remoulage ? '<div class="hint" style="background:var(--info-bg);color:var(--info-txt);border-radius:8px;padding:7px 10px;margin-bottom:8px"><i class="ti ti-wand"></i> Remoulage d\u2019une question existante \u2014 l\u2019enregistrement la r\u00e9\u00e9crit (texte d\u2019origine conserv\u00e9 en trace), rien de nouveau n\u2019est cr\u00e9\u00e9.</div>' : '') +
+      '<div class="stepper" aria-hidden="true">' +
       [[1,'Situation'],[2,'Compléter'],[3,'Aperçu & envoi']].map(s =>
         '<span class="step' + (assistant.ecran===s[0]?' active':(assistant.ecran>s[0]?' done':'')) + '">' +
         '<span class="dot">' + s[0] + '</span>' + s[1] + '</span>'
@@ -1502,8 +1512,23 @@ FS.assistantOuvrir = async function(){
 FS.assistantAbandonner = function(){
   const rempli = Object.values(assistant.vals).some(v => String(v||'').trim()) || piecesSaisie.length;
   if(rempli && !confirm('Abandonner cette saisie ? Rien ne sera enregistré.')) return;
+  remoulage = null;
   assistantReset();
   rendreSaisie();
+};
+
+FS.remoulerOuvrir = async function(id){
+  remoulage = { id: id };
+  FS.fermerVolet();
+  assistantReset();
+  assistant.ecran = 1;
+  rendreSaisie();
+  const c = el('carte-saisie');
+  if(c) c.scrollIntoView({ behavior:'smooth', block:'start' });
+  if(!MODELES){
+    try{ await chargerModeles(); }catch(e){}
+    if(assistant.ecran === 1) rendreSaisie();
+  }
 };
 FS.assistantEcran = function(n){ assistant.ecran = n; rendreSaisie(); };
 
@@ -2260,7 +2285,25 @@ async function envoyerNote(){
   if(btn) btn.disabled = true;
   msg.innerHTML = '<span class="spin"></span>';
   try{
-    await postJson(BASE + '/fabstory-note', corps);
+    if(remoulage){
+      if(!estQuestionClient){
+        msg.innerHTML = '<span class="err-msg">Remoulage : choisir une situation de la biblioth\u00e8que (question client).</span>';
+        if(btn) btn.disabled = false;
+        return;
+      }
+      await postJson(BASE + '/fabstory-question-remouler', {
+        id: remoulage.id, texte, auteur,
+        etape_code: saisie.etape || null,
+        modele_code: modeleChoisi,
+        choix_reponse: enveloppe,
+        mpn: assistant.vals.REF || null,
+        repere: assistant.vals.REP || null,
+        lien: assistant.vals.LIEN || null
+      });
+      remoulage = null;
+    } else {
+      await postJson(BASE + '/fabstory-note', corps);
+    }
     assistantReset();
     await recharger(false);
   }catch(e){
