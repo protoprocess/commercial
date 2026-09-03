@@ -432,7 +432,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.16';
+const APP_VERSION = '4.17';
 const APP_DATE = '03/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1518,7 +1518,13 @@ FS.assistantAbandonner = function(){
 };
 
 FS.remoulerOuvrir = async function(id){
-  remoulage = { id: id };
+  /* v4.17 : le socle factuel de la question (MPN, repere, lien) est embarque —
+     "la base reste vraie, c'est le blabla qui change" (Olivier 03/09). */
+  const e = entree(id);
+  remoulage = {
+    id: id,
+    prefill: e ? { REF: e.mpn || '', REP: e.repere || '', LIEN: e.lien || '' } : null
+  };
   FS.fermerVolet();
   assistantReset();
   assistant.ecran = 1;
@@ -1571,6 +1577,11 @@ function htmlEcranSituations(){
 }
 FS.choisirSituation = function(code){
   assistant.code = code; assistant.vals = {}; assistant.portee = true;
+  if(remoulage && remoulage.prefill){
+    Object.keys(remoulage.prefill).forEach(k => {
+      if(remoulage.prefill[k]) assistant.vals[k] = remoulage.prefill[k];
+    });
+  }
   piecesSaisie = [];
   const m = modeleCourant();
   if(m){
