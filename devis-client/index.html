@@ -587,8 +587,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.12";
-const APP_DATE = "27/08/2026";
+const APP_VERSION = "12.13";
+const APP_DATE = "03/09/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -1393,6 +1393,7 @@ function blocOdoo(){
       <p style="margin:0 0 3px;font-size:12.5px">Article <span class="mono" id="odoo-nom">${esc(odooNomPrevu())}</span>
         <span class="badge ${d.existe_deja?'fdv-b-att':'fdv-b-ok'}" id="odoo-pastille">${d.existe_deja?'existe déjà':'nouveau'}</span></p>
       <p class="hint" style="margin:0 0 3px">Référence interne : ${esc(d.reference_interne || '—')} · Catégorie : Protos · Poids 0,1 kg</p>
+      ${d.avertissement ? `<p style="margin:6px 0 3px;padding:6px 9px;border-radius:var(--radius);background:var(--amber-bg);color:var(--amber-badge);font-size:12px;font-weight:500"><i class="ti ti-alert-triangle"></i> ${esc(d.avertissement)}</p>` : ''}
       <p class="hint" style="margin:0">Devis brouillon pour ${esc(d.client || '')}, avec la ligne
         <span class="mono">PP-0001 Frais initiaux</span> en tête puis une ligne par quantité</p>
     </div>
@@ -1433,7 +1434,18 @@ function odooNomPrevu(){
      le recapitulatif annoncait un nom sans version alors que le serveur en creait
      un avec : on ne voyait donc pas ce qui allait reellement etre cree. */
   const ind = String(d.version || '').trim();
-  return (ODOO.essai ? 'ZZ ESSAI - ' : '') + code + '-' + ref + (ind ? ' ' + ind : '');
+  /* v12.13 (03/09, convention 21) — JAMAIS d espace avant l indice. Separateur
+     selon le format client : indice commencant par un CHIFFRE -> tiret
+     (MAA-0016-02), par une LETTRE -> colle (1300024112D). Meme regle que les
+     trois calculs cote n8n (creer article et devis v2.2). */
+  const sep = ind ? (/^[0-9]/.test(ind) ? '-' : '') : '';
+  return (ODOO.essai ? 'ZZ ESSAI - ' : '') + code + '-' + ref + (ind ? sep + ind : '');
+}
+
+/* v12.13 — comparaison TOLERANTE aux separateurs (espace / tiret) : les articles
+   historiques nommes avec un espace restent reconnus comme existants. */
+function odooNormNom(n){
+  return String(n || '').replace(/^ZZ ESSAI - /, '').toUpperCase().replace(/[\s-]+/g, '');
 }
 
 // Mise a jour ciblee, sans re-rendre le panneau : re-rendre ferait perdre le
@@ -1444,9 +1456,8 @@ function odooRefChange(){
   const p = document.getElementById('odoo-pastille');
   const d = ODOO.data || {};
   if(p){
-    const nu = odooNomPrevu().replace(/^ZZ ESSAI - /, '');
-    const existe = (d.versions_connues || []).some(v =>
-      String(v.nom || '').replace(/^ZZ ESSAI - /, '') === nu);
+    const nu = odooNormNom(odooNomPrevu());
+    const existe = (d.versions_connues || []).some(v => odooNormNom(v.nom) === nu);
     p.textContent = existe ? 'existe déjà' : 'nouveau';
     p.className = 'badge ' + (existe ? 'fdv-b-att' : 'fdv-b-ok');
   }
@@ -1519,9 +1530,11 @@ async function odooCreer(forcer){
     if(j.mode !== 'ajout' && j.devis_id) soMemNoter(midCourant(), j.devis_id);
     // la fiche en memoire porte desormais son devis : le bloc s affichera a jour
     if(j.devis_id && FICHE_LIEN && !FICHE_LIEN.odoo_so_id) FICHE_LIEN.odoo_so_id = j.devis_id;
-    msg.innerHTML = j.mode === 'ajout'
+    msg.innerHTML = (j.mode === 'ajout'
       ? `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Carte ajoutée au devis n° ${esc(String(j.devis_id))} — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`
-      : `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`;
+      : `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`)
+      /* v12.13 — l article a ete cree sans indice : le dire tout de suite, en orange */
+      + (j.avertissement ? `<span style="display:block;margin-top:6px;padding:6px 9px;border-radius:var(--radius);background:var(--amber-bg);color:var(--amber-badge);font-size:12px;font-weight:500"><i class="ti ti-alert-triangle"></i> ${esc(j.avertissement)}</span>` : '');
     btn.disabled = true;
   }catch(e){
     btn.disabled = false;
