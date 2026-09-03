@@ -432,7 +432,7 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.17';
+const APP_VERSION = '4.18';
 const APP_DATE = '03/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1029,8 +1029,9 @@ FS.voirRapportClient = async function(){
        fils resolus SANS ligne de rapport ; ceux qui n ont pas non plus de
        resume automatique (meme logique que la page client) sont soumis a
        redaction dans une pop-up. Regle actee : rien en brut dans le PDF. */
+    const modeles = await chargerModeles(); /* v4.18 (ch.111, 03/09) : requis par resumeAutoPossible */
     const m = await getJson(BASE + '/fabstory-rapport-manques?produit_id=' + P.id);
-    const aRediger = ((m && m.fils) || []).filter(f => !resumeAutoPossible(f));
+    const aRediger = ((m && m.fils) || []).filter(f => !resumeAutoPossible(f, modeles));
     if(aRediger.length){
       const fait = await FS.redigerLignesRapport(aRediger);
       if(!fait) return; /* annule : on n ouvre pas un rapport incomplet */
@@ -1043,17 +1044,24 @@ FS.voirRapportClient = async function(){
   }
 };
 
-/* Meme logique que la vue client (resumeImprime) : un fil a un resume
-   automatique si PROPOSITION existe et que la reponse est un cas reconnu. */
-function resumeAutoPossible(f){
+/* v4.18 (ch.111, 03/09) : recale sur la MEME logique generique que la vue
+   client (resumeImprime, fabstory-client v0.44) -- la formulation vient de
+   pb_soluce (formulation_rapport par choix), plus de mots-cles en dur ici.
+   Un fil est "auto" (pas besoin de redaction) si son modele a un choix dont
+   le libelle correspond a la reponse, ET que ce choix porte une formulation,
+   ET que toutes les variables qu elle utilise sont renseignees. Sans modele
+   (question libre, hors bibliotheque), jamais auto -- redaction ou "ne pas
+   imprimer". */
+function resumeAutoPossible(f, modeles){
+  if(!f.reponse || !f.modele_code) return false;
+  const modele = (modeles || []).find(m => m.code === f.modele_code);
+  if(!modele || !Array.isArray(modele.choix)) return false;
   const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const r = norm(f.reponse);
-  if(!r) return false;
-  if(r.indexOf('je fournis') >= 0 || r.indexOf('fournis ce composant') >= 0) return true; /* retire du PDF, rien a rediger */
-  if(r.indexOf('attendre') >= 0 && r.indexOf('stock') >= 0) return true; /* idem */
-  if(f.proposition && r.indexOf('propos') >= 0 && r.indexOf('accept') >= 0) return true;
-  if(r.indexOf('pas cabler') >= 0) return true;
-  return false;
+  const choix = modele.choix.find(c => c.libelle && r.indexOf(norm(c.libelle)) >= 0);
+  if(!choix || !choix.formulation_rapport) return false;
+  const vars = { '{REF}': f.mpn || '', '{PROPOSITION}': f.proposition || '', '{REPERE}': f.repere || '' };
+  return !Object.keys(vars).some(k => choix.formulation_rapport.indexOf(k) >= 0 && !vars[k]);
 }
 
 /* Pop-up de redaction des lignes de rapport. Retourne true si tout est
@@ -1065,17 +1073,20 @@ FS.redigerLignesRapport = function(fils){
     const boite = document.createElement('div');
     boite.style.cssText = 'background:var(--surface);border:1px solid var(--border2);border-radius:10px;max-width:680px;width:100%;max-height:86vh;overflow:auto;padding:18px';
     let html = '<h3 style="margin:0 0 6px;font-size:15px">Lignes de rapport \u00e0 r\u00e9diger</h3>' +
-      '<p style="margin:0 0 14px;color:var(--text2);font-size:12.5px">Ces \u00e9changes r\u00e9solus n\u2019ont pas de formulation automatique. Le rapport n\u2019imprime jamais de texte brut : \u00e9crivez la ligne telle qu\u2019elle doit appara\u00eetre au rapport de fabrication.</p>';
+      '<p style="margin:0 0 6px;color:var(--text2);font-size:12.5px">Ces \u00e9changes r\u00e9solus n\u2019ont pas de formulation automatique. Le rapport n\u2019imprime jamais de texte brut : \u00e9crivez la ligne telle qu\u2019elle doit appara\u00eetre au rapport de fabrication, ou marquez-la \u00e0 ne pas imprimer si elle n\u2019a pas sa place ici (ex. un fichier simplement transmis).</p>' +
+      '<p style="margin:0 0 14px;color:var(--text3);font-size:12px">N\u2019h\u00e9sitez pas \u00e0 demander \u00e0 Claude de vous aider \u00e0 r\u00e9diger le rapport \u2014 dites-lui la carte concern\u00e9e, il relit l\u2019\u00e9change et vous propose la ligne.</p>';
     fils.forEach(function(f, i){
-      html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">' +
+      html += '<div class="rl-ligne" style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">' +
         (f.repere ? 'Rep ' + esc(f.repere) + ' \u00b7 ' : '') + (f.mpn ? esc(f.mpn) + ' \u00b7 ' : '') +
         (f.modele_code ? 'mod\u00e8le ' + esc(f.modele_code) : 'hors mod\u00e8le') + '</div>' +
         '<div style="font-size:12.5px;margin-bottom:4px;white-space:pre-wrap">' + esc((f.question || '').slice(0, 220)) + '</div>' +
         (f.reponse ? '<div style="font-size:12.5px;color:var(--pp-blue);margin-bottom:8px">R\u00e9ponse client : ' + esc(f.reponse.slice(0, 160)) + '</div>' : '') +
         '<textarea data-fiche="' + f.id + '" data-modele="' + esc(f.modele_code || '') + '" placeholder="Ligne du rapport (ex. : Retouche valid\u00e9e avec vous le\u2026)" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font:inherit;font-size:13px;padding:8px;min-height:52px"></textarea>' +
-        '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);margin-top:6px"><input type="checkbox" data-proposer="' + f.id + '"' + (f.modele_code ? '' : ' disabled') + '> Proposer comme formulation du mod\u00e8le' + (f.modele_code ? ' ' + esc(f.modele_code) : ' (fil hors mod\u00e8le)') + '</label>' +
-        '</div>';
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;flex-wrap:wrap">' +
+        '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2)"><input type="checkbox" data-proposer="' + f.id + '"' + (f.modele_code ? '' : ' disabled') + '> Proposer comme formulation du mod\u00e8le' + (f.modele_code ? ' ' + esc(f.modele_code) : ' (fil hors mod\u00e8le)') + '</label>' +
+        '<button type="button" class="filtre" data-ignorer="' + f.id + '" style="font-size:12px;padding:4px 10px">Ne pas imprimer</button>' +
+        '</div></div>';
     });
     html += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">' +
       '<button type="button" class="filtre" id="rlAnnuler">Annuler</button>' +
@@ -1084,19 +1095,38 @@ FS.redigerLignesRapport = function(fils){
     boite.innerHTML = html;
     fond.appendChild(boite);
     document.body.appendChild(fond);
+    const ignores = {}; /* fiche_id -> true, bascule par le bouton Ne pas imprimer */
+    boite.querySelectorAll('button[data-ignorer]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const id = btn.getAttribute('data-ignorer');
+        const ligne = btn.closest('.rl-ligne');
+        const zone = ligne.querySelector('textarea[data-fiche="' + id + '"]');
+        const enCours = !ignores[id];
+        ignores[id] = enCours;
+        zone.disabled = enCours;
+        zone.style.opacity = enCours ? '0.4' : '1';
+        if(enCours) zone.value = '';
+        btn.classList.toggle('actif', enCours);
+        btn.textContent = enCours ? 'Annuler' : 'Ne pas imprimer';
+      });
+    });
     boite.querySelector('#rlAnnuler').addEventListener('click', function(){ fond.remove(); resoudre(false); });
     boite.querySelector('#rlEnregistrer').addEventListener('click', async function(){
       const zones = Array.from(boite.querySelectorAll('textarea[data-fiche]'));
-      const vides = zones.filter(z => !z.value.trim());
+      const vides = zones.filter(z => !ignores[z.getAttribute('data-fiche')] && !z.value.trim());
       const err = boite.querySelector('#rlErreur');
-      if(vides.length){ err.textContent = 'Toutes les lignes doivent \u00eatre r\u00e9dig\u00e9es (' + vides.length + ' manquante' + (vides.length > 1 ? 's' : '') + ').'; vides[0].focus(); return; }
+      if(vides.length){ err.textContent = 'Chaque ligne doit \u00eatre r\u00e9dig\u00e9e ou marqu\u00e9e \u00e0 ne pas imprimer (' + vides.length + ' manquante' + (vides.length > 1 ? 's' : '') + ').'; vides[0].focus(); return; }
       err.textContent = '';
       this.disabled = true; this.textContent = 'Enregistrement\u2026';
       try{
         for(const z of zones){
           const id = z.getAttribute('data-fiche');
-          const proposer = !!boite.querySelector('input[data-proposer="' + id + '"]:checked');
-          const rep = await postJson(BASE + '/fabstory-ligne-rapport', { fiche_id: parseInt(id, 10), ligne: z.value.trim(), proposer_modele: proposer, auteur: qui() || null });
+          const ignore = !!ignores[id];
+          const proposer = !ignore && !!boite.querySelector('input[data-proposer="' + id + '"]:checked');
+          const corps = ignore
+            ? { fiche_id: parseInt(id, 10), ignorer: true, auteur: qui() || null }
+            : { fiche_id: parseInt(id, 10), ligne: z.value.trim(), proposer_modele: proposer, auteur: qui() || null };
+          const rep = await postJson(BASE + '/fabstory-ligne-rapport', corps);
           if(!rep || !rep.ok) throw new Error((rep && rep.motif) || 'Enregistrement refus\u00e9 (fil ' + id + ').');
         }
         fond.remove(); resoudre(true);
