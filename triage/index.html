@@ -74,6 +74,8 @@ tr.fil:hover td { background: rgba(255,255,255,.02); }
 .client .mail { display: block; color: var(--text3); font-weight: 400; font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
 .objet { color: var(--text); margin-bottom: 4px; }
 .resume { color: var(--text2); line-height: 1.45; max-width: 78ch; }
+.sugg { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--text3); }
+.sugg b { color: var(--text2); font-weight: 500; }
 .motif { color: var(--text3); font-size: 12px; margin-top: 5px; display: none; }
 tr.ouvert .motif { display: block; }
 .col-act { width: 40px; text-align: right; }
@@ -86,6 +88,23 @@ tr.ouvert .motif { display: block; }
 .badge-reclamation { background: var(--red-bg); color: var(--red-badge); }
 .badge-relance { background: var(--pink-bg); color: var(--pink-badge); }
 .badge-autre { background: var(--border2); color: var(--text); }
+
+/* Zone réponse */
+.rep { display: none; padding: 12px 0 2px; }
+tr.ouvert + tr.rep-row .rep { display: block; }
+tr.rep-row td { padding-top: 0; border-top: none; }
+tr.rep-row:not(.visible) { display: none; }
+.rep-lab { color: var(--text3); font-size: 12px; margin-bottom: 6px; }
+.rep-in { display: flex; gap: 8px; flex-wrap: wrap; }
+.rep-in input { flex: 1; min-width: 280px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius); padding: 7px 10px; font-size: 13px; font-family: var(--sans); }
+.rep-in input:focus { outline: none; border-color: var(--accent); }
+.rep-out { margin-top: 10px; background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; }
+.rep-out .dest { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+.rep-out pre { margin: 0; white-space: pre-wrap; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--text); }
+.rep-out .apres { margin-top: 10px; font-size: 12px; color: var(--text2); }
+.rep-out .apres a { color: var(--accent); }
+.rep-err { margin-top: 10px; color: var(--red); font-size: 13px; }
+.avert { margin-top: 8px; font-size: 12px; color: var(--amber); }
 
 .etat { padding: 40px; text-align: center; color: var(--text3); }
 .etat.err { color: var(--red); }
@@ -124,9 +143,10 @@ tr.ouvert .motif { display: block; }
 </main>
 
 <script>
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
+const API_REP = "https://protoprocess.app.n8n.cloud/webhook/triage-repondre";
 
 document.title = `Triage boîte commerciale v${APP_VERSION}`;
 document.getElementById('version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -193,17 +213,69 @@ function rendre() {
       const t = f.type || 'autre';
       const resume = f.resume ? echapper(f.resume) : '<em style="color:var(--text3)">Résumé indisponible</em>';
       const motif = f.motif_urgence ? `<div class="motif"><i class="ti ti-info-circle"></i> ${echapper(f.motif_urgence)}</div>` : '';
-      html += `<tr class="fil" onclick="this.classList.toggle('ouvert')">
+      const sugg = f.intention_suggeree ? `<div class="sugg"><i class="ti ti-bulb"></i> Réponse suggérée : <b>${echapper(f.intention_suggeree)}</b></div>` : '';
+      html += `<tr class="fil" onclick="basculer(this)">
         <td class="col-age ${j >= 5 ? 'vieux' : ''}">${age(j)}</td>
         <td class="col-client"><div class="client">${echapper(c.nom)}<span class="mail" title="${echapper(c.mail)}">${echapper(c.mail)}</span></div></td>
         <td class="col-type"><span class="badge badge-${t}">${LIB_TYPE[t] || t}</span></td>
-        <td><div class="objet">${echapper(f.objet)}</div><div class="resume">${resume}</div>${motif}</td>
+        <td><div class="objet">${echapper(f.objet)}</div><div class="resume">${resume}</div>${sugg}${motif}</td>
         <td class="col-act"><a href="https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(f.thread_id)}" target="_blank" title="Ouvrir dans Gmail" onclick="event.stopPropagation()"><i class="ti ti-external-link"></i></a></td>
-      </tr>`;
+      </tr>
+      <tr class="rep-row" data-thread="${echapper(f.thread_id)}"><td></td><td colspan="4">
+        <div class="rep">
+          <div class="rep-lab">Que voulez-vous répondre ? Une phrase suffit — Claude rédige le mail et le dépose en brouillon dans Gmail.</div>
+          <div class="rep-in">
+            <input type="text" placeholder="ex. demander l'annulation de la référence commandée" value="${echapper(f.intention_suggeree || '')}"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();preparer(this)}">
+            <button class="btn-p" onclick="preparer(this.previousElementSibling)"><i class="ti ti-pencil"></i> Préparer le brouillon</button>
+          </div>
+          <div class="zone"></div>
+        </div>
+      </td></tr>`;
     }
     html += '</tbody></table></section>';
   }
   cont.innerHTML = html;
+}
+
+function basculer(tr) {
+  tr.classList.toggle('ouvert');
+  const suivant = tr.nextElementSibling;
+  if (suivant && suivant.classList.contains('rep-row')) suivant.classList.toggle('visible', tr.classList.contains('ouvert'));
+}
+
+async function preparer(input) {
+  const ligne = input.closest('.rep-row');
+  const zone = ligne.querySelector('.zone');
+  const bouton = ligne.querySelector('.btn-p');
+  const intention = input.value.trim();
+  if (!intention) { zone.innerHTML = '<div class="rep-err">Indiquez d\'abord ce que vous voulez répondre.</div>'; input.focus(); return; }
+
+  bouton.disabled = true;
+  zone.innerHTML = '<div class="rep-out"><pre>Rédaction en cours…</pre></div>';
+  try {
+    const r = await fetch(API_REP, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread_id: ligne.dataset.thread, intention })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const dest = [d.to ? 'À : ' + d.to : '', d.cc ? ' · Cc : ' + d.cc : ''].join('');
+    const avert = d.mode_destinataire === 'transfert'
+      ? '<div class="avert"><i class="ti ti-alert-triangle"></i> Fil transféré : le destinataire a été déduit du message d\'origine — à vérifier avant envoi.</div>'
+      : (d.mode_destinataire === 'inconnu' ? '<div class="avert"><i class="ti ti-alert-triangle"></i> Destinataire non déterminé : à renseigner dans Gmail.</div>' : '');
+    zone.innerHTML = `<div class="rep-out">
+      <div class="dest">${echapper(dest)}</div>
+      <pre>${echapper(d.texte)}</pre>
+      ${avert}
+      <div class="apres"><i class="ti ti-check"></i> Brouillon déposé dans le fil. <a href="${echapper(d.url)}" target="_blank">Ouvrir dans Gmail pour relire et envoyer →</a></div>
+    </div>`;
+  } catch (e) {
+    zone.innerHTML = `<div class="rep-err">Échec de la préparation (${echapper(e.message)}).</div>`;
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
 async function charger() {
