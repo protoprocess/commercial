@@ -217,6 +217,29 @@ label.mini{font-size:11px;color:var(--text3);display:block;margin:6px 0 3px}
 @keyframes sp{to{transform:rotate(360deg)}}
 dialog{border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;max-width:440px;width:92vw}
 dialog::backdrop{background:rgba(20,26,36,.45)}
+/* v4.19 (ch.163) : rapport de fab */
+dialog.dlg-large{max-width:960px;width:94vw}
+.rf-tete{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin:0 0 10px}
+.rf-tete .ref{font-weight:700;font-size:15px}
+.rf-tete .cli{color:var(--text2)}
+.rf-lots{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.rf-lot{border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;background:var(--surface);cursor:pointer;font-size:12.5px;min-width:200px}
+.rf-lot.on{border-color:var(--accent);background:var(--accent-bg)}
+.rf-lot .l1{font-weight:600}
+.rf-lot .l2{color:var(--text2);font-size:11.5px;margin-top:2px}
+.rf-lot .fige{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green-badge)}
+.rf-serie{font-family:var(--mono);font-size:13px;background:var(--surface2);border-radius:var(--radius);padding:8px 12px;margin:0 0 10px}
+.rf-alerte{background:var(--amber-bg);color:var(--amber-badge);border-radius:var(--radius);padding:8px 12px;font-size:12.5px;margin:0 0 10px}
+.rf-fige-bandeau{background:var(--green-bg);color:var(--green-badge);border-radius:var(--radius);padding:8px 12px;font-size:12.5px;margin:0 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rf-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.rf-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);padding:6px 8px;border-bottom:1px solid var(--border)}
+.rf-table td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.rf-table td input[type=text]{width:100%;padding:5px 8px;font-size:12.5px;border:1px solid var(--border);border-radius:var(--radius);background:#fff}
+.rf-table td.c{text-align:center;width:70px}
+.rf-table tr.ajoutee td{background:var(--info-bg)}
+.rf-table .sup{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px}
+.rf-pied{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px;flex-wrap:wrap}
+.rf-pied select{padding:6px 9px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;background:#fff}
 /* ----------------------------------------------------- saisie guidee v4.0 -- */
 .stepper{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .step{display:flex;align-items:center;gap:7px;color:var(--text3);font-size:12px;font-weight:500}
@@ -419,6 +442,11 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
   </div>
 </dialog>
 
+<dialog id="dlg-rapport" class="dlg-large">
+  <h2><i class="ti ti-clipboard-check"></i> Rapport de fabrication</h2>
+  <div id="rf-corps"><p class="hint"><span class="spin"></span> Lecture des lots…</p></div>
+</dialog>
+
 <!-- Recadrage plein ecran (v4.11, repris de fabstory-atelier) -->
 <div id="recadrage">
   <div class="aide">Déplacez le cadre, tirez les coins pour l’ajuster</div>
@@ -432,8 +460,8 @@ dialog::backdrop{background:rgba(20,26,36,.45)}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.18';
-const APP_DATE = '03/09/2026';
+const APP_VERSION = '4.19';
+const APP_DATE = '04/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -925,6 +953,7 @@ function rendreFiche(){
     '</select>' +
     '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
     '<button class="filtre" onclick="FS.photosCarte()" title="Prendre ou reprendre les photos dessus / dessous de la carte (tablette ou t\u00e9l\u00e9phone), pour le rapport de fabrication.">Photos carte</button>' +
+    '<button class="filtre" onclick="FS.rapportFab()" title="Valide et fige le rapport de fabrication du lot en cours (n\u00b0 de s\u00e9rie par BL Odoo, commentaires du tableau de conformit\u00e9). Une fois fig\u00e9, le client voit cette version.">Rapport de fab</button>' +
     '<button class="filtre" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, t\u00e9l\u00e9chargeable depuis cette page.">Voir le rapport client</button>' +
     '<button class="btn-mail-client" onclick="FS.mailClient()" title="Cr\u00e9e un brouillon Gmail (commercial@ ou production@ selon vos initiales) avec les questions client en attente et le lien de r\u00e9ponse en ligne. Rien ne part sans vous.">Pr\u00e9parer le mail client</button>' +
     '</div>';
@@ -1021,6 +1050,147 @@ FS.copierClient = async function(){
 /* ch.137 : page atelier des photos carte (dessus/dessous), tablette ou telephone. */
 FS.photosCarte = function(){
   window.open('../fabstory-atelier/?produit=' + encodeURIComponent(P.id), '_blank');
+};
+
+/* ---------------------------------------------------- v4.19 : rapport de fab (ch.163) --
+   Un rapport = un LOT = un BL de sortie Odoo. Le serveur (workflow LRfy5bHXKCzi1VYm)
+   calcule les lots, les n de serie cumules et la conformite par defaut ; ici on choisit
+   le lot, on commente / complete le tableau de conformite, puis "Valider et figer".
+   Un rapport fige est relu tel quel par la vue client (etape 4 du chantier). */
+let RF = null;
+FS.rapportFab = async function(){
+  const dlg = el('dlg-rapport'); const z = el('rf-corps');
+  z.innerHTML = '<p class="hint"><span class="spin"></span> Lecture des lots\u2026</p>';
+  dlg.showModal();
+  const so = soCourant();
+  if(!so){
+    z.innerHTML = '<p class="err-msg">Aucune commande connue pour cette carte (statut Odoo pas encore lu, ou carte sans SO).</p>' +
+      '<div class="rf-pied"><button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
+    return;
+  }
+  try{
+    RF = await getJson(BASE + '/fabstory-rapport?produit=' + encodeURIComponent(P.id) + '&so=' + encodeURIComponent(so));
+    if(!RF || !RF.ok) throw new Error((RF && RF.motif) || 'Reponse invalide');
+    RF.lotId = RF.lot_preselection || (RF.lots[0] && RF.lots[0].bl_odoo_id) || null;
+    RF.edit = null;
+    rendreRapport();
+  }catch(e){
+    z.innerHTML = '<p class="err-msg">Rapport indisponible : ' + esc(e.message) + '</p>' +
+      '<div class="rf-pied"><button class="btn-s" onclick="FS.rapportFab()">R\u00e9essayer</button>' +
+      '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
+  }
+};
+function rfLot(){ return (RF.lots || []).find(l => l.bl_odoo_id === RF.lotId) || null; }
+function rfIgnoresUtiles(){
+  /* les articles PP-000x (frais, generiques de devis) ne sont jamais des cartes : on ne
+     signale que les vraies lignes hors-carte (article generique ou doublon a corriger). */
+  return (RF.ignores || []).filter(i => !/^\[PP-0001\]/i.test(i.article || ''));
+}
+FS.rfChoisirLot = function(id){ RF.lotId = id; RF.edit = null; rendreRapport(); };
+function rfEditInit(lot){
+  if(RF.edit && RF.edit.lotId === lot.bl_odoo_id) return RF.edit;
+  RF.edit = { lotId: lot.bl_odoo_id, lignes: (RF.conformite_defaut || []).map(l => Object.assign({}, l)) };
+  return RF.edit;
+}
+function rendreRapport(){
+  const z = el('rf-corps'); const lot = rfLot();
+  let h = '<div class="rf-tete"><span class="ref">' + esc(RF.produit.cle_produit) + '</span>' +
+    '<span class="cli">' + esc(RF.produit.nom_client || '') + '</span>' +
+    '<span class="cli">' + esc(RF.so) + (RF.qte_cmd != null ? ' \u00b7 ' + RF.qte_cmd + ' pi\u00e8ces command\u00e9es' : '') + '</span></div>';
+  const ign = rfIgnoresUtiles();
+  if(ign.length){
+    h += '<div class="rf-alerte"><i class="ti ti-alert-triangle"></i> Lignes du SO non rattach\u00e9es \u00e0 cette carte (\u00e0 corriger dans Odoo, elles ne comptent pas dans les n\u00b0 de s\u00e9rie) : ' +
+      ign.map(i => esc(i.qte + ' \u00d7 ' + i.article + ' (' + i.bl + ')')).join(' \u00b7 ') + '</div>';
+  }
+  if(!(RF.lots || []).length){
+    h += '<p class="err-msg">Aucun bon de livraison de sortie trouv\u00e9 dans Odoo pour ' + esc(RF.so) + '.</p>' +
+      '<div class="rf-pied"><button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
+    z.innerHTML = h; return;
+  }
+  h += '<div class="sec-titre" style="margin-top:4px">Lot (= bon de livraison Odoo)</div><div class="rf-lots">' +
+    RF.lots.map(l => '<div class="rf-lot' + (l.bl_odoo_id === RF.lotId ? ' on' : '') + '" onclick="FS.rfChoisirLot(' + l.bl_odoo_id + ')">' +
+      '<div class="l1">Lot ' + l.lot_numero + ' \u2014 ' + esc(l.bl_nom) + ' \u00b7 ' + l.qte + ' pi\u00e8ce' + (l.qte > 1 ? 's' : '') + '</div>' +
+      '<div class="l2">' + (l.fait ? 'Exp\u00e9di\u00e9 le ' + esc(l.date_fait) : 'Pr\u00e9vu le ' + esc(l.date_prevue || '?')) + '</div>' +
+      (l.rapport_fige ? '<span class="fige">Fig\u00e9 \u00b7 ' + esc(l.rapport_fige.valide_par) + ' \u00b7 ' + fjour(l.rapport_fige.valide_le) + '</span>' : '') +
+      '</div>').join('') + '</div>';
+  if(!lot){ z.innerHTML = h; return; }
+  if(lot.qte <= 0){
+    h += '<div class="rf-alerte">Ce BL ne contient aucune pi\u00e8ce de la carte ' + esc(RF.produit.cle_produit) + ' \u2014 rapport impossible tant que la ligne SO n\u2019est pas corrig\u00e9e dans Odoo.</div>' +
+      '<div class="rf-pied"><button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
+    z.innerHTML = h; return;
+  }
+  h += '<div class="rf-serie">N\u00b0 de s\u00e9rie : <strong>' + esc(lot.n_serie_debut) + '</strong> \u2192 <strong>' + esc(lot.n_serie_fin) + '</strong>' +
+    ' &nbsp;\u00b7&nbsp; D\u00e9claration : <strong>' + esc(lot.n_declaration) + '</strong></div>';
+  const f = lot.rapport_fige;
+  if(f){
+    h += '<div class="rf-fige-bandeau"><i class="ti ti-lock"></i> Rapport fig\u00e9 par <strong>' + esc(f.valide_par) + '</strong> le ' + fdate(f.valide_le) +
+      ' \u2014 c\u2019est cette version que voit le client.' +
+      '<button class="btn-s" style="margin-left:auto" onclick="FS.rfRefaire(' + f.id + ')"><i class="ti ti-refresh"></i> Refaire</button></div>';
+    h += rfTableHtml(f.conformite || [], false);
+    h += '<div class="rf-pied"><button class="btn-s" onclick="FS.voirRapportClient()"><i class="ti ti-external-link"></i> Voir le rapport client</button>' +
+      '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
+    z.innerHTML = h; return;
+  }
+  const ed = rfEditInit(lot);
+  if(!RF.controle_final_fait){
+    h += '<div class="rf-alerte"><i class="ti ti-info-circle"></i> Le contr\u00f4le final n\u2019est pas encore coch\u00e9 dans Odoo : les lignes sont propos\u00e9es non conformes tant qu\u2019il ne l\u2019est pas.</div>';
+  }
+  h += '<div class="sec-titre">Tableau de conformit\u00e9 \u2014 commentaires libres, lignes ajoutables</div>' + rfTableHtml(ed.lignes, true);
+  h += '<div style="margin-top:6px"><button class="btn-s" onclick="FS.rfAjouterLigne()"><i class="ti ti-plus"></i> Ajouter une ligne</button></div>';
+  h += '<div class="rf-pied"><span class="hint">Valid\u00e9 par</span><select id="rf-qui">' +
+    EQUIPE.map(x => '<option' + (x === qui() ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' +
+    '<span id="rf-msg" class="hint" style="min-width:120px"></span>' +
+    '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button>' +
+    '<button class="btn" id="rf-go" onclick="FS.rfFiger()"><i class="ti ti-lock"></i> Valider et figer</button></div>';
+  z.innerHTML = h;
+}
+function rfTableHtml(lignes, editable){
+  let t = '<table class="rf-table"><tr><th>Point de contr\u00f4le</th><th style="text-align:center">Conforme</th><th>Commentaire (visible client)</th>' + (editable ? '<th></th>' : '') + '</tr>';
+  if(!lignes.length) t += '<tr><td colspan="4" class="hint">Aucun point d\u2019inspection (op\u00e9rations Odoo non lues).</td></tr>';
+  lignes.forEach((l, i) => {
+    t += '<tr' + (l.ajoutee ? ' class="ajoutee"' : '') + '>' +
+      '<td>' + (editable && l.ajoutee ? '<input type="text" value="' + esc(l.libelle) + '" placeholder="Libell\u00e9 du point" oninput="FS.rfMaj(' + i + ',\'libelle\',this.value)">' : esc(l.libelle)) + '</td>' +
+      '<td class="c">' + (editable ? '<input type="checkbox"' + (l.conforme ? ' checked' : '') + ' onchange="FS.rfMaj(' + i + ',\'conforme\',this.checked)">' : (l.conforme ? 'Conforme' : '\u2014')) + '</td>' +
+      '<td>' + (editable ? '<input type="text" value="' + esc(l.commentaire || '') + '" placeholder="\u2026" oninput="FS.rfMaj(' + i + ',\'commentaire\',this.value)">' : esc(l.commentaire || '')) + '</td>' +
+      (editable ? '<td class="c">' + (l.ajoutee ? '<button class="sup" title="Retirer" onclick="FS.rfRetirer(' + i + ')">\u2715</button>' : '') + '</td>' : '') +
+      '</tr>';
+  });
+  return t + '</table>';
+}
+FS.rfMaj = function(i, k, v){ if(RF && RF.edit && RF.edit.lignes[i]) RF.edit.lignes[i][k] = v; };
+FS.rfAjouterLigne = function(){
+  RF.edit.lignes.push({ code: 'libre_' + Date.now().toString(36), libelle: '', conforme: true, commentaire: '', ajoutee: true });
+  rendreRapport();
+  const inputs = el('rf-corps').querySelectorAll('tr.ajoutee input[type=text]');
+  if(inputs.length) inputs[inputs.length - 2].focus();
+};
+FS.rfRetirer = function(i){ RF.edit.lignes.splice(i, 1); rendreRapport(); };
+FS.rfFiger = async function(){
+  const lot = rfLot(); if(!lot || !RF.edit) return;
+  const quiSel = (el('rf-qui').value || '').trim().toUpperCase();
+  if(!quiSel){ el('rf-msg').textContent = 'Initiales requises.'; return; }
+  setQui(quiSel);
+  const lignes = RF.edit.lignes.filter(l => (l.libelle || '').trim());
+  if(!confirm('Figer le rapport du lot ' + lot.lot_numero + ' (' + lot.bl_nom + ', ' + lot.qte + ' pi\u00e8ces, ' + lot.n_serie_debut + ' \u2192 ' + lot.n_serie_fin + ') ?\n\nLe client verra cette version. Pour la modifier ensuite il faudra la refaire.')) return;
+  const go = el('rf-go'); go.disabled = true; el('rf-msg').textContent = 'Enregistrement\u2026';
+  try{
+    const r = await postJson(BASE + '/fabstory-rapport-figer', {
+      produit_id: P.id, so: RF.so, bl_odoo_id: lot.bl_odoo_id, bl_nom: lot.bl_nom, lot_numero: lot.lot_numero,
+      qte_lot: lot.qte, n_serie_debut: lot.n_serie_debut, n_serie_fin: lot.n_serie_fin, n_declaration: lot.n_declaration,
+      conformite: lignes, valide_par: quiSel });
+    if(!r || !r.ok) throw new Error((r && r.motif) || 'Refus du serveur');
+    await FS.rapportFab();
+  }catch(e){
+    go.disabled = false; el('rf-msg').textContent = 'Echec : ' + e.message;
+  }
+};
+FS.rfRefaire = async function(id){
+  if(!confirm('Annuler le rapport fig\u00e9 et repartir de la proposition automatique ?\n\nLe client ne verra plus cette version tant qu\u2019un nouveau rapport n\u2019est pas fig\u00e9.')) return;
+  try{
+    const r = await postJson(BASE + '/fabstory-rapport-annuler', { id: id });
+    if(!r || !r.ok) throw new Error((r && r.motif) || 'Refus du serveur');
+    await FS.rapportFab();
+  }catch(e){ alert('Echec : ' + e.message); }
 };
 
 FS.voirRapportClient = async function(){
