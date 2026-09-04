@@ -204,7 +204,9 @@
   .photos-carte { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .photos-carte figure { margin: 0; }
   .photos-carte figure[hidden] { display: none; }
-  .photos-carte img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; display: block; }
+  /* v0.45 (04/09) : cases de taille identique pour les deux faces (aspect-ratio + contain),
+     sinon height:auto laissait chaque photo garder sa hauteur naturelle -> vignettes inegales. */
+  .photos-carte img { width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: contain; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; display: block; }
   .photos-carte figcaption { text-align: center; font-size: 12px; color: var(--text3); margin-top: 6px; }
   @media (max-width: 560px) { .photos-carte { grid-template-columns: 1fr; } }
   .entree-resume, .fil-note-print { display: none; }
@@ -322,7 +324,7 @@
     .jalons-note { font-size: 9.5pt; }
     /* Photos : les deux faces cote a cote, hauteur plafonnee pour tenir en page 1 */
     .photos-carte { grid-template-columns: 1fr 1fr !important; gap: 10px; }
-    .photos-carte img { max-height: 88mm; width: auto; max-width: 100%; margin: 0 auto; border: 1px solid #ddd; }
+    .photos-carte img { width: 100%; height: 66mm; aspect-ratio: auto; object-fit: contain; margin: 0 auto; border: 1px solid #ddd; }
     .photos-carte figcaption { font-size: 9pt; color: #555; }
     /* Historique compact, sections metier ; questions resolues resumees */
     .entree-plein { display: none !important; }
@@ -480,8 +482,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.44";
-const APP_DATE = "03/09/2026";
+const APP_VERSION = "0.45";
+const APP_DATE = "04/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
