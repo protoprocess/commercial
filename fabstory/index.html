@@ -468,7 +468,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.20';
+const APP_VERSION = '4.21';
 const APP_DATE = '04/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1094,7 +1094,7 @@ function rfIgnoresUtiles(){
      signale que les vraies lignes hors-carte (article generique ou doublon a corriger). */
   return (RF.ignores || []).filter(i => !/^\[PP-0001\]/i.test(i.article || ''));
 }
-FS.rfChoisirLot = function(id){ RF.lotId = id; RF.edit = null; RF.rx = null; rendreRapport(); };
+FS.rfChoisirLot = function(id){ RF.lotId = id; RF.edit = null; RF.rx = null; RF.rxEnCours = false; rendreRapport(); };
 function rfEditInit(lot){
   if(RF.edit && RF.edit.lotId === lot.bl_odoo_id) return RF.edit;
   RF.edit = { lotId: lot.bl_odoo_id, lignes: (RF.conformite_defaut || []).map(l => Object.assign({}, l)) };
@@ -1120,10 +1120,18 @@ function rfRxHtml(){
     '<span id="rf-rx-msg" class="hint" style="margin-left:8px"></span></div></div>';
   return h;
 }
-async function rfChargerRx(){
-  RF.rx = null;
-  try{ RF.rx = await getJson(BASE + '/fabstory-rx?produit=' + encodeURIComponent(P.id) + '&so=' + encodeURIComponent(RF.so)); }
-  catch(e){ RF.rx = { ok:false, cliches:[] }; }
+async function rfChargerRx(force){
+  /* v4.21 (04/09) : un seul chargement par ouverture de lot. rfRxEnCours empeche la
+     course entre le re-render de rendreRapport (qui rappelait rfChargerRx tant que
+     RF.rx etait null) et la reponse async -> plus de spinner infini. */
+  if(RF.rxEnCours) return;
+  if(RF.rx && !force){ rfBrancherRx(); return; }
+  RF.rxEnCours = true;
+  let res;
+  try{ res = await getJson(BASE + '/fabstory-rx?produit=' + encodeURIComponent(P.id) + '&so=' + encodeURIComponent(RF.so)); }
+  catch(e){ res = { ok:false, cliches:[] }; }
+  RF.rx = { ok: !!res.ok, cliches: Array.isArray(res.cliches) ? res.cliches : [], expire_le: res.expire_le || null };
+  RF.rxEnCours = false;
   const z = document.querySelector('.rf-rx');
   if(z){ z.outerHTML = rfRxHtml(); rfBrancherRx(); }
 }
@@ -1150,13 +1158,13 @@ FS.rxDeposer = async function(fichiers){
     }catch(e){ if(msg) msg.textContent = '\u00c9chec : ' + e.message; await rfChargerRx(); return; }
   }
   if(msg) msg.textContent = '';
-  await rfChargerRx();
+  RF.rx = null; RF.rxEnCours = false; await rfChargerRx(true);
 };
 FS.rxRetirer = async function(id){
   if(!confirm('Retirer ce clich\u00e9 RX ? Le lien client cesse imm\u00e9diatement de fonctionner et le fichier sera supprim\u00e9.')) return;
   try{ await postJson(BASE + '/fabstory-rx-retirer', { id: id }); }
   catch(e){ alert('Echec : ' + e.message); }
-  await rfChargerRx();
+  RF.rx = null; RF.rxEnCours = false; await rfChargerRx(true);
 };
 
 function rendreRapport(){
@@ -1211,7 +1219,7 @@ function rendreRapport(){
     '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button>' +
     '<button class="btn" id="rf-go" onclick="FS.rfFiger()"><i class="ti ti-lock"></i> Valider et figer</button></div>';
   z.innerHTML = h;
-  if(document.querySelector('.rf-rx') && (!RF.rx)) rfChargerRx(); else rfBrancherRx();
+  if(document.querySelector('.rf-rx')) rfChargerRx();
 }
 function rfTableHtml(lignes, editable){
   let t = '<table class="rf-table"><tr><th>Point de contr\u00f4le</th><th style="text-align:center">Conforme</th><th>Commentaire (visible client)</th>' + (editable ? '<th></th>' : '') + '</tr>';
