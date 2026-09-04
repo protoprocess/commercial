@@ -482,7 +482,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.45";
+const APP_VERSION = "0.46";
 const APP_DATE = "04/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -964,6 +964,9 @@ function chargerPhotos() {
   });
 }
 
+/* v0.46 (04/09, ch.163) : quand un rapport est FIGE cote PP, le serveur envoie les
+   lignes figees (avec commentaires et lignes ajoutees) et les n de serie du LOT ;
+   la page n a rien a decider, elle affiche ce qu elle recoit. */
 /* ch.137 (spec Olivier 01/09) : INSPECTION AVANT EMBALLAGE -- les points de
    controle du F08/B, sans les lignes inutiles. La liste est calculee cote
    serveur a partir des operations cochees sur le projet Odoo ; l etat est
@@ -984,7 +987,7 @@ function rendreInspection(pts) {
     pts.map(function (p) {
       return '<tr><td>' + esc(tInsp(p.code, p.libelle)) + '</td>' +
         '<td style="text-align:center" class="f08-fort">' + (p.conforme ? esc(t("conforme")) : "") + '</td>' +
-        '<td class="f08-obs-cell"></td></tr>';
+        '<td class="f08-obs-cell">' + esc(p.commentaire || "") + '</td></tr>';
     }).join("") + '</table>';
   bloc.style.display = "block";
   majRapportVide();
