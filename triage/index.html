@@ -197,7 +197,7 @@ tr.rep-row:not(.visible) { display: none; }
 </main>
 
 <script>
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
 const API_REP = "https://protoprocess.app.n8n.cloud/webhook/triage-repondre";
@@ -403,6 +403,10 @@ function rendreMaj(d, thread) {
   }
 
   h += `<div class="maj-sec maj-mail"><div class="maj-hd">Brouillon proposé</div><pre>${echapper(d.mail || '')}</pre></div>`;
+
+  if ((d.planning_exclu || []).length) {
+    h += `<div class="maj-alerte"><i class="ti ti-info-circle"></i> Planning non modifié pour ${echapper(d.planning_exclu.join(', '))} : plusieurs lots sur ce SO, la ligne à modifier est à choisir à la main.</div>`;
+  }
 
   if (acts.length) {
     const cause = d.cause === 'client' ? 'retard côté client' : (d.cause === 'nous' ? 'retard de notre fait' : 'cause indéterminée');
