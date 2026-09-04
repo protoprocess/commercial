@@ -69,7 +69,7 @@ tr.fil:hover td { background: rgba(255,255,255,.02); }
 
 .col-age { width: 70px; white-space: nowrap; font-family: var(--mono); font-size: 12px; color: var(--text2); }
 .col-age.vieux { color: var(--red); font-weight: 600; }
-.col-type { width: 100px; }
+.col-type { width: 132px; }
 .col-client { width: 220px; }
 .client { font-weight: 600; }
 .client .mail { display: block; color: var(--text3); font-weight: 400; font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
@@ -120,12 +120,14 @@ tr.ouvert .motif { display: block; }
 .bilan .r .d { color: var(--text3); font-size: 12px; }
 
 /* Menu de classement au survol */
-tr.fil { position: relative; }
-.menu { position: absolute; right: 44px; top: 50%; transform: translateY(-50%); display: none; gap: 6px; z-index: 3; }
-tr.fil:hover .menu { display: flex; }
-.menu button { border: 1px solid var(--border2); background: var(--surface2); color: var(--text2); border-radius: 20px; padding: 4px 11px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: var(--sans); white-space: nowrap; }
+/* Les actions de classement etaient au survol, tout a droite de l ecran :
+   invisibles sur grand ecran. Elles sont desormais figees sous la pastille
+   de type, a cote du contenu qu elles concernent. */
+.menu { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+.menu button { border: 1px solid var(--border2); background: var(--surface); color: var(--text2); border-radius: var(--radius); padding: 3px 9px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: var(--sans); white-space: nowrap; }
 .menu button:hover { background: var(--accent); color: #fff; border-color: transparent; }
 .menu button:disabled { opacity: .5; cursor: default; }
+.menu .lab { color: var(--text3); font-size: 10px; width: 100%; margin-bottom: 1px; }
 .classe { margin-top: 8px; font-size: 12px; color: var(--green); }
 .classe a { color: var(--accent); }
 .classe.err { color: var(--red); }
@@ -179,7 +181,7 @@ tr.rep-row:not(.visible) { display: none; }
   <div class="meta">
     <span id="maj">—</span>
     <span id="version"></span>
-    <button class="btn-p" id="btn-refresh" onclick="charger()"><i class="ti ti-refresh"></i> Actualiser</button>
+    <button class="btn-p" id="btn-refresh" onclick="relancer()"><i class="ti ti-refresh"></i> Relancer l'analyse</button>
   </div>
 </header>
 
@@ -197,13 +199,14 @@ tr.rep-row:not(.visible) { display: none; }
 </main>
 
 <script>
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.8";
 const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
 const API_REP = "https://protoprocess.app.n8n.cloud/webhook/triage-repondre";
 const API_CLASSER = "https://protoprocess.app.n8n.cloud/webhook/triage-classer";
 const API_MAJ_PREP = "https://protoprocess.app.n8n.cloud/webhook/triage-maj-preparer";
 const API_MAJ_APP = "https://protoprocess.app.n8n.cloud/webhook/triage-maj-appliquer";
+const API_SCAN = "https://protoprocess.app.n8n.cloud/webhook/triage-scan";
 
 document.title = `Triage boîte commerciale v${APP_VERSION}`;
 document.getElementById('version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -302,12 +305,14 @@ function rendre() {
       html += `<tr class="fil" onclick="basculer(this)">
         <td class="col-age ${j >= 5 ? 'vieux' : ''}">${age(j)}</td>
         <td class="col-client"><div class="client">${echapper(c.nom)}<span class="mail" title="${echapper(c.mail)}">${echapper(c.mail)}</span></div></td>
-        <td class="col-type"><span class="badge badge-${t}">${LIB_TYPE[t] || t}</span></td>
+        <td class="col-type"><span class="badge badge-${t}">${LIB_TYPE[t] || t}</span>
+          <div class="menu" onclick="event.stopPropagation()">
+            <span class="lab">Envoyer vers</span>
+            <button onclick="classer(this,'devis')" title="Poser ->Devis et récupérer le mail">Devis</button>
+            <button onclick="classer(this,'commande')" title="Poser ->Commande et récupérer le mail">Commande</button>
+          </div></td>
         <td><div class="objet">${echapper(f.objet)}</div><div class="resume">${resume}</div>${odoo}${sugg}${motif}</td>
-        <td class="col-act"><div class="menu" onclick="event.stopPropagation()">
-          <button onclick="classer(this,'devis')" title="Poser ->Devis et récupérer le mail">Devis</button>
-          <button onclick="classer(this,'commande')" title="Poser ->Commande et récupérer le mail">Commande</button>
-        </div><a href="https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(f.thread_id)}" target="_blank" title="Ouvrir dans Gmail" onclick="event.stopPropagation()"><i class="ti ti-external-link"></i></a></td>
+        <td class="col-act"><a href="https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(f.thread_id)}" target="_blank" title="Ouvrir dans Gmail" onclick="event.stopPropagation()"><i class="ti ti-external-link"></i></a></td>
       </tr>
       <tr class="rep-row" data-thread="${echapper(f.thread_id)}"><td></td><td colspan="4">
         <div class="rep">
@@ -529,6 +534,27 @@ async function preparer(input) {
   } finally {
     bouton.disabled = false;
   }
+}
+
+// Relance un vrai scan de la boite puis recharge. Sans cela, le bouton se
+// contentait de relire la base : il affichait l etat du dernier passage
+// automatique, ce que le mot "Actualiser" ne laissait pas deviner.
+async function relancer() {
+  const btn = document.getElementById('btn-refresh');
+  const maj = document.getElementById('maj');
+  btn.disabled = true;
+  const avant = maj.textContent;
+  maj.textContent = 'analyse de la boîte en cours…';
+  try {
+    await fetch(API_SCAN, { cache: 'no-store' });
+    // Le scan est sequentiel (une vingtaine de fils) : on laisse le temps
+    // aux premiers resultats d arriver avant de relire.
+    await new Promise(r => setTimeout(r, 25000));
+  } catch (e) {
+    maj.textContent = avant;
+  }
+  btn.disabled = false;
+  charger();
 }
 
 async function charger() {
