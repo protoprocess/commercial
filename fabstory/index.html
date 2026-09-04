@@ -471,7 +471,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.22';
+const APP_VERSION = '4.23';
 const APP_DATE = '04/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -850,6 +850,16 @@ function htmlEntree(e, cls){
 function nbEnAttente(){
   return Number((FICHE && FICHE.nb_differes) || 0) + Number((FICHE && FICHE.nb_echecs) || 0);
 }
+FS.acquitterBandeau = async function(){
+  const n = nbEnAttente();
+  if(!n) return;
+  if(!confirm('Masquer ' + n + (n > 1 ? ' entr\u00e9es' : ' entr\u00e9e') + ' non transmise' + (n > 1 ? 's' : '') + ' ?\n\nElles seront \u00e9cart\u00e9es et ne seront JAMAIS transmises. Le bandeau ne reviendra que si une NOUVELLE entr\u00e9e est enregistr\u00e9e.')) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  try{
+    await postJson(BASE + '/fabstory-acquitter', { produit_id: P.id, acquitte_par: auteur });
+    await recharger(true);
+  }catch(e){ alert('\u00c9chec du masquage : ' + e.message); }
+};
 function htmlBandeauNotifier(){
   const n = nbEnAttente();
   if(!n) return '';
@@ -861,6 +871,7 @@ function htmlBandeauNotifier(){
     ' aux concern\u00e9s.</span>' +
     '<button class="btn" onclick="FS.previsualiserNotif()">' +
     '<i class="ti ti-send"></i> Envoyer les notifications (' + n + ')</button>' +
+    '<button class="btn-s" onclick="FS.acquitterBandeau()" title="\u00c9carte ces entr\u00e9es sans les transmettre. Elles ne partiront jamais ; le bandeau ne reviendra que pour une NOUVELLE entr\u00e9e.">Masquer</button>' +
     '</div>';
 }
 FS.previsualiserNotif = async function(){
