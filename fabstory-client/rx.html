@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clichés RX · Proto Process</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --surface:#ffffff; --border:#dde3ec;
+    --text:#1c2430; --text2:#5b6b80; --text3:#8b98ab;
+    --accent:#F8952D; --accent-fonce:#d97a15;
+    --info-txt:#1B7A8F; --info-bg:#EAF7FA;
+    --radius:8px; --radius-lg:12px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);padding:24px 16px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:18px;margin:0 0 4px}
+  .sous{color:var(--text2);font-size:13px;margin:0 0 18px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px}
+  .cliche{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .cliche:last-child{border-bottom:none}
+  .nom{font-size:13.5px;word-break:break-word}
+  .taille{color:var(--text3);font-size:12px}
+  a.dl{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;text-decoration:none;border-radius:var(--radius);padding:7px 14px;font-size:13px;font-weight:600;white-space:nowrap}
+  a.dl:hover{background:var(--accent-fonce)}
+  .exp{color:var(--text3);font-size:12px;margin-top:10px}
+  .vide{color:var(--text2);font-size:13.5px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .pied{color:var(--text3);font-size:11.5px;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="titre">Clichés RX</h1>
+  <p class="sous" id="sous"><span class="spin"></span> Chargement…</p>
+  <div class="card" id="liste" style="display:none"></div>
+  <p class="pied">Proto Process · rx v1.0 — 04/09/2026</p>
+</div>
+<script>
+const APP_VERSION = "1.0";
+const API = "https://protoprocess.app.n8n.cloud/webhook";
+const params = new URLSearchParams(location.search);
+const JETON = (params.get("jeton") || "").trim();
+const SO = (params.get("so") || "").trim();
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function taille(o){ if(!o) return ""; if(o < 1024) return o + " o"; if(o < 1048576) return Math.round(o/1024) + " Ko"; return (o/1048576).toFixed(1) + " Mo"; }
+function jour(iso){ if(!iso) return ""; try{ return new Date(iso).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"}); }catch(e){ return ""; } }
+async function charger(){
+  const sous = document.getElementById("sous");
+  const liste = document.getElementById("liste");
+  if(!JETON || !SO){ sous.textContent = "Lien incomplet."; return; }
+  try{
+    const r = await fetch(API + "/fabstory-client-rx?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO));
+    const j = await r.json();
+    if(!j || !j.ok || !j.cliches || !j.cliches.length){
+      sous.innerHTML = '<span class="vide">Aucun clich\u00e9 RX disponible \u2014 le lien a peut-\u00eatre expir\u00e9.</span>';
+      return;
+    }
+    if(j.carte){ document.getElementById("titre").textContent = "Clich\u00e9s RX \u2014 " + j.carte; }
+    sous.textContent = SO;
+    liste.style.display = "block";
+    liste.innerHTML = j.cliches.map(function(c){
+      return '<div class="cliche"><div><div class="nom">' + esc(c.nom) + '</div>' +
+        (c.taille ? '<div class="taille">' + taille(c.taille) + '</div>' : '') + '</div>' +
+        '<a class="dl" href="' + esc(c.url) + '" target="_blank" rel="noopener" download>T\u00e9l\u00e9charger</a></div>';
+    }).join("") +
+    (j.expire_le ? '<div class="exp">Ces clich\u00e9s resteront disponibles jusqu\u2019au ' + jour(j.expire_le) + '.</div>' : '');
+  }catch(e){
+    sous.textContent = "Chargement impossible. R\u00e9essayez plus tard.";
+  }
+}
+charger();
+</script>
+</body>
+</html>

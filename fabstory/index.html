@@ -240,6 +240,14 @@ dialog.dlg-large{max-width:960px;width:94vw}
 .rf-table .sup{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px}
 .rf-pied{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px;flex-wrap:wrap}
 .rf-pied select{padding:6px 9px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;background:#fff}
+.rf-rx{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin:0 0 10px;background:var(--surface)}
+.rf-rx .titre{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:0 0 6px}
+.rf-rx .liste{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.rf-rx .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 6px 3px 11px;font-size:12px;background:var(--surface2)}
+.rf-rx .chip a{color:var(--info-txt);text-decoration:none}
+.rf-rx .chip .x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1}
+.rf-rx .vide{color:var(--text3);font-size:12px}
+.rf-rx .exp{color:var(--text3);font-size:11.5px;margin-top:4px}
 /* ----------------------------------------------------- saisie guidee v4.0 -- */
 .stepper{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .step{display:flex;align-items:center;gap:7px;color:var(--text3);font-size:12px;font-weight:500}
@@ -460,7 +468,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.19';
+const APP_VERSION = '4.20';
 const APP_DATE = '04/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1086,12 +1094,71 @@ function rfIgnoresUtiles(){
      signale que les vraies lignes hors-carte (article generique ou doublon a corriger). */
   return (RF.ignores || []).filter(i => !/^\[PP-0001\]/i.test(i.article || ''));
 }
-FS.rfChoisirLot = function(id){ RF.lotId = id; RF.edit = null; rendreRapport(); };
+FS.rfChoisirLot = function(id){ RF.lotId = id; RF.edit = null; RF.rx = null; rendreRapport(); };
 function rfEditInit(lot){
   if(RF.edit && RF.edit.lotId === lot.bl_odoo_id) return RF.edit;
   RF.edit = { lotId: lot.bl_odoo_id, lignes: (RF.conformite_defaut || []).map(l => Object.assign({}, l)) };
   return RF.edit;
 }
+/* v4.20 (ch.163) : cliches RX joints au rapport, partages au client via lien
+   expirant 15 j (workflow 2QH5u2W6lRp8ksck). Depot = meme canal signe que les
+   photos de carte (/fiche-de-vie-piece), puis /fabstory-rx-ajouter memorise. */
+function rfRxHtml(){
+  const l = (RF && RF.rx) || null;
+  let h = '<div class="rf-rx"><div class="titre"><i class="ti ti-radioactive"></i> Cliché(s) RX \u2014 partagés au client 15 jours</div>';
+  if(!l){ h += '<p class="vide"><span class="spin"></span> Lecture\u2026</p></div>'; return h; }
+  if(l.cliches && l.cliches.length){
+    h += '<div class="liste">' + l.cliches.map(c =>
+      '<span class="chip"><a href="' + esc(c.url || '#') + '" target="_blank" rel="noopener">' + esc(c.nom) + '</a>' +
+      '<button class="x" title="Retirer" onclick="FS.rxRetirer(' + c.id + ')">\u2715</button></span>').join('') + '</div>';
+    if(l.expire_le) h += '<div class="exp">Lien client actif jusqu\u2019au ' + fjour(l.expire_le) + ' \u2014 apr\u00e8s quoi les clich\u00e9s sont supprim\u00e9s.</div>';
+  } else {
+    h += '<p class="vide">Aucun clich\u00e9 pour l\u2019instant.</p>';
+  }
+  h += '<div style="margin-top:6px"><button class="btn-s" onclick="FS.rxAjouter()"><i class="ti ti-plus"></i> Ajouter des clich\u00e9s RX</button>' +
+    '<input type="file" id="rf-rx-in" accept="image/*" multiple style="display:none">' +
+    '<span id="rf-rx-msg" class="hint" style="margin-left:8px"></span></div></div>';
+  return h;
+}
+async function rfChargerRx(){
+  RF.rx = null;
+  try{ RF.rx = await getJson(BASE + '/fabstory-rx?produit=' + encodeURIComponent(P.id) + '&so=' + encodeURIComponent(RF.so)); }
+  catch(e){ RF.rx = { ok:false, cliches:[] }; }
+  const z = document.querySelector('.rf-rx');
+  if(z){ z.outerHTML = rfRxHtml(); rfBrancherRx(); }
+}
+function rfBrancherRx(){
+  const inp = el('rf-rx-in');
+  if(inp) inp.addEventListener('change', function(ev){ const fs = Array.from(ev.target.files || []); ev.target.value=''; FS.rxDeposer(fs); });
+}
+FS.rxAjouter = function(){ const i = el('rf-rx-in'); if(i) i.click(); };
+FS.rxDeposer = async function(fichiers){
+  if(!fichiers.length) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  const msg = el('rf-rx-msg');
+  for(let k=0;k<fichiers.length;k++){
+    const f = fichiers[k];
+    if(msg) msg.textContent = 'Envoi ' + (k+1) + '/' + fichiers.length + '\u2026';
+    try{
+      const blob = await compresser(f, 2000, 0.82); /* RX = niveaux de gris fins : cote un peu plus grand */
+      const j = await postJson(BASE + '/fiche-de-vie-piece', { produit_id: P.id, nom: (f.name || 'rx.jpg').replace(/\.[^.]+$/, '') + '.jpg' });
+      if(!j || !j.url) throw new Error('URL de d\u00e9p\u00f4t non obtenue.');
+      const up = await fetch(j.url, { method:'PUT', headers:{'Content-Type': j.type}, body: blob });
+      if(!up.ok) throw new Error('Stockage refus\u00e9 (' + up.status + ').');
+      const r = await postJson(BASE + '/fabstory-rx-ajouter', { produit_id: P.id, so: RF.so, chemin: j.chemin, nom: f.name || 'rx.jpg', taille: blob.size, auteur: auteur });
+      if(!r || !r.ok) throw new Error((r && r.motif) || 'Enregistrement refus\u00e9.');
+    }catch(e){ if(msg) msg.textContent = '\u00c9chec : ' + e.message; await rfChargerRx(); return; }
+  }
+  if(msg) msg.textContent = '';
+  await rfChargerRx();
+};
+FS.rxRetirer = async function(id){
+  if(!confirm('Retirer ce clich\u00e9 RX ? Le lien client cesse imm\u00e9diatement de fonctionner et le fichier sera supprim\u00e9.')) return;
+  try{ await postJson(BASE + '/fabstory-rx-retirer', { id: id }); }
+  catch(e){ alert('Echec : ' + e.message); }
+  await rfChargerRx();
+};
+
 function rendreRapport(){
   const z = el('rf-corps'); const lot = rfLot();
   let h = '<div class="rf-tete"><span class="ref">' + esc(RF.produit.cle_produit) + '</span>' +
@@ -1121,6 +1188,7 @@ function rendreRapport(){
   }
   h += '<div class="rf-serie">N\u00b0 de s\u00e9rie : <strong>' + esc(lot.n_serie_debut) + '</strong> \u2192 <strong>' + esc(lot.n_serie_fin) + '</strong>' +
     ' &nbsp;\u00b7&nbsp; D\u00e9claration : <strong>' + esc(lot.n_declaration) + '</strong></div>';
+  h += rfRxHtml();
   const f = lot.rapport_fige;
   if(f){
     h += '<div class="rf-fige-bandeau"><i class="ti ti-lock"></i> Rapport fig\u00e9 par <strong>' + esc(f.valide_par) + '</strong> le ' + fdate(f.valide_le) +
@@ -1143,6 +1211,7 @@ function rendreRapport(){
     '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button>' +
     '<button class="btn" id="rf-go" onclick="FS.rfFiger()"><i class="ti ti-lock"></i> Valider et figer</button></div>';
   z.innerHTML = h;
+  if(document.querySelector('.rf-rx') && (!RF.rx)) rfChargerRx(); else rfBrancherRx();
 }
 function rfTableHtml(lignes, editable){
   let t = '<table class="rf-table"><tr><th>Point de contr\u00f4le</th><th style="text-align:center">Conforme</th><th>Commentaire (visible client)</th>' + (editable ? '<th></th>' : '') + '</tr>';
