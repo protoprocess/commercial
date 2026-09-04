@@ -199,7 +199,7 @@ tr.rep-row:not(.visible) { display: none; }
 </main>
 
 <script>
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
 const API_REP = "https://protoprocess.app.n8n.cloud/webhook/triage-repondre";
@@ -316,12 +316,12 @@ function rendre() {
       </tr>
       <tr class="rep-row" data-thread="${echapper(f.thread_id)}"><td></td><td colspan="4">
         <div class="rep">
-          <div class="rep-lab">Que voulez-vous répondre ? Une phrase suffit — Claude rédige le mail et le dépose en brouillon dans Gmail.</div>
+          <div class="rep-lab">Que voulez-vous répondre ? Une phrase suffit. <b>Brouillon mail seul</b> prépare la réponse ; <b>Mail + dates Odoo et planning</b> propose en plus de décaler la date engagée du SO, la date du bon de livraison et la Date ARC du planning.</div>
           <div class="rep-in">
             <input type="text" placeholder="ex. demander l'annulation de la référence commandée" value="${echapper(f.intention_suggeree || '')}"
                    onkeydown="if(event.key==='Enter'){event.preventDefault();preparer(this)}">
-            <button class="btn-p" onclick="preparer(this.previousElementSibling)"><i class="ti ti-pencil"></i> Préparer le brouillon</button>
-            <button class="btn-p" style="background:transparent;color:var(--accent);border:1px solid var(--accent)" onclick="preparerMaj(this.parentElement.querySelector('input'))"><i class="ti ti-refresh-dot"></i> Mail + mise à jour</button>
+            <button class="btn-p" onclick="preparer(this.previousElementSibling)"><i class="ti ti-pencil"></i> Brouillon mail seul</button>
+            <button class="btn-p" style="background:transparent;color:var(--accent);border:1px solid var(--accent)" onclick="preparerMaj(this.parentElement.querySelector('input'))"><i class="ti ti-calendar-check"></i> Mail + dates Odoo et planning</button>
           </div>
           <div class="zone"></div>
         </div>
