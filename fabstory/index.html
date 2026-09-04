@@ -102,6 +102,9 @@ textarea{resize:vertical;min-height:64px}
 .btn-mail-client{background:#5BC4D8;border:1px solid #5BC4D8;color:#0a0c12;font-weight:600;font-size:13px;padding:7px 16px;border-radius:999px;cursor:pointer}
 .btn-mail-client:hover{filter:brightness(1.08)}
 .filtre.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+/* v4.22 : boutons dedies du rapport de fab (fond pastel PP, texte fonce lisible) */
+.filtre-rf{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-fonce);font-weight:600}
+.filtre-vc{background:var(--info-bg);border-color:var(--info);color:var(--info-txt);font-weight:600}
 /* ----------------------------------------------------------------- timeline */
 .tl-entree{border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px;background:#fff;cursor:pointer}
 .tl-entree:hover{border-color:var(--border2)}
@@ -468,7 +471,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.21';
+const APP_VERSION = '4.22';
 const APP_DATE = '04/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -959,10 +962,9 @@ function rendreFiche(){
     '<option value="">Tous les concern\u00e9s</option>' +
     CONCERNES_LISTE.map(c => '<option value="' + c[0] + '"' + (filtreConcerne===c[0]?' selected':'') + '>' + c[1] + '</option>').join('') +
     '</select>' +
-    '<button class="filtre" style="margin-left:auto" onclick="FS.copierClient()" title="Copie les questions client en attente, pr\u00eates \u00e0 joindre au devis">Copier les questions client</button>' +
     '<button class="filtre" onclick="FS.photosCarte()" title="Prendre ou reprendre les photos dessus / dessous de la carte (tablette ou t\u00e9l\u00e9phone), pour le rapport de fabrication.">Photos carte</button>' +
-    '<button class="filtre" onclick="FS.rapportFab()" title="Valide et fige le rapport de fabrication du lot en cours (n\u00b0 de s\u00e9rie par BL Odoo, commentaires du tableau de conformit\u00e9). Une fois fig\u00e9, le client voit cette version.">Rapport de fab</button>' +
-    '<button class="filtre" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, t\u00e9l\u00e9chargeable depuis cette page.">Voir le rapport client</button>' +
+    '<button class="filtre filtre-rf" style="margin-left:auto" onclick="FS.rapportFab()" title="Valide et fige le rapport de fabrication du lot en cours (n\u00b0 de s\u00e9rie par BL Odoo, commentaires du tableau de conformit\u00e9). Une fois fig\u00e9, le client voit cette version.">Modifier Rapport de fab</button>' +
+    '<button class="filtre filtre-vc" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, imprimable / t\u00e9l\u00e9chargeable depuis cette page.">Imprimer rapport de fab (depuis vue client)</button>' +
     '<button class="btn-mail-client" onclick="FS.mailClient()" title="Cr\u00e9e un brouillon Gmail (commercial@ ou production@ selon vos initiales) avec les questions client en attente et le lien de r\u00e9ponse en ligne. Rien ne part sans vous.">Pr\u00e9parer le mail client</button>' +
     '</div>';
   if(!visibles.length){
@@ -1203,7 +1205,7 @@ function rendreRapport(){
       ' \u2014 c\u2019est cette version que voit le client.' +
       '<button class="btn-s" style="margin-left:auto" onclick="FS.rfRefaire(' + f.id + ')"><i class="ti ti-refresh"></i> Refaire</button></div>';
     h += rfTableHtml(f.conformite || [], false);
-    h += '<div class="rf-pied"><button class="btn-s" onclick="FS.voirRapportClient()"><i class="ti ti-external-link"></i> Voir le rapport client</button>' +
+    h += '<div class="rf-pied"><button class="btn-s" onclick="FS.voirRapportClient()"><i class="ti ti-printer"></i> Imprimer rapport de fab (depuis vue client)</button>' +
       '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
     z.innerHTML = h; return;
   }
