@@ -73,6 +73,14 @@ tr.fil:hover td { background: rgba(255,255,255,.02); }
 .col-client { width: 220px; }
 .client { font-weight: 600; }
 .client .mail { display: block; color: var(--text3); font-weight: 400; font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.client .sous { display: block; color: var(--text3); font-weight: 400; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.apreciser { color: var(--amber); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.tag { font-size: 10px; padding: 1px 7px; border-radius: 20px; white-space: nowrap; font-weight: 500; }
+.tag-perso { background: var(--accent); color: #fff; }
+.tag-decl { background: var(--amber-bg); color: var(--amber-badge); }
+.tag-alerte { background: var(--red-bg); color: var(--red-badge); }
+.tag-classe { background: transparent; color: var(--text3); border: 1px solid var(--border2); }
 .objet { color: var(--text); margin-bottom: 4px; }
 .resume { color: var(--text2); line-height: 1.45; max-width: 78ch; }
 .sugg { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--text3); }
@@ -202,8 +210,8 @@ tr.rep-row:not(.visible) { display: none; }
 </main>
 
 <script>
-const APP_VERSION = "2.0";
-const APP_DATE = "03/09/2026";
+const APP_VERSION = "2.1";
+const APP_DATE = "08/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
 const API_REP = "https://protoprocess.app.n8n.cloud/webhook/triage-repondre";
 const API_CLASSER = "https://protoprocess.app.n8n.cloud/webhook/triage-classer";
@@ -270,6 +278,30 @@ function ficheOdoo(ctx) {
   return `<div class="odoo"><div class="odoo-hd"><i class="ti ti-database"></i> Dans Odoo</div>${blocs}</div>`;
 }
 
+function celluleClient(f) {
+  const c = parseClient(f.client);
+  const et = f.etiquettes || {};
+  const puces = []
+    .concat((et.alertes || []).map(x => `<span class="tag tag-alerte">${echapper(x)}</span>`))
+    .concat((et.declencheurs || []).map(x => `<span class="tag tag-decl">${echapper(x)}</span>`))
+    .concat((et.personnes || []).map(x => `<span class="tag tag-perso">${echapper(x)}</span>`))
+    .join('');
+  const tags = puces ? `<div class="tags">${puces}</div>` : '';
+
+  if (f.client_a_preciser) {
+    const sous = f.client_suggere
+      ? `peut-etre ${echapper(f.client_suggere)}`
+      : `transfere par ${echapper(c.nom)}`;
+    return `<div class="client"><span class="apreciser"><i class="ti ti-alert-triangle"></i> Client a preciser</span><span class="sous">${sous}</span></div>${tags}`;
+  }
+
+  const nom = f.client_nom || c.nom;
+  const sous = (et.client && c.nom && c.nom !== nom)
+    ? `<span class="sous" title="${echapper(c.mail)}">${echapper(c.nom)}</span>`
+    : `<span class="mail" title="${echapper(c.mail)}">${echapper(c.mail)}</span>`;
+  return `<div class="client">${echapper(nom)}${sous}</div>${tags}`;
+}
+
 function rendre() {
   const cont = document.getElementById('contenu');
   const visibles = donnees.filter(f => filtre === 'tous' || f.type === filtre);
@@ -308,7 +340,7 @@ function rendre() {
       const sugg = f.intention_suggeree ? `<div class="sugg"><i class="ti ti-bulb"></i> Réponse suggérée : <b>${echapper(f.intention_suggeree)}</b></div>` : '';
       html += `<tr class="fil" onclick="basculer(this)">
         <td class="col-age ${j >= 5 ? 'vieux' : ''}">${age(j)}</td>
-        <td class="col-client"><div class="client">${echapper(c.nom)}<span class="mail" title="${echapper(c.mail)}">${echapper(c.mail)}</span></div></td>
+        <td class="col-client">${celluleClient(f)}</td>
         <td class="col-type"><span class="badge badge-${t}">${LIB_TYPE[t] || t}</span>
           <div class="menu" onclick="event.stopPropagation()">
             <span class="lab">Envoyer vers</span>
