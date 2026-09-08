@@ -149,12 +149,36 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 .msg-etape { display:block; margin:0 0 8px; font-size:12.5px; }
 .msg-etape:empty { display:none; }
 .msg-etape.err { color:var(--red); } .msg-etape.warn { color:var(--amber); } .msg-etape.ok { color:var(--green); } .msg-etape.chargement { color:var(--text2); }
-.fr.deroule .sub-abonne, .fr.deroule .sub-liv { display:none; }
-.fr.deroule .sub-abonne.visible, .fr.deroule .sub-liv.visible { display:flex; }
-.resume-ligne { display:flex; gap:10px; align-items:center; padding:5px 0 5px 28px; font-size:12.5px; border-bottom:1px solid var(--border); }
-.resume-ligne .rl-val { flex:1; min-width:0; overflow-wrap:anywhere; }
-.resume-ligne .rl-val.err { color:var(--red); }
-.resume-ligne .lien { flex:none; }
+/* ---- Étape 6 (v7.1, 08/09/2026) : trois blocs lisibles ---- */
+.bloc6 h4 { margin:12px 0 2px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); font-weight:600; display:flex; gap:8px; align-items:baseline; }
+.bloc6 h4 .why { text-transform:none; letter-spacing:0; font-weight:400; }
+.ec { display:flex; gap:10px; align-items:flex-start; padding:7px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+.ec input[type=checkbox] { flex:none; width:15px; height:15px; accent-color:var(--accent); margin:2px 1px 0; cursor:pointer; }
+.ec .lib { flex:none; width:150px; color:var(--text2); padding-top:1px; }
+.ec .val { flex:1; min-width:0; overflow-wrap:anywhere; }
+.ec .val .why { display:block; }
+.ec .val .err { color:var(--red); }
+.ec .val ul { margin:4px 0 0; padding-left:18px; } .ec .val ul li { margin:1px 0; }
+.ec .val code { font-family:var(--mono); font-size:11.5px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+.ec .val input[type=date] { background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); padding:3px 6px; font-family:var(--mono); font-size:12px; color-scheme:dark; }
+.ec .lien { flex:none; padding-top:1px; }
+.ec.off { opacity:.55; }
+.dl.sub { display:none; padding:4px 0 4px 26px; border-bottom:none; }
+.dl.sub.visible { display:flex; }
+.cst { display:flex; gap:10px; align-items:flex-start; padding:6px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+.cst .ic { flex:none; width:18px; text-align:center; font-weight:700; padding-top:1px; }
+.cst .ic.err { color:var(--red); } .cst .ic.warn { color:var(--amber); }
+.cst .val { flex:1; min-width:0; overflow-wrap:anywhere; } .cst .val .why { display:block; }
+.cst.vu { opacity:.4; } .cst.vu .val { text-decoration:line-through; }
+.cst label { flex:none; color:var(--text3); font-size:12px; display:flex; gap:4px; align-items:center; cursor:pointer; padding-top:1px; }
+.cst label input { accent-color:var(--accent); margin:0; }
+.conf-ok { color:var(--text3); font-size:12.5px; padding:8px 0 2px; cursor:pointer; }
+.conf-ok ul { margin:4px 0 0; padding-left:18px; display:none; } .conf-ok.ouvert ul { display:block; }
+.recmd { border:1px solid var(--red-badge); border-radius:var(--radius-lg); padding:12px 14px; margin:8px 0; background:var(--surface2); font-size:13px; }
+.recmd b { color:var(--red); }
+.recmd code { font-family:var(--mono); font-size:11.5px; background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+.fr.deroule .et.done .corps .bloc6, .fr.deroule .et.repli .corps .bloc6 { display:none; }
+.fr.deroule .et.ouvert .corps .bloc6 { display:block; }
 </style>
 
 <style>
@@ -214,7 +238,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.0";
+const APP_VERSION = "7.1";
 const APP_DATE = "08/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -366,8 +390,9 @@ async function diagnostiquerEntrante(ent, bouton) {
      01/09 : un lot HORIBA sans devis avait ete confronte au premier devis
      ouvert du client, une autre carte. */
   const premier = DIAG.devisListe[0] || null;
-  if (premier && (premier.cite_au_po || premier.meme_montant)) { await confronter(ent, premier.nom); return; }
-  afficherChoixDevis(z);
+  /* v7.1 : un devis cite mais deja commande n est pas ouvert, il est signale. */
+  if (premier && (premier.cite_au_po || premier.meme_montant) && !estRecommande(premier, ent)) { await confronter(ent, premier.nom); return; }
+  afficherChoixDevis(z, premier && estRecommande(premier, ent) ? premier : null);
 }
 
 /* Confronte l entrante a un devis, puis lance la lecture des 5 pieces sur ce
@@ -388,6 +413,44 @@ async function confronter(ent, so) {
   } catch (err) {
     z.innerHTML = '<div class="etat-msg err">La confrontation n\u2019a pas r\u00e9pondu (' + ech(err.message) + ').</div>';
   }
+}
+
+
+/* ---- RE-COMMANDE (v7.1, 08/09/2026) ---------------------------------------
+   Cas MHR CDE004285 : le client cite l ancien numero de devis (SO2603-138),
+   deja confirme, deja livre, portant deja le PO precedent. L appli prenait la
+   citation au pied de la lettre et ouvrait l etape 6 sur un SO clos.
+   Regle : un devis cite qui est deja confirme, ou porte deja un AUTRE PO,
+   n est pas une cible d ecriture, c est le signe d une re-commande -> on
+   propose le devis refab (parcours produit, cadences du PO). Exceptions :
+   le devis auquel l entrante est deja RATTACHEE (il se confirme ensuite), et
+   un devis qui porte deja CE PO (deja traite). */
+function estRecommande(d, ent) {
+  if (!d || !ent) return false;
+  const po = String(ent.num_commande_client || '').trim();
+  const pose = String(d.po_deja_pose || '').trim();
+  if (ent.etat === 'rattachee' && ent.odoo_so_name && d.nom === ent.odoo_so_name) return false;
+  if (pose && po && pose === po) return false;
+  if (pose && po && pose !== po) return true;
+  if (d.etat && d.etat !== 'draft' && d.etat !== 'sent') return true;
+  return false;
+}
+function htmlRecommande(d, ent) {
+  return '<div class="recmd">\u26a0 <b>' + ech(d.nom) + ' est d\u00e9j\u00e0 command\u00e9</b> \u2014 \u00e9tat <code>' + ech(d.etat || '?') + '</code>' +
+    (d.po_deja_pose ? ', bon de commande <code>' + ech(d.po_deja_pose) + '</code>' : '') + '.<br>' +
+    'Le bon de commande <code>' + ech(ent.num_commande_client || '?') + '</code> est une <b>re-commande</b> : on ne r\u00e9\u00e9crit pas un devis clos, on en cr\u00e9e un nouveau.' +
+    '<div class="p-actions">' + (ent.ref_detectee
+      ? '<button class="btn-p" data-refab-entrante="1">Cr\u00e9er le devis refab depuis la carte ' + ech(ent.ref_detectee) + '</button><span class="why">cadences pr\u00e9-remplies depuis le PO \u00b7 puis les \u00e9critures Odoo sur le nouveau devis</span>'
+      : '<span class="why">Aucune r\u00e9f\u00e9rence carte lue au PO : saisir la carte dans le champ du haut, puis \u00ab Diagnostiquer \u00bb.</span>') + '</div></div>';
+}
+function brancherRefab(z, ent) {
+  z.querySelectorAll('[data-refab-entrante]').forEach(b => b.addEventListener('click', function () {
+    ENTRANTE = ent; DIAG = null;
+    el('confrontation').innerHTML = '';
+    el('entree').value = ent.ref_detectee;
+    el('entree').dispatchEvent(new Event('input'));
+    diagnostiquer();
+  }));
 }
 
 /* Autres devis candidats + saisie manuelle. */
@@ -423,7 +486,7 @@ function brancherChoixDevis(z, ent) {
   if (champ) champ.addEventListener('keydown', e => { if (e.key === 'Enter') lancer(); });
   if (go) go.addEventListener('click', lancer);
 }
-function afficherChoixDevis(z) {
+function afficherChoixDevis(z, recommande) {
   const ent = DIAG.ent;
   const pertinents = DIAG.devisListe.filter(d => d.cite_au_po || d.meme_ref || d.meme_montant).length;
   const refabHtml = ent.ref_detectee ? '<div class="dl"><span class="ic ' + (pertinents ? 'mute' : 'ok') + '">+</span><span class="lib">Pas de devis</span><span class="val" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
@@ -434,9 +497,11 @@ function afficherChoixDevis(z) {
     (ent.num_commande_client ? ' \u00b7 PO ' + ech(ent.num_commande_client) : '') +
     (ent.ref_detectee ? ' \u00b7 <code>' + ech(ent.ref_detectee) + '</code>' : '') + '<span class="sp"></span>' +
     '<span style="color:var(--amber);font-size:12px">' + ech(note) + '</span></div>' +
-    (pertinents ? '' : refabHtml) + htmlChoixDevis(null) + (pertinents ? refabHtml : '') +
+    (recommande ? htmlRecommande(recommande, ent) : '') +
+    (pertinents && !recommande ? '' : refabHtml) + htmlChoixDevis(recommande ? recommande.nom : null) + (pertinents && !recommande ? refabHtml : '') +
     '</div>';
   brancherChoixDevis(z, ent);
+  brancherRefab(z, ent);
   const refab = z.querySelector('#conf-refab');
   if (refab) refab.addEventListener('click', function () {
     /* v6.3 (ch. 149) : commande sans devis = parcours PRODUIT (refab). La feuille
@@ -450,80 +515,144 @@ function afficherChoixDevis(z) {
   const champ = z.querySelector('#conf-so'); if (champ) champ.focus();
 }
 
-/* ---- ETAPE 6 : les ecritures Odoo (confrontation) ------------------------ */
+/* ---- ETAPE 6 : les ecritures Odoo (confrontation) ------------------------
+   v7.1 (08/09/2026, retour Olivier) : TROIS BLOCS NOMMES au lieu d une seule
+   colonne ou se melangeaient ecritures (cases), choix (icones) et constats (!).
+   Regle de lecture : UNE CASE = UNE ECRITURE, toujours. L adresse et les
+   abonnes sont des ecritures, donc ils ont une case ; leur detail est replie
+   derriere « changer ». Les exigences sont LUES, pas comptees. Les constats
+   sont a part, en phrase, avec une case « vu » qui les estompe (DIAG.vus).
+   Le conforme se replie. Aucun changement de logique : appliquer() lit les
+   memes data-action / data-livraison / data-abonne qu avant. */
 function htmlEcritures(rep) {
   const vide = '<span style="color:var(--text3)">\u2014</span>';
-  let h = '';
-  for (const a of (rep.actions || [])) {
-    const off = !a.ecriture;
-    let val;
-    if (a.cle === 'abonnes') {
-      /* v6.1 (convention #16) : la liste cochee EST la liste des abonnes. */
-      const L = a.liste || [];
-      h += '<div class="dl" data-bloc="abonnes"><span class="ic mute">\u2709</span><span class="lib">' + ech(a.libelle) + '</span>' +
-        '<span class="val" style="color:var(--text3);font-size:12px">re\u00e7oivent l\u2019AR et le fil \u00b7 commercial toujours abonn\u00e9' +
-        ((a.a_retirer || []).length ? ' \u00b7 retir\u00e9s : ' + ech(a.a_retirer.map(r => r.nom).join(', ')) : '') + '</span><span class="det"></span></div>';
-      const nbSoc = L.filter(c => c.role === 'fiche soci\u00e9t\u00e9').length;
-      L.forEach((c, i) => {
-        const cache = c.role === 'fiche soci\u00e9t\u00e9';
-        h += '<div class="dl sub-abonne' + (cache ? ' soc-cache' : '') + '" style="padding-left:28px' + (cache ? ';display:none' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
-          '<span class="lib" style="width:220px">' + ech(c.nom || c.email || '?') + '</span>' +
-          '<span class="val">' + (c.email ? '<code>' + ech(c.email) + '</code>' : '<span style="color:var(--text3)">sans mail</span>') + '</span>' +
-          '<span class="det">' + (c.deja ? '\u2713 ' : '') + ech(c.role || '') + '</span></div>';
-      });
-      if (nbSoc) h += '<div class="dl sub-abonne" style="padding-left:28px;border-bottom:none"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
-      if (!L.length) h += '<div class="dl sub-abonne" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
-      continue;
-    }
-    if (a.cle === 'livraison') {
-      /* v6.9 (Olivier 01/09) : choix unique parmi les adresses de la societe ;
-         le contact du devis est pre-coche ; societe = rien de coche, grave. */
-      const L = a.liste || [];
-      h += '<div class="dl" data-bloc="livraison" data-grave="' + (a.grave ? '1' : '') + '"><span class="ic ' + (a.grave ? 'err' : 'mute') + '">' + (a.grave ? '!' : '\u2302') + '</span><span class="lib">' + ech(a.libelle) + '</span>' +
-        '<span class="val"><span class="why">PO : ' + ech(a.po || 'aucune adresse lue') + '</span></span>' +
-        '<span class="det' + (a.grave ? ' err' : '') + '">' + ech(a.detail || '') + '</span></div>';
-      L.forEach((c, i) => {
-        h += '<div class="dl sub-liv" style="padding-left:28px"><input type="radio" name="livraison" data-livraison="' + c.partner_id + '"' + (a.choix === c.partner_id ? ' checked' : '') + ' style="accent-color:var(--accent);margin:0 1px;cursor:pointer">' +
-          '<span class="lib" style="width:220px">' + ech(c.nom) + '</span>' +
-          '<span class="val">' + (c.adresse ? ech(c.adresse) : '<span style="color:var(--text3)">sans adresse</span>') + '</span>' +
-          '<span class="det">' + (c.actuel ? 'sur le devis' : '') + (c.type === 'delivery' ? (c.actuel ? ' \u00b7 ' : '') + 'adresse de livraison' : '') + '</span></div>';
-      });
-      if (!L.length) h += '<div class="dl sub-liv" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucune adresse connue pour ce client</span></div>';
-      continue;
-    }
-    if (a.cle === 'date') val = a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide;
-    else if (a.cle === 'note') val = a.valeur ? '<span class="aide" title="' + ech((a.liste || []).join('\n')) + '">' + ech(a.valeur) + '</span>' : vide;
-    else if (a.cle === 'pj') val = ech(a.valeur);
-    else val = a.valeur ? '<code>' + ech(a.valeur) + '</code>' : vide;
-    h += '<div class="dl' + (off ? ' off' : '') + '"><input type="checkbox" data-action="' + a.cle + '"' + (a.coche ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
-      '<span class="lib">' + ech(a.libelle) + '</span><span class="val">' + val + '</span>' +
-      '<span class="det' + (a.grave ? ' err' : '') + '">' + (a.deja ? '\u2713 ' : '') + ech(a.detail || '') + '</span></div>';
+  const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
+  const vus = (DIAG && DIAG.vus) || {};
+  const ligne = (cle, lib, val, opts) => {
+    opts = opts || {};
+    const a = A[cle] || {};
+    const off = !!opts.off;
+    return '<div class="ec' + (off ? ' off' : '') + '"><input type="checkbox" data-action="' + cle + '"' + (opts.coche ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
+      '<span class="lib">' + lib + '</span><span class="val">' + val + '</span>' + (opts.lien || '') + '</div>';
+  };
+  let h = '<div class="bloc6">';
+
+  /* ---- A. ce qui sera ecrit ---- */
+  h += '<h4>Ce qui sera \u00e9crit dans Odoo <span class="why">d\u00e9coche pour retenir une \u00e9criture</span></h4>';
+  if (A.ref) {
+    const a = A.ref;
+    const conflit = a.grave;
+    h += ligne('ref', 'R\u00e9f. client', (a.valeur ? '<code>' + ech(a.valeur) + '</code>' : vide) +
+      (conflit ? '<span class="why err">' + ech(a.detail) + '</span>' : (a.deja ? '<span class="why">d\u00e9j\u00e0 sur le devis</span>' : '')),
+      { coche: a.coche, off: !a.ecriture });
   }
-  const constats = (rep.ecarts || []).filter(e => !e.couvert);
-  for (const e of constats) {
-    h += '<div class="dl"><span class="ic ' + (e.grave ? 'err' : 'warn') + '">!</span><span class="lib">' + ech(e.nom) + '</span>' +
-      '<span class="val">' + (e.po ? '<b>PO</b> ' + ech(String(e.po).slice(0, 140)) : '') +
-      (e.constat ? ' \u2192 <b>' + ech(e.libelle_constat || 'Devis') + '</b> ' + ech(String(e.constat).slice(0, 160)) : '') + '</span>' +
-      '<span class="det">' + (e.note ? '<span class="aide" title="' + ech(e.note) + '">pourquoi ?</span>' : '') + '</span></div>';
+  if (A.date) {
+    const a = A.date;
+    h += ligne('date', 'Date de livraison', (a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide) +
+      (a.detail ? '<span class="why' + (a.grave ? ' err' : '') + '">' + ech(a.detail) + '</span>' : ''), { coche: a.coche, off: !a.ecriture });
   }
-  if (rep.conformes && rep.conformes.length) {
-    h += '<div class="dl"><span class="ic ok">\u2713</span><span class="lib">Conformes</span>' +
-      '<span class="val"><span class="aide" title="' + ech(rep.conformes.join('\n')) + '">' + rep.conformes.length + ' point(s) v\u00e9rifi\u00e9(s)</span></span><span class="det"></span></div>';
+  if (A.livraison) {
+    const a = A.livraison, L = a.liste || [];
+    const choisi = L.find(c => a.choix === c.partner_id) || null;
+    const resume = choisi ? ech(choisi.nom) + ' \u2014 ' + ech(choisi.adresse || 'sans adresse')
+      : '<span class="err">Aucune adresse choisie : choisir le contact de livraison' + (a.po ? ' (le PO donne l\u2019adresse)' : '') + '.</span>';
+    h += ligne('livraison', 'Livrer \u00e0', '<span data-resume="livraison">' + resume + '</span>' +
+      (a.po ? '<span class="why">PO : ' + ech(a.po) + '</span>' : ''), { coche: !!choisi, off: !a.ecriture, lien: L.length ? '<a class="lien" data-changer="liv">changer \u25be</a>' : '' });
+    L.forEach(c => {
+      h += '<div class="dl sub sub-liv' + (choisi ? '' : ' visible') + '"><input type="radio" name="livraison" data-livraison="' + c.partner_id + '"' + (a.choix === c.partner_id ? ' checked' : '') + ' style="accent-color:var(--accent);margin:0 1px;cursor:pointer">' +
+        '<span class="lib" style="width:220px">' + ech(c.nom) + '</span>' +
+        '<span class="val">' + (c.adresse ? ech(c.adresse) : '<span style="color:var(--text3)">sans adresse</span>') + '</span>' +
+        '<span class="det">' + (c.actuel ? 'sur le devis' : '') + (c.type === 'delivery' ? (c.actuel ? ' \u00b7 ' : '') + 'adresse de livraison' : '') + '</span></div>';
+    });
+    if (!L.length) h += '<div class="dl sub sub-liv visible"><span class="val" style="color:var(--text3)">aucune adresse connue pour ce client</span></div>';
   }
+  if (A.abonnes) {
+    const a = A.abonnes, L = a.liste || [];
+    const coches = L.filter(c => c.coche).map(c => ech(c.nom || c.email || '?'));
+    const resume = (coches.length ? coches.join(' \u00b7 ') : '<span style="color:var(--text3)">aucun contact coch\u00e9</span>') +
+      ' \u00b7 ' + (a.commercial ? ech(a.commercial.nom) : '\u00c9quipe Commerciale') + ' <span style="color:var(--text3)">toujours</span>';
+    const retires = (a.a_retirer || []).map(r => ech(r.nom));
+    h += ligne('abonnes', 'Abonn\u00e9s \u00e0 l\u2019AR', '<span data-resume="abonnes">' + resume + '</span>' +
+      (retires.length ? '<span class="why">retir\u00e9s : ' + retires.join(', ') + '</span>' : ''), { coche: true, lien: L.length ? '<a class="lien" data-changer="abo">changer \u25be</a>' : '' });
+    const nbSoc = L.filter(c => c.role === 'fiche soci\u00e9t\u00e9').length;
+    L.forEach((c, i) => {
+      const cache = c.role === 'fiche soci\u00e9t\u00e9';
+      h += '<div class="dl sub sub-abo' + (cache ? ' soc-cache' : '') + '" data-soc="' + (cache ? '1' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
+        '<span class="lib" style="width:220px">' + ech(c.nom || c.email || '?') + '</span>' +
+        '<span class="val">' + (c.email ? '<code>' + ech(c.email) + '</code>' : '<span style="color:var(--text3)">sans mail</span>') + '</span>' +
+        '<span class="det">' + (c.deja ? '\u2713 ' : '') + ech(c.role || '') + '</span></div>';
+    });
+    if (nbSoc) h += '<div class="dl sub sub-abo" data-plus-soc="1"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
+    if (!L.length) h += '<div class="dl sub sub-abo"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
+  }
+  if (A.note) {
+    const a = A.note, ex = a.liste || [];
+    h += ligne('note', 'Exigences en note', ex.length ? '<ul>' + ex.map(x => '<li>' + ech(x) + '</li>').join('') + '</ul>' : vide + ' <span class="why">aucune exigence lue au PO</span>',
+      { coche: a.coche, off: !a.ecriture });
+  }
+  if (A.pj) h += ligne('pj', 'Bon de commande', ech(A.pj.valeur || 'PDF + message dans le fil'), { coche: A.pj.coche, off: !A.pj.ecriture });
   h += '<div class="diag-pied"><button class="btn-p" id="btn-appliquer">Appliquer dans Odoo</button><span class="msg" id="diag-msg"></span></div>';
-  h += '<div class="journal" id="journal"></div>';
+
+  /* ---- B. a verifier a la main ---- */
+  const constats = (rep.ecarts || []).filter(e => !e.couvert);
+  if (constats.length) {
+    h += '<h4>\u00c0 v\u00e9rifier \u00e0 la main <span class="why">l\u2019appli n\u2019\u00e9crit rien ici</span></h4>';
+    constats.forEach((e, i) => {
+      const vu = !!vus[e.nom];
+      h += '<div class="cst' + (vu ? ' vu' : '') + '"><span class="ic ' + (e.grave ? 'err' : 'warn') + '">!</span>' +
+        '<span class="val"><b>' + ech(e.nom) + '</b>' +
+        (e.po ? ' \u2014 le PO dit : ' + ech(String(e.po).slice(0, 220)) : '') +
+        (e.constat ? (e.po ? ' ; ' : ' \u2014 ') + ech(e.libelle_constat || 'le devis') + ' : ' + ech(String(e.constat).slice(0, 200)) : '') +
+        (e.note ? '<span class="why">' + ech(e.note) + '</span>' : '') + '</span>' +
+        '<label><input type="checkbox" data-vu="' + ech(e.nom) + '"' + (vu ? ' checked' : '') + '> vu</label></div>';
+    });
+  }
+
+  /* ---- C. conforme ---- */
+  if (rep.conformes && rep.conformes.length) {
+    h += '<div class="conf-ok" data-conf-ok="1">\u2713 Conforme \u2014 ' + rep.conformes.length + ' point(s) v\u00e9rifi\u00e9(s) \u25b8<ul>' + rep.conformes.map(x => '<li>' + ech(x) + '</li>').join('') + '</ul></div>';
+  }
+  h += '<div class="journal" id="journal"></div></div>';
   return h;
 }
 function brancherEcritures(z, rep, ent, actif) {
   const majBouton = () => {
-    const n = z.querySelectorAll('[data-action]:checked').length + (z.querySelector('[data-livraison]:checked') ? 1 : 0);
+    const n = z.querySelectorAll('[data-action]:checked:not(:disabled)').length;
     const b = el('btn-appliquer'); if (!b) return;
     b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n || !actif;
   };
-  z.querySelectorAll('[data-action], [data-livraison]').forEach(c => c.addEventListener('change', majBouton));
+  z.querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
   majBouton();
+  /* changer : deplie / replie le detail */
+  const bascule = (cls, lien) => {
+    const rows = Array.from(z.querySelectorAll('.' + cls)).filter(r => !r.dataset.soc || r.classList.contains('visible'));
+    const ouvert = rows.some(r => r.classList.contains('visible'));
+    rows.forEach(r => r.classList.toggle('visible', !ouvert));
+    if (!ouvert) { const p = z.querySelector('[data-plus-soc]'); if (p && cls === 'sub-abo') p.classList.add('visible'); }
+    lien.textContent = ouvert ? 'changer \u25be' : 'replier \u25b4';
+  };
+  z.querySelectorAll('[data-changer]').forEach(l => l.addEventListener('click', function () { bascule(this.dataset.changer === 'liv' ? 'sub-liv' : 'sub-abo', this); }));
   const vs = z.querySelector('[data-voir-societe]');
-  if (vs) vs.addEventListener('click', function () { z.querySelectorAll('.soc-cache').forEach(x => { x.style.display = ''; }); this.parentElement.parentElement.style.display = 'none'; });
+  if (vs) vs.addEventListener('click', function () { z.querySelectorAll('.soc-cache').forEach(x => x.classList.add('visible')); const p = z.querySelector('[data-plus-soc]'); if (p) p.classList.remove('visible'); });
+  /* resumes vivants */
+  const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
+  z.querySelectorAll('[data-livraison]').forEach(r => r.addEventListener('change', () => {
+    const c = z.querySelector('[data-livraison]:checked'); const row = c ? c.closest('.dl') : null; const s = z.querySelector('[data-resume="livraison"]');
+    if (s && row) s.innerHTML = ech(row.querySelector('.lib').textContent) + ' \u2014 ' + ech(row.querySelector('.val').textContent);
+    const cb = z.querySelector('[data-action="livraison"]'); if (cb && c) { cb.checked = true; majBouton(); }
+  }));
+  z.querySelectorAll('[data-abonne]').forEach(c => c.addEventListener('change', () => {
+    const noms = Array.from(z.querySelectorAll('[data-abonne]:checked')).map(x => ech(x.closest('.dl').querySelector('.lib').textContent.trim()));
+    const s = z.querySelector('[data-resume="abonnes"]');
+    if (s) s.innerHTML = (noms.length ? noms.join(' \u00b7 ') : '<span style="color:var(--text3)">aucun contact coch\u00e9</span>') + ' \u00b7 ' + (A.abonnes && A.abonnes.commercial ? ech(A.abonnes.commercial.nom) : '\u00c9quipe Commerciale') + ' <span style="color:var(--text3)">toujours</span>';
+  }));
+  /* constats : vu */
+  z.querySelectorAll('[data-vu]').forEach(c => c.addEventListener('change', function () {
+    if (DIAG) { DIAG.vus = DIAG.vus || {}; if (this.checked) DIAG.vus[this.dataset.vu] = true; else delete DIAG.vus[this.dataset.vu]; }
+    this.closest('.cst').classList.toggle('vu', this.checked);
+  }));
+  const ok = z.querySelector('[data-conf-ok]');
+  if (ok) ok.addEventListener('click', () => ok.classList.toggle('ouvert'));
   const b = el('btn-appliquer');
   if (b) b.addEventListener('click', () => appliquer(rep, ent));
 }
@@ -531,16 +660,17 @@ function brancherEcritures(z, rep, ent, actif) {
 /* Un seul appel groupe : l API pose tout, relit tout, et rend un journal. */
 async function appliquer(rep, ent) {
   const z = el('pieces');
-  const coche = c => { const x = z.querySelector('[data-action="' + c + '"]'); return !!(x && x.checked); };
+  const coche = c => { const x = z.querySelector('[data-action="' + c + '"]'); return !!(x && x.checked && !x.disabled); };
   const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
   const dateChamp = z.querySelector('[data-date]');
   const ecritures = {
     ref: coche('ref') && A.ref ? (A.ref.valeur || null) : null,
     date: coche('date') && dateChamp && dateChamp.value ? dateChamp.value : null,
-    livraison_id: (function () { const r = z.querySelector('[data-livraison]:checked'); return r ? parseInt(r.dataset.livraison, 10) : null; })(),
-    abonnes: A.abonnes ? (A.abonnes.liste || []).filter((c, i) => { const x = z.querySelector('[data-abonne="' + i + '"]'); return !!(x && x.checked); })
+    livraison_id: (function () { if (!coche('livraison')) return null; const r = z.querySelector('[data-livraison]:checked'); return r ? parseInt(r.dataset.livraison, 10) : null; })(),
+    /* v7.1 : case « Abonnes » decochee = on ne touche pas aux abonnes (pas de liste = pas de retrait). */
+    abonnes: (coche('abonnes') && A.abonnes) ? (A.abonnes.liste || []).filter((c, i) => { const x = z.querySelector('[data-abonne="' + i + '"]'); return !!(x && x.checked); })
       .map(c => ({ partner_id: c.partner_id || null, email: c.email || null, nom: c.nom || null })) : undefined,
-    commercial_id: A.abonnes && A.abonnes.commercial ? A.abonnes.commercial.partner_id : null,
+    commercial_id: (coche('abonnes') && A.abonnes && A.abonnes.commercial) ? A.abonnes.commercial.partner_id : null,
     exigences: coche('note') && A.note ? (A.note.liste || []) : [],
     piece_jointe: coche('pj')
   };
@@ -557,9 +687,6 @@ async function appliquer(rep, ent) {
     } else {
       afficherJournal(r, el('journal'));
       b.disabled = false; b.textContent = 'R\u00e9essayer';
-      /* v6.10 (03/09) — refus \u00ab article generique \u00bb : le serveur bloque
-         toute la pose tant que le devis porte un [PP-0002]/[PP-0003]. On liste
-         les lignes en cause pour que l humain sache quoi remplacer. */
       m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
       if (r.generiques && r.generiques.length) {
         m.textContent += ' \u2014 ' + r.generiques.map(g => 'ligne ' + g.ligne_id + ' : ' + (g.article || '?') + ' \u00d7' + g.qte).join(' ; ');
@@ -753,8 +880,10 @@ function afficher(rep) {
   else corps[5] = ech(proj.detail || '');
 
   // 6
+  const recmd = conf ? estRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose }, ent) : false;
   if (conf) {
     if (DIAG.applique && DIAG.applique.ok) corps[6] = '<div class="journal">' + htmlJournal(DIAG.applique) + '</div>';
+    else if (recmd) corps[6] = htmlRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose }, ent);
     else corps[6] = htmlEcritures(conf);
   }
 
@@ -860,7 +989,7 @@ function afficher(rep) {
   /* branchements */
   const lc = fr.querySelector('#lien-changer');
   if (lc) { lc.addEventListener('click', () => fr.querySelector('#autres').classList.toggle('visible')); brancherChoixDevis(fr, ent); }
-  if (conf && !(DIAG.applique && DIAG.applique.ok)) brancherEcritures(fr, conf, ent, etat(E.find(e => e.n === 6)) === 'active');
+  if (conf && !(DIAG.applique && DIAG.applique.ok)) { if (recmd) brancherRefab(fr, ent); else brancherEcritures(fr, conf, ent, etat(E.find(e => e.n === 6)) === 'active'); }
 
   z.querySelectorAll('[data-remplacer-tout]').forEach(b => b.addEventListener('click', async function () {
     const ids = this.dataset.remplacerTout.split(',').map(x => parseInt(x, 10)).filter(x => x > 0);
@@ -1005,41 +1134,6 @@ function appliquerMode(fr, E, nCourante) {
   /* message d etat dans l etape courante */
   const f = parN[focusN];
   if (f) { const m = document.createElement('span'); m.className = 'msg-etape'; f.querySelector('.corps').insertAdjacentElement('afterbegin', m); if (window.__syncEtat) window.__syncEtat(); }
-  /* etape 6 : adresse et abonnes sur une ligne */
-  resumerBloc(fr, 'livraison');
-  resumerBloc(fr, 'abonnes');
-}
-function resumerBloc(fr, bloc) {
-  const tete = fr.querySelector('[data-bloc="' + bloc + '"]');
-  if (!tete) return;
-  const sous = [];
-  let x = tete.nextElementSibling;
-  while (x && x.classList.contains(bloc === 'abonnes' ? 'sub-abonne' : 'sub-liv')) { sous.push(x); x = x.nextElementSibling; }
-  if (!sous.length) return;
-  const r = document.createElement('div'); r.className = 'resume-ligne';
-  r.innerHTML = '<span class="rl-val"></span><a class="lien">changer \u25be</a>';
-  tete.insertAdjacentElement('afterend', r);
-  const val = r.querySelector('.rl-val');
-  const maj = () => {
-    if (bloc === 'livraison') {
-      const c = fr.querySelector('[data-livraison]:checked');
-      const row = c ? c.closest('.dl') : null;
-      if (row) { val.textContent = row.querySelector('.lib').textContent + ' \u2014 ' + row.querySelector('.val').textContent; val.className = 'rl-val'; }
-      else { val.textContent = 'Aucune adresse choisie : choisir le contact de livraison (le PO donne l\u2019adresse).'; val.className = 'rl-val err'; }
-    } else {
-      const noms = Array.from(fr.querySelectorAll('[data-abonne]:checked')).map(c => c.closest('.dl').querySelector('.lib').textContent.trim());
-      val.textContent = (noms.length ? noms.join(' \u00b7 ') : 'aucun contact coch\u00e9') + ' \u00b7 \u00c9quipe Commerciale toujours';
-      val.className = 'rl-val';
-    }
-  };
-  const ouvrir = (o) => { sous.forEach(s => { if (s.classList.contains('soc-cache') && s.style.display === 'none') return; s.classList.toggle('visible', o); }); r.querySelector('.lien').textContent = o ? 'replier \u25b4' : 'changer \u25be'; r.dataset.ouvert = o ? '1' : ''; };
-  r.querySelector('.lien').addEventListener('click', () => ouvrir(!r.dataset.ouvert));
-  sous.forEach(s => s.addEventListener('change', maj));
-  const vs = fr.querySelector('[data-voir-societe]');
-  if (vs) vs.addEventListener('click', () => sous.forEach(s => { if (s.classList.contains('soc-cache')) s.classList.add('visible'); }));
-  maj();
-  /* un vide se voit : sans adresse choisie, la liste s ouvre d elle-meme */
-  if (bloc === 'livraison' && !fr.querySelector('[data-livraison]:checked')) ouvrir(true);
 }
 
 /* ---- Action generique : POST garde, message, re-diagnostic --------------- */
