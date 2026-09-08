@@ -125,6 +125,36 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 .et .why { color:var(--text3); font-size:12px; }
 .et .corps .dl { padding:5px 0; }
 .et .corps .dl .lib { width:130px; padding-top:0; }
+
+/* ---- Déroulé (v7.0, 08/09/2026) : une étape à la fois, les faites repliées ---- */
+.prog { display:flex; gap:6px; align-items:center; padding:10px 0 2px; flex-wrap:wrap; }
+.prog .pt { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:11px; font-weight:700; border:1.5px solid var(--border2); color:var(--text3); }
+.prog .pt.done { background:var(--green-bg); color:var(--green-badge); border-color:transparent; cursor:pointer; }
+.prog .pt.active { background:var(--accent); color:#fff; border-color:transparent; }
+.prog .pt.libre { border-style:dashed; }
+.prog .sep { flex:none; width:12px; height:1px; background:var(--border2); }
+.prog .txt { margin-left:8px; color:var(--text2); font-size:12.5px; }
+.fr.deroule .et.wait { display:none; }
+.fr.deroule .et.done, .fr.deroule .et.repli { padding:6px 0; align-items:center; }
+.fr.deroule .et.done .lib, .fr.deroule .et.repli .lib { padding-top:0; }
+.fr.deroule .et.done .corps, .fr.deroule .et.repli .corps { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text3); padding-top:0; cursor:pointer; }
+.fr.deroule .et.done .corps .p-actions, .fr.deroule .et.repli .corps .p-actions,
+.fr.deroule .et.done .corps .dl, .fr.deroule .et.repli .corps .dl { display:none; }
+.fr.deroule .et.ouvert .corps { white-space:normal; overflow:visible; color:var(--text2); cursor:default; }
+.fr.deroule .et.ouvert .corps .p-actions, .fr.deroule .et.ouvert .corps .dl { display:flex; }
+.fr.deroule .et.focus { border:1px solid var(--accent); border-radius:var(--radius-lg); background:var(--surface2); padding:14px 16px 12px; margin:10px 0 6px; flex-direction:column; gap:6px; }
+.fr.deroule .et.focus .num { display:none; }
+.fr.deroule .et.focus .lib { width:auto; font-size:14px; color:var(--text); font-weight:600; padding-top:0; }
+.fr.deroule .et.focus .corps { font-size:13px; width:100%; padding-top:0; }
+.msg-etape { display:block; margin:0 0 8px; font-size:12.5px; }
+.msg-etape:empty { display:none; }
+.msg-etape.err { color:var(--red); } .msg-etape.warn { color:var(--amber); } .msg-etape.ok { color:var(--green); } .msg-etape.chargement { color:var(--text2); }
+.fr.deroule .sub-abonne, .fr.deroule .sub-liv { display:none; }
+.fr.deroule .sub-abonne.visible, .fr.deroule .sub-liv.visible { display:flex; }
+.resume-ligne { display:flex; gap:10px; align-items:center; padding:5px 0 5px 28px; font-size:12.5px; border-bottom:1px solid var(--border); }
+.resume-ligne .rl-val { flex:1; min-width:0; overflow-wrap:anywhere; }
+.resume-ligne .rl-val.err { color:var(--red); }
+.resume-ligne .lien { flex:none; }
 </style>
 
 <style>
@@ -184,8 +214,8 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "6.10";
-const APP_DATE = "03/09/2026";
+const APP_VERSION = "7.0";
+const APP_DATE = "08/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
 
@@ -430,35 +460,35 @@ function htmlEcritures(rep) {
     if (a.cle === 'abonnes') {
       /* v6.1 (convention #16) : la liste cochee EST la liste des abonnes. */
       const L = a.liste || [];
-      h += '<div class="dl"><span class="ic mute">\u2709</span><span class="lib">' + ech(a.libelle) + '</span>' +
+      h += '<div class="dl" data-bloc="abonnes"><span class="ic mute">\u2709</span><span class="lib">' + ech(a.libelle) + '</span>' +
         '<span class="val" style="color:var(--text3);font-size:12px">re\u00e7oivent l\u2019AR et le fil \u00b7 commercial toujours abonn\u00e9' +
         ((a.a_retirer || []).length ? ' \u00b7 retir\u00e9s : ' + ech(a.a_retirer.map(r => r.nom).join(', ')) : '') + '</span><span class="det"></span></div>';
       const nbSoc = L.filter(c => c.role === 'fiche soci\u00e9t\u00e9').length;
       L.forEach((c, i) => {
         const cache = c.role === 'fiche soci\u00e9t\u00e9';
-        h += '<div class="dl' + (cache ? ' soc-cache' : '') + '" style="padding-left:28px' + (cache ? ';display:none' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
+        h += '<div class="dl sub-abonne' + (cache ? ' soc-cache' : '') + '" style="padding-left:28px' + (cache ? ';display:none' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
           '<span class="lib" style="width:220px">' + ech(c.nom || c.email || '?') + '</span>' +
           '<span class="val">' + (c.email ? '<code>' + ech(c.email) + '</code>' : '<span style="color:var(--text3)">sans mail</span>') + '</span>' +
           '<span class="det">' + (c.deja ? '\u2713 ' : '') + ech(c.role || '') + '</span></div>';
       });
-      if (nbSoc) h += '<div class="dl" style="padding-left:28px;border-bottom:none"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
-      if (!L.length) h += '<div class="dl" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
+      if (nbSoc) h += '<div class="dl sub-abonne" style="padding-left:28px;border-bottom:none"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
+      if (!L.length) h += '<div class="dl sub-abonne" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
       continue;
     }
     if (a.cle === 'livraison') {
       /* v6.9 (Olivier 01/09) : choix unique parmi les adresses de la societe ;
          le contact du devis est pre-coche ; societe = rien de coche, grave. */
       const L = a.liste || [];
-      h += '<div class="dl"><span class="ic ' + (a.grave ? 'err' : 'mute') + '">' + (a.grave ? '!' : '\u2302') + '</span><span class="lib">' + ech(a.libelle) + '</span>' +
+      h += '<div class="dl" data-bloc="livraison" data-grave="' + (a.grave ? '1' : '') + '"><span class="ic ' + (a.grave ? 'err' : 'mute') + '">' + (a.grave ? '!' : '\u2302') + '</span><span class="lib">' + ech(a.libelle) + '</span>' +
         '<span class="val"><span class="why">PO : ' + ech(a.po || 'aucune adresse lue') + '</span></span>' +
         '<span class="det' + (a.grave ? ' err' : '') + '">' + ech(a.detail || '') + '</span></div>';
       L.forEach((c, i) => {
-        h += '<div class="dl" style="padding-left:28px"><input type="radio" name="livraison" data-livraison="' + c.partner_id + '"' + (a.choix === c.partner_id ? ' checked' : '') + ' style="accent-color:var(--accent);margin:0 1px;cursor:pointer">' +
+        h += '<div class="dl sub-liv" style="padding-left:28px"><input type="radio" name="livraison" data-livraison="' + c.partner_id + '"' + (a.choix === c.partner_id ? ' checked' : '') + ' style="accent-color:var(--accent);margin:0 1px;cursor:pointer">' +
           '<span class="lib" style="width:220px">' + ech(c.nom) + '</span>' +
           '<span class="val">' + (c.adresse ? ech(c.adresse) : '<span style="color:var(--text3)">sans adresse</span>') + '</span>' +
           '<span class="det">' + (c.actuel ? 'sur le devis' : '') + (c.type === 'delivery' ? (c.actuel ? ' \u00b7 ' : '') + 'adresse de livraison' : '') + '</span></div>';
       });
-      if (!L.length) h += '<div class="dl" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucune adresse connue pour ce client</span></div>';
+      if (!L.length) h += '<div class="dl sub-liv" style="padding-left:28px"><span class="val" style="color:var(--text3)">aucune adresse connue pour ce client</span></div>';
       continue;
     }
     if (a.cle === 'date') val = a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide;
@@ -761,7 +791,7 @@ function afficher(rep) {
     const ico = st === 'done' ? '\u2713' : (st === 'active' ? '\u25b6' : String(e.n));
     let c = corps[e.n] || '';
     if (c === '__REFAB__') c = '';
-    h += '<div class="et ' + st + '" data-etape="' + e.n + '"><span class="num">' + ico + '</span><span class="lib">' + e.n + '. ' + e.lib + '</span><div class="corps">' + c + '</div></div>';
+    h += '<div class="et ' + st + (e.libre ? ' libre' : '') + (e.manuel ? ' manuel' : '') + '" data-etape="' + e.n + '"><span class="num">' + ico + '</span><span class="lib">' + e.n + '. ' + e.lib + '</span><div class="corps">' + c + '</div></div>';
   }
   fr.innerHTML = h;
   z.appendChild(fr);
@@ -892,8 +922,124 @@ function afficher(rep) {
     navigator.clipboard && navigator.clipboard.writeText(this.textContent);
     this.style.borderColor = 'var(--accent)';
   }));
+  /* v7.0 : mode deroule (une etape a la fois) ou vue complete */
+  appliquerMode(fr, E, nCourante);
   el('rapport').classList.add('visible');
   if (DIAG && DIAG.conf) el('rapport').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---- DEROULE (v7.0, 08/09/2026) -------------------------------------------
+   Demande Olivier : « même moi qui suis à l'origine de ces applis, j'arrive à
+   m'y perdre ». La feuille de route affichait les 6 etapes en meme temps.
+   Le deroule ne change RIEN a la logique ni aux appels : c est une couche de
+   presentation posee APRES le rendu. Une seule etape en avant-plan (la courante),
+   les faites repliees sur une ligne (clic pour rouvrir), les en attente masquees,
+   une barre de progression en tete. Le message d etat (#etat) est REFLETE dans
+   l etape courante : un refus ou un blocage se lit la ou l on agit, plus en haut
+   de page (cas TECSUP / EDF du 08/09 : bouton orange muet, humain coince).
+   L etape 6 replie adresse et abonnes sur une ligne (« changer ») : c est la
+   liste des contacts depliee qui rendait l ecran illisible, pas le nombre de blocs.
+   Interrupteur « Vue complète » : l ancienne feuille de route, intacte. */
+const MODE_KEY = 'pp_commande_mode';
+function modeActuel() { try { return localStorage.getItem(MODE_KEY) === 'complet' ? 'complet' : 'deroule'; } catch (e) { return 'deroule'; } }
+function basculerMode() {
+  try { localStorage.setItem(MODE_KEY, modeActuel() === 'deroule' ? 'complet' : 'deroule'); } catch (e) {}
+  if (DERNIER && DERNIER.rep) afficher(DERNIER.rep);
+}
+/* Le message d etat est copie dans l etape courante tant que le deroule est affiche. */
+(function () {
+  const src = el('etat');
+  const sync = () => {
+    const m = document.querySelector('.msg-etape');
+    if (!m || !el('rapport').classList.contains('visible') || modeActuel() !== 'deroule') { src.style.display = ''; return; }
+    m.innerHTML = src.innerHTML;
+    m.className = 'msg-etape ' + (src.className.replace('etat-msg', '').trim() || (src.style.color === 'var(--green)' ? 'ok' : (src.style.color === 'var(--amber)' ? 'warn' : '')));
+    src.style.display = src.textContent.trim() ? 'none' : '';
+  };
+  new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true, attributes: true });
+  window.__syncEtat = sync;
+})();
+function appliquerMode(fr, E, nCourante) {
+  const tete = fr.querySelector('.diag-tete');
+  const mode = modeActuel();
+  if (tete) {
+    const a = document.createElement('a'); a.className = 'lien'; a.id = 'lien-mode';
+    a.textContent = mode === 'deroule' ? 'Vue compl\u00e8te' : 'D\u00e9roul\u00e9';
+    a.title = mode === 'deroule' ? 'Afficher les 7 \u00e9tapes en m\u00eame temps' : 'Une \u00e9tape \u00e0 la fois';
+    a.addEventListener('click', basculerMode);
+    tete.appendChild(a);
+  }
+  if (mode !== 'deroule') { fr.classList.remove('deroule'); el('etat').style.display = ''; return; }
+  fr.classList.add('deroule');
+  const ets = Array.from(fr.querySelectorAll('.et'));
+  const parN = {}; ets.forEach(x => { parN[x.dataset.etape] = x; });
+  const nb = E.filter(e => !e.manuel).length;
+  const faites = E.filter(e => e.done).length;
+  /* etape en avant-plan : la courante ; sinon le projet s il reste a faire ; sinon Odoo */
+  let focusN = nCourante;
+  if (!focusN) { const libre = E.find(e => e.libre && !e.done); focusN = libre ? libre.n : (E.find(e => e.manuel) || {}).n; }
+  ets.forEach(x => {
+    const n = Number(x.dataset.etape);
+    const e = E.find(y => y.n === n) || {};
+    x.classList.remove('focus', 'repli');
+    if (n === focusN) x.classList.add('focus');
+    else if (!e.done && (e.libre || e.manuel)) x.classList.add('repli');
+  });
+  /* etapes repliees : un clic ouvre / ferme */
+  ets.forEach(x => {
+    if (!x.classList.contains('done') && !x.classList.contains('repli')) return;
+    x.querySelector('.corps').addEventListener('click', ev => { if (ev.target.closest('a, button, input')) return; x.classList.toggle('ouvert'); });
+  });
+  /* barre de progression */
+  const prog = document.createElement('div'); prog.className = 'prog';
+  let h = '';
+  E.filter(e => !e.manuel).forEach((e, i) => {
+    const cls = e.done ? 'done' : (e.n === focusN ? 'active' : (e.libre ? 'libre' : ''));
+    h += (i ? '<span class="sep"></span>' : '') + '<span class="pt ' + cls + '" data-pt="' + e.n + '" title="' + e.n + '. ' + ech(e.lib) + '">' + (e.done ? '\u2713' : e.n) + '</span>';
+  });
+  const foc = E.find(e => e.n === focusN) || {};
+  h += '<span class="txt">' + faites + '/' + nb + (foc.lib ? ' \u00b7 ' + ech(foc.lib) : '') + '</span>';
+  prog.innerHTML = h;
+  prog.querySelectorAll('.pt.done').forEach(pt => pt.addEventListener('click', () => { const x = parN[pt.dataset.pt]; if (x) { x.classList.toggle('ouvert'); x.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }));
+  (tete || fr).insertAdjacentElement(tete ? 'afterend' : 'afterbegin', prog);
+  /* message d etat dans l etape courante */
+  const f = parN[focusN];
+  if (f) { const m = document.createElement('span'); m.className = 'msg-etape'; f.querySelector('.corps').insertAdjacentElement('afterbegin', m); if (window.__syncEtat) window.__syncEtat(); }
+  /* etape 6 : adresse et abonnes sur une ligne */
+  resumerBloc(fr, 'livraison');
+  resumerBloc(fr, 'abonnes');
+}
+function resumerBloc(fr, bloc) {
+  const tete = fr.querySelector('[data-bloc="' + bloc + '"]');
+  if (!tete) return;
+  const sous = [];
+  let x = tete.nextElementSibling;
+  while (x && x.classList.contains(bloc === 'abonnes' ? 'sub-abonne' : 'sub-liv')) { sous.push(x); x = x.nextElementSibling; }
+  if (!sous.length) return;
+  const r = document.createElement('div'); r.className = 'resume-ligne';
+  r.innerHTML = '<span class="rl-val"></span><a class="lien">changer \u25be</a>';
+  tete.insertAdjacentElement('afterend', r);
+  const val = r.querySelector('.rl-val');
+  const maj = () => {
+    if (bloc === 'livraison') {
+      const c = fr.querySelector('[data-livraison]:checked');
+      const row = c ? c.closest('.dl') : null;
+      if (row) { val.textContent = row.querySelector('.lib').textContent + ' \u2014 ' + row.querySelector('.val').textContent; val.className = 'rl-val'; }
+      else { val.textContent = 'Aucune adresse choisie : choisir le contact de livraison (le PO donne l\u2019adresse).'; val.className = 'rl-val err'; }
+    } else {
+      const noms = Array.from(fr.querySelectorAll('[data-abonne]:checked')).map(c => c.closest('.dl').querySelector('.lib').textContent.trim());
+      val.textContent = (noms.length ? noms.join(' \u00b7 ') : 'aucun contact coch\u00e9') + ' \u00b7 \u00c9quipe Commerciale toujours';
+      val.className = 'rl-val';
+    }
+  };
+  const ouvrir = (o) => { sous.forEach(s => { if (s.classList.contains('soc-cache') && s.style.display === 'none') return; s.classList.toggle('visible', o); }); r.querySelector('.lien').textContent = o ? 'replier \u25b4' : 'changer \u25be'; r.dataset.ouvert = o ? '1' : ''; };
+  r.querySelector('.lien').addEventListener('click', () => ouvrir(!r.dataset.ouvert));
+  sous.forEach(s => s.addEventListener('change', maj));
+  const vs = fr.querySelector('[data-voir-societe]');
+  if (vs) vs.addEventListener('click', () => sous.forEach(s => { if (s.classList.contains('soc-cache')) s.classList.add('visible'); }));
+  maj();
+  /* un vide se voit : sans adresse choisie, la liste s ouvre d elle-meme */
+  if (bloc === 'livraison' && !fr.querySelector('[data-livraison]:checked')) ouvrir(true);
 }
 
 /* ---- Action generique : POST garde, message, re-diagnostic --------------- */
