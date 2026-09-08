@@ -244,7 +244,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.4";
+const APP_VERSION = "7.5";
 const APP_DATE = "08/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -857,7 +857,7 @@ function afficher(rep) {
   const liensOk = liens.verdict === 'poses';
   E.push({ n: 4, lib: 'Lien article \u2194 carte', done: liensOk, bloque: !liensOk && liens.verdict !== 'a_poser', dep: 2 });
   // 5. projet (libre)
-  const projOk = proj.verdict === 'trouve';
+  const projOk = proj.verdict === 'trouve' || proj.verdict === 'rattache';
   E.push({ n: 5, lib: 'Projet Odoo', done: projOk, bloque: false, libre: true });
   // 6. ecritures (si PO)
   if (conf) E.push({ n: 6, lib: '\u00c9critures Odoo', done: !!(DIAG.applique && DIAG.applique.ok), bloque: false });
@@ -892,7 +892,9 @@ function afficher(rep) {
   }
 
   // 2
-  if (artOk) corps[2] = ech(art.article.nom) + ' <code>#' + art.article.id + '</code>' + (art.verdict === 'existe_hors_so' ? ' \u2014 existe, pas encore sur ce SO' : '');
+  if (artOk) corps[2] = ech(art.article.nom) + ' <code>#' + art.article.id + '</code>' + (art.verdict === 'existe_hors_so' ? ' \u2014 existe, pas encore sur ce SO' : '') +
+    /* v7.5 : nom d article perime (indice absent du nom alors que la carte et la reference le portent) */
+    (art.alerte ? '<span class="why" style="color:var(--amber)">\u26a0 ' + ech(art.alerte) + (art.nom_suggere ? ' Nom conforme : <code class="copiable" title="Cliquer pour copier">' + ech(art.nom_suggere) + '</code>' : '') + '</span>' : '');
   else if (art.verdict === 'plusieurs') corps[2] = 'Arbitrage requis : ' + art.candidats.map(c => ech(c.nom)).join(' / ');
   else if (carteOk) corps[2] = 'Aucun article r\u00e9el : le cr\u00e9er depuis la carte (cat\u00e9gorie Protos, liens pos\u00e9s d\u2019office).' +
     '<div class="p-actions" style="max-width:560px"><input type="text" class="fa-nom" value="' + ech(carte.carte.cle_produit + (carte.carte.indice ? ' ' + carte.carte.indice : '')) + '" style="flex:1;min-width:260px;' + INP + '">' +
@@ -925,11 +927,18 @@ function afficher(rep) {
   } else corps[4] = ech(liens.detail || 'En attente.') + ' ' + attente(E[3]);
 
   // 5
-  if (projOk) corps[5] = ech(proj.projet.name) + ' <code>#' + proj.projet.id + '</code>';
+  /* v7.5 (08/09/2026) : LE LIEN DEVIS -> PROJET EST project_id (natif Odoo).
+     « Rattacher au devis » ne renomme rien ; « Renommer » devient facultatif. */
+  const btnRattacher = (c, cls) => (so && so.so_id ? '<button class="' + (cls || 'btn-p') + '" data-projet-rattacher="' + c.id + '" data-so-id="' + so.so_id + '" data-nom="' + ech(c.name) + '">Rattacher au devis \u00ab ' + ech(c.name) + ' \u00bb</button>' : '');
+  if (proj.verdict === 'rattache') corps[5] = ech(proj.projet.name) + ' <code>#' + proj.projet.id + '</code> \u2014 rattach\u00e9 au devis' + (proj.note ? '<span class="why">' + ech(proj.note) + '</span>' : '');
+  else if (projOk) corps[5] = ech(proj.projet.name) + ' <code>#' + proj.projet.id + '</code> \u2014 trouv\u00e9 par son nom' +
+    (so && so.so_id ? '<div class="p-actions">' + btnRattacher(proj.projet, 'btn-s') + '<span class="why">pose le lien devis \u2192 projet dans Odoo, pour ne plus d\u00e9pendre du nom</span></div>' : '');
   else if (proj.verdict === 'plusieurs') corps[5] = 'Plusieurs projets au nom attendu : ' + proj.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 trancher dans Odoo';
-  else if (proj.verdict === 'candidats') corps[5] = ech(proj.detail || '') + ' Nom attendu : <code>' + ech(proj.nom_attendu) + '</code><div class="p-actions">' +
-    proj.candidats.map(c => '<button class="btn-s" data-projet-renommer="' + c.id + '" data-nom="' + ech(proj.nom_attendu) + '">Renommer \u00ab ' + ech(c.name) + ' \u00bb</button>').join('') +
-    '<button class="btn-s" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Aucun : cr\u00e9er le projet</button></div>';
+  else if (proj.verdict === 'candidats') corps[5] = ech(proj.detail || '') + '<div class="p-actions">' +
+    proj.candidats.map(c => btnRattacher(c)).join('') +
+    '<button class="btn-s" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Aucun : cr\u00e9er le projet</button>' +
+    '<span class="why" style="width:100%">Renommer est facultatif \u2014 nom attendu par la convention : <code>' + ech(proj.nom_attendu) + '</code> \u00b7 ' +
+    proj.candidats.map(c => '<a class="lien" data-projet-renommer="' + c.id + '" data-nom="' + ech(proj.nom_attendu) + '">renommer \u00ab ' + ech(c.name) + ' \u00bb</a>').join(' \u00b7 ') + '</span></div>';
   else if (proj.verdict === 'introuvable') corps[5] = 'Introuvable \u2014 nom attendu <code class="copiable" title="Cliquer pour copier">' + ech(proj.nom_attendu) + '</code><div class="p-actions">' +
     '<button class="btn-p" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Cr\u00e9er le projet</button>' +
     (proj.so_numero ? '<span class="why">avec l\u2019\u00e9tape ' + ech(proj.so_numero) + '</span>' : '') + '</div>';
@@ -1094,8 +1103,12 @@ function afficher(rep) {
     agir(this, 'commande-creer-article', { produit_id: parseInt(this.dataset.creerArticle, 10), nom: champNom ? champNom.value.trim() : null },
       r => 'Article \u00ab ' + r.article_nom + ' \u00bb cr\u00e9\u00e9 (#' + r.article_id + '), liens pos\u00e9s.');
   }));
+  z.querySelectorAll('[data-projet-rattacher]').forEach(b => b.addEventListener('click', function () {
+    agir(this, 'commande-projet', { action: 'rattacher', projet_id: parseInt(this.dataset.projetRattacher, 10), so_id: parseInt(this.dataset.soId, 10) },
+      r => 'Projet \u00ab ' + r.nom_projet + ' \u00bb rattach\u00e9 au devis (project_id pos\u00e9 dans Odoo).');
+  }));
   z.querySelectorAll('[data-projet-renommer]').forEach(b => b.addEventListener('click', function () {
-    if (!confirm('Renommer ce projet en \u00ab ' + this.dataset.nom + ' \u00bb ?\nUne fois renomm\u00e9, la cha\u00eene le retrouvera seule \u00e0 chaque refab.')) return;
+    if (!confirm('Renommer ce projet en \u00ab ' + this.dataset.nom + ' \u00bb ?\n(en fran\u00e7ais et en anglais \u2014 facultatif : le lien au devis ne d\u00e9pend plus du nom)')) return;
     agir(this, 'commande-projet', { action: 'renommer', projet_id: parseInt(this.dataset.projetRenommer, 10), nom_attendu: this.dataset.nom },
       r => 'Projet renomm\u00e9 : \u00ab ' + r.ancien_nom + ' \u00bb \u2192 \u00ab ' + r.nouveau_nom + ' \u00bb.');
   }));
