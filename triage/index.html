@@ -128,6 +128,9 @@ tr.ouvert .motif { display: block; }
 .menu button:hover { background: var(--accent); color: #fff; border-color: transparent; }
 .menu button:disabled { opacity: .5; cursor: default; }
 .menu .lab { color: var(--text3); font-size: 10px; width: 100%; margin-bottom: 1px; }
+.menu .btn-ar { border-color: var(--green-badge); color: var(--green); }
+.menu .btn-ar:hover { background: var(--green-badge); color: #fff; }
+.armail { display: inline-block; margin-top: 7px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--green-bg); color: var(--green-badge); }
 .classe { margin-top: 8px; font-size: 12px; color: var(--green); }
 .classe a { color: var(--accent); }
 .classe.err { color: var(--red); }
@@ -199,7 +202,7 @@ tr.rep-row:not(.visible) { display: none; }
 </main>
 
 <script>
-const APP_VERSION = "1.9";
+const APP_VERSION = "2.0";
 const APP_DATE = "03/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook/triage-boite";
 const API_REP = "https://protoprocess.app.n8n.cloud/webhook/triage-repondre";
@@ -207,6 +210,7 @@ const API_CLASSER = "https://protoprocess.app.n8n.cloud/webhook/triage-classer";
 const API_MAJ_PREP = "https://protoprocess.app.n8n.cloud/webhook/triage-maj-preparer";
 const API_MAJ_APP = "https://protoprocess.app.n8n.cloud/webhook/triage-maj-appliquer";
 const API_SCAN = "https://protoprocess.app.n8n.cloud/webhook/triage-scan";
+const API_AR = "https://protoprocess.app.n8n.cloud/webhook/triage-ar";
 
 document.title = `Triage boîte commerciale v${APP_VERSION}`;
 document.getElementById('version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -310,7 +314,9 @@ function rendre() {
             <span class="lab">Envoyer vers</span>
             <button onclick="classer(this,'devis')" title="Poser ->Devis et récupérer le mail">Devis</button>
             <button onclick="classer(this,'commande')" title="Poser ->Commande et récupérer le mail">Commande</button>
-          </div></td>
+          </div>
+          ${f.ar_mail_le ? '<span class="armail">ARMail ok</span>' : (['commande','devis'].includes(t) ? `<div class="menu"><span class="lab">Accusé de réception</span><button class="btn-ar" onclick="envoyerAR(this)" title="Envoie immédiatement un simple accusé de réception du mail">Envoyer ARMail</button></div>` : '')}
+          </td>
         <td><div class="objet">${echapper(f.objet)}</div><div class="resume">${resume}</div>${odoo}${sugg}${motif}</td>
         <td class="col-act"><a href="https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(f.thread_id)}" target="_blank" title="Ouvrir dans Gmail" onclick="event.stopPropagation()"><i class="ti ti-external-link"></i></a></td>
       </tr>
@@ -333,6 +339,35 @@ function rendre() {
 }
 
 const APPLI = { devis: 'https://protoprocess.github.io/commercial/devis-client/', commande: 'https://protoprocess.github.io/commercial/commande/' };
+
+// Envoi immediat, sans relecture : l accuse de reception du mail est un texte
+// fixe qui n engage rien. Il ne fait PAS disparaitre la ligne, le travail reel
+// reste a faire.
+async function envoyerAR(btn) {
+  const tr = btn.closest('tr.fil');
+  const rep = tr.nextElementSibling;
+  const menu = btn.closest('.menu');
+  btn.disabled = true;
+  const avant = btn.textContent;
+  btn.textContent = 'Envoi…';
+  try {
+    const r = await fetch(API_AR, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread_id: rep.dataset.thread })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await r.json();
+    menu.outerHTML = '<span class="armail">ARMail ok</span>';
+    const f = donnees.find(x => x.thread_id === rep.dataset.thread);
+    if (f) f.ar_mail_le = new Date().toISOString();
+  } catch (e) {
+    btn.textContent = avant;
+    btn.disabled = false;
+    const zone = rep.querySelector('.zone');
+    tr.classList.add('ouvert'); rep.classList.add('visible');
+    zone.innerHTML = `<div class="rep-err">Échec de l'envoi (${echapper(e.message)}).</div>`;
+  }
+}
 
 async function classer(btn, cible) {
   const tr = btn.closest('tr.fil');
