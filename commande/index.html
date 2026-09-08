@@ -163,9 +163,15 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 .ec .val input[type=date] { background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); padding:3px 6px; font-family:var(--mono); font-size:12px; color-scheme:dark; }
 .ec .lien { flex:none; padding-top:1px; }
 .ec.off { opacity:.55; }
-.dl.sub { display:none; padding:4px 0 4px 26px; border-bottom:none; }
+.ecw { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:0 12px; margin-bottom:8px; }
+.ecw.decoche { opacity:.5; }
+.ecw .ec { border-bottom:none; padding:9px 0; }
+.subs { display:none; margin:0 0 10px 26px; padding:5px 12px; background:var(--bg); border-left:3px solid var(--accent); border-radius:0; }
+.subs.visible { display:block; }
+.dl.sub { display:none; padding:4px 0; border-bottom:none; }
 .dl.sub.visible { display:flex; }
-.cst { display:flex; gap:10px; align-items:flex-start; padding:6px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+.cst { display:flex; gap:10px; align-items:flex-start; padding:8px 12px; margin-bottom:8px; background:var(--surface2); border:1px solid var(--border); border-left:3px solid var(--red-badge); border-radius:0; font-size:12.5px; }
+.cst.warn-b { border-left-color:var(--amber-badge); }
 .cst .ic { flex:none; width:18px; text-align:center; font-weight:700; padding-top:1px; }
 .cst .ic.err { color:var(--red); } .cst .ic.warn { color:var(--amber); }
 .cst .val { flex:1; min-width:0; overflow-wrap:anywhere; } .cst .val .why { display:block; }
@@ -238,7 +244,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.3";
+const APP_VERSION = "7.4";
 const APP_DATE = "08/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -566,6 +572,11 @@ function htmlEcritures(rep) {
     return '<div class="ec' + (off ? ' off' : '') + '"><input type="checkbox" data-action="' + cle + '"' + (opts.coche ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
       '<span class="lib">' + lib + '</span><span class="val">' + val + '</span>' + (opts.lien || '') + '</div>';
   };
+  /* v7.4 : une ecriture = une carte fermee ; son detail deplie vit DEDANS,
+     indente et sur fond --bg avec un lisere accent. Le vide entre cartes
+     remplace les traits horizontaux, qui separaient avec la meme force une
+     ecriture d une autre et une adresse de la suivante. */
+  const carte = (interieur, sub) => '<div class="ecw">' + interieur + (sub || '') + '</div>';
   let h = '<div class="bloc6">';
 
   /* ---- A. ce qui sera ecrit ---- */
@@ -573,29 +584,31 @@ function htmlEcritures(rep) {
   if (A.ref) {
     const a = A.ref;
     const conflit = a.grave;
-    h += ligne('ref', 'R\u00e9f. client', (a.valeur ? '<code>' + ech(a.valeur) + '</code>' : vide) +
+    h += carte(ligne('ref', 'R\u00e9f. client', (a.valeur ? '<code>' + ech(a.valeur) + '</code>' : vide) +
       (conflit ? '<span class="why err">' + ech(a.detail) + '</span>' : (a.deja ? '<span class="why">d\u00e9j\u00e0 sur le devis</span>' : '')),
-      { coche: a.coche, off: !a.ecriture });
+      { coche: a.coche, off: !a.ecriture }));
   }
   if (A.date) {
     const a = A.date;
-    h += ligne('date', 'Date de livraison', (a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide) +
-      (a.detail ? '<span class="why' + (a.grave ? ' err' : '') + '">' + ech(a.detail) + '</span>' : ''), { coche: a.coche, off: !a.ecriture });
+    h += carte(ligne('date', 'Date de livraison', (a.valeur ? '<input type="date" data-date value="' + ech(a.valeur) + '">' : vide) +
+      (a.detail ? '<span class="why' + (a.grave ? ' err' : '') + '">' + ech(a.detail) + '</span>' : ''), { coche: a.coche, off: !a.ecriture }));
   }
   if (A.livraison) {
     const a = A.livraison, L = a.liste || [];
     const choisi = L.find(c => a.choix === c.partner_id) || null;
     const resume = choisi ? ech(choisi.nom) + ' \u2014 ' + ech(choisi.adresse || 'sans adresse')
       : '<span class="err">Aucune adresse choisie : choisir le contact de livraison' + (a.po ? ' (le PO donne l\u2019adresse)' : '') + '.</span>';
-    h += ligne('livraison', 'Livrer \u00e0', '<span data-resume="livraison">' + resume + '</span>' +
+    let sub = '';
+    const tete = ligne('livraison', 'Livrer \u00e0', '<span data-resume="livraison">' + resume + '</span>' +
       (a.po ? '<span class="why">PO : ' + ech(a.po) + '</span>' : ''), { coche: !!choisi, off: !a.ecriture, lien: L.length ? '<a class="lien" data-changer="liv">changer \u25be</a>' : '' });
     L.forEach(c => {
-      h += '<div class="dl sub sub-liv' + (choisi ? '' : ' visible') + '"><input type="radio" name="livraison" data-livraison="' + c.partner_id + '"' + (a.choix === c.partner_id ? ' checked' : '') + ' style="accent-color:var(--accent);margin:0 1px;cursor:pointer">' +
+      sub += '<div class="dl sub sub-liv' + (choisi ? '' : ' visible') + '"><input type="radio" name="livraison" data-livraison="' + c.partner_id + '"' + (a.choix === c.partner_id ? ' checked' : '') + ' style="accent-color:var(--accent);margin:0 1px;cursor:pointer">' +
         '<span class="lib" style="width:220px">' + ech(c.nom) + '</span>' +
         '<span class="val">' + (c.adresse ? ech(c.adresse) : '<span style="color:var(--text3)">sans adresse</span>') + '</span>' +
         '<span class="det">' + (c.actuel ? 'sur le devis' : '') + (c.type === 'delivery' ? (c.actuel ? ' \u00b7 ' : '') + 'adresse de livraison' : '') + '</span></div>';
     });
-    if (!L.length) h += '<div class="dl sub sub-liv visible"><span class="val" style="color:var(--text3)">aucune adresse connue pour ce client</span></div>';
+    if (!L.length) sub += '<div class="dl sub sub-liv visible"><span class="val" style="color:var(--text3)">aucune adresse connue pour ce client</span></div>';
+    h += carte(tete, '<div class="subs' + (choisi ? '' : ' visible') + '">' + sub + '</div>');
   }
   if (A.abonnes) {
     const a = A.abonnes, L = a.liste || [];
@@ -603,25 +616,27 @@ function htmlEcritures(rep) {
     const resume = (coches.length ? coches.join(' \u00b7 ') : '<span style="color:var(--text3)">aucun contact coch\u00e9</span>') +
       ' \u00b7 ' + (a.commercial ? ech(a.commercial.nom) : '\u00c9quipe Commerciale') + ' <span style="color:var(--text3)">toujours</span>';
     const retires = (a.a_retirer || []).map(r => ech(r.nom));
-    h += ligne('abonnes', 'Abonn\u00e9s \u00e0 l\u2019AR', '<span data-resume="abonnes">' + resume + '</span>' +
+    let sub = '';
+    const tete = ligne('abonnes', 'Abonn\u00e9s \u00e0 l\u2019AR', '<span data-resume="abonnes">' + resume + '</span>' +
       (retires.length ? '<span class="why">retir\u00e9s : ' + retires.join(', ') + '</span>' : ''), { coche: true, lien: L.length ? '<a class="lien" data-changer="abo">changer \u25be</a>' : '' });
     const nbSoc = L.filter(c => c.role === 'fiche soci\u00e9t\u00e9').length;
     L.forEach((c, i) => {
       const cache = c.role === 'fiche soci\u00e9t\u00e9';
-      h += '<div class="dl sub sub-abo' + (cache ? ' soc-cache' : '') + '" data-soc="' + (cache ? '1' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
+      sub += '<div class="dl sub sub-abo' + (cache ? ' soc-cache' : '') + '" data-soc="' + (cache ? '1' : '') + '"><input type="checkbox" data-abonne="' + i + '"' + (c.coche ? ' checked' : '') + '>' +
         '<span class="lib" style="width:220px">' + ech(c.nom || c.email || '?') + '</span>' +
         '<span class="val">' + (c.email ? '<code>' + ech(c.email) + '</code>' : '<span style="color:var(--text3)">sans mail</span>') + '</span>' +
         '<span class="det">' + (c.deja ? '\u2713 ' : '') + ech(c.role || '') + '</span></div>';
     });
-    if (nbSoc) h += '<div class="dl sub sub-abo" data-plus-soc="1"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
-    if (!L.length) h += '<div class="dl sub sub-abo"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
+    if (nbSoc) sub += '<div class="dl sub sub-abo" data-plus-soc="1"><span class="val"><a class="lien" data-voir-societe="1">+ ' + nbSoc + ' autre(s) contact(s) de la soci\u00e9t\u00e9\u2026</a></span></div>';
+    if (!L.length) sub += '<div class="dl sub sub-abo"><span class="val" style="color:var(--text3)">aucun contact propos\u00e9 : seul commercial sera abonn\u00e9</span></div>';
+    h += carte(tete, '<div class="subs">' + sub + '</div>');
   }
   if (A.note) {
     const a = A.note, ex = a.liste || [];
-    h += ligne('note', 'Exigences en note', ex.length ? '<ul>' + ex.map(x => '<li>' + ech(x) + '</li>').join('') + '</ul>' : vide + ' <span class="why">aucune exigence lue au PO</span>',
-      { coche: a.coche, off: !a.ecriture });
+    h += carte(ligne('note', 'Exigences en note', ex.length ? '<ul>' + ex.map(x => '<li>' + ech(x) + '</li>').join('') + '</ul>' : vide + ' <span class="why">aucune exigence lue au PO</span>',
+      { coche: a.coche, off: !a.ecriture }));
   }
-  if (A.pj) h += ligne('pj', 'Bon de commande', ech(A.pj.valeur || 'PDF + message dans le fil'), { coche: A.pj.coche, off: !A.pj.ecriture });
+  if (A.pj) h += carte(ligne('pj', 'Bon de commande', ech(A.pj.valeur || 'PDF + message dans le fil'), { coche: A.pj.coche, off: !A.pj.ecriture }));
   h += '<div class="diag-pied"><button class="btn-p" id="btn-appliquer">Appliquer dans Odoo</button><span class="msg" id="diag-msg"></span></div>';
 
   /* ---- B. a verifier a la main ---- */
@@ -630,7 +645,7 @@ function htmlEcritures(rep) {
     h += '<h4>\u00c0 v\u00e9rifier \u00e0 la main <span class="why">l\u2019appli n\u2019\u00e9crit rien ici</span></h4>';
     constats.forEach((e, i) => {
       const vu = !!vus[e.nom];
-      h += '<div class="cst' + (vu ? ' vu' : '') + '"><span class="ic ' + (e.grave ? 'err' : 'warn') + '">!</span>' +
+      h += '<div class="cst' + (e.grave ? '' : ' warn-b') + (vu ? ' vu' : '') + '"><span class="ic ' + (e.grave ? 'err' : 'warn') + '">!</span>' +
         '<span class="val"><b>' + ech(e.nom) + '</b>' +
         (e.po ? ' \u2014 le PO dit : ' + ech(String(e.po).slice(0, 220)) : '') +
         (e.constat ? (e.po ? ' ; ' : ' \u2014 ') + ech(e.libelle_constat || 'le devis') + ' : ' + ech(String(e.constat).slice(0, 200)) : '') +
@@ -647,8 +662,16 @@ function htmlEcritures(rep) {
   return h;
 }
 function brancherEcritures(z, rep, ent, actif) {
+  /* v7.4 : une carte dont l ecriture est decochee se grise en entier, pour que
+     le compte du bouton se verifie a l oeil sans relire chaque case. */
+  const majCartes = () => {
+    z.querySelectorAll('[data-action]').forEach(c => {
+      const w = c.closest('.ecw'); if (w) w.classList.toggle('decoche', !c.checked || c.disabled);
+    });
+  };
   const majBouton = () => {
     const n = z.querySelectorAll('[data-action]:checked:not(:disabled)').length;
+    majCartes();
     const b = el('btn-appliquer'); if (!b) return;
     b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n || !actif;
   };
@@ -659,6 +682,8 @@ function brancherEcritures(z, rep, ent, actif) {
     const rows = Array.from(z.querySelectorAll('.' + cls)).filter(r => !r.dataset.soc || r.classList.contains('visible'));
     const ouvert = rows.some(r => r.classList.contains('visible'));
     rows.forEach(r => r.classList.toggle('visible', !ouvert));
+    const boite = rows.length ? rows[0].closest('.subs') : null;
+    if (boite) boite.classList.toggle('visible', !ouvert);
     if (!ouvert) { const p = z.querySelector('[data-plus-soc]'); if (p && cls === 'sub-abo') p.classList.add('visible'); }
     lien.textContent = ouvert ? 'changer \u25be' : 'replier \u25b4';
   };
