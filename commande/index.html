@@ -436,18 +436,39 @@ function estRecommande(d, ent) {
   return false;
 }
 function htmlRecommande(d, ent) {
+  /* v7.1b : la carte est retrouvee depuis le devis cite (article -> pont), pas
+     depuis la reference lue au PO, qui est souvent le CODE ARTICLE DU CLIENT
+     (MHR EL0N000098) et non une carte FabStory. Chercher ce code dans
+     FabStory aurait propose de creer une carte en double. */
+  const viaSO = !!(d && d.nom);
   return '<div class="recmd">\u26a0 <b>' + ech(d.nom) + ' est d\u00e9j\u00e0 command\u00e9</b> \u2014 \u00e9tat <code>' + ech(d.etat || '?') + '</code>' +
     (d.po_deja_pose ? ', bon de commande <code>' + ech(d.po_deja_pose) + '</code>' : '') + '.<br>' +
     'Le bon de commande <code>' + ech(ent.num_commande_client || '?') + '</code> est une <b>re-commande</b> : on ne r\u00e9\u00e9crit pas un devis clos, on en cr\u00e9e un nouveau.' +
-    '<div class="p-actions">' + (ent.ref_detectee
-      ? '<button class="btn-p" data-refab-entrante="1">Cr\u00e9er le devis refab depuis la carte ' + ech(ent.ref_detectee) + '</button><span class="why">cadences pr\u00e9-remplies depuis le PO \u00b7 puis les \u00e9critures Odoo sur le nouveau devis</span>'
-      : '<span class="why">Aucune r\u00e9f\u00e9rence carte lue au PO : saisir la carte dans le champ du haut, puis \u00ab Diagnostiquer \u00bb.</span>') + '</div></div>';
+    '<div class="p-actions">' +
+    '<button class="btn-p" data-refab-entrante="1" data-so="' + ech(viaSO ? d.nom : '') + '">Cr\u00e9er le devis refab</button>' +
+    '<span class="why">' + (viaSO ? 'sur la m\u00eame carte que ' + ech(d.nom) + ' (retrouv\u00e9e par l\u2019article)' : (ent.ref_detectee ? 'd\u2019apr\u00e8s la r\u00e9f lue au PO <code>' + ech(ent.ref_detectee) + '</code>' : 'aucune r\u00e9f\u00e9rence lue au PO')) +
+    ' \u00b7 cadences pr\u00e9-remplies \u00b7 puis les \u00e9critures Odoo sur le nouveau devis</span></div></div>';
 }
-function brancherRefab(z, ent) {
-  z.querySelectorAll('[data-refab-entrante]').forEach(b => b.addEventListener('click', function () {
+async function brancherRefab(z, ent) {
+  z.querySelectorAll('[data-refab-entrante]').forEach(b => b.addEventListener('click', async function () {
+    const soCite = this.dataset.so || '';
+    const texte = this.textContent; this.disabled = true;
+    let cle = null;
+    if (soCite) {
+      /* la carte du devis cite, par le pont */
+      this.textContent = 'Lecture de la carte de ' + soCite + '\u2026';
+      try {
+        const r = await appel('commande-diagnostic?so=' + encodeURIComponent(soCite));
+        const c = (r && r.pieces || []).find(x => x.piece === 'carte');
+        if (c && c.verdict === 'existe' && c.carte) cle = c.carte.cle_produit;
+        else if (c && c.verdict === 'plusieurs') { el('etat').textContent = 'Plusieurs cartes possibles derri\u00e8re ' + soCite + ' : saisir la cl\u00e9 de la bonne carte dans le champ du haut.'; el('etat').className = 'etat-msg warn'; this.disabled = false; this.textContent = texte; return; }
+      } catch (e) { cle = null; }
+    }
+    if (!cle) cle = ent.ref_detectee || '';
+    if (!cle) { el('etat').textContent = 'Aucune carte trouv\u00e9e : saisir la cl\u00e9 de la carte dans le champ du haut, puis Diagnostiquer.'; el('etat').className = 'etat-msg err'; this.disabled = false; this.textContent = texte; return; }
     ENTRANTE = ent; DIAG = null;
     el('confrontation').innerHTML = '';
-    el('entree').value = ent.ref_detectee;
+    el('entree').value = cle;
     el('entree').dispatchEvent(new Event('input'));
     diagnostiquer();
   }));
