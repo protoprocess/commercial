@@ -238,7 +238,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.1";
+const APP_VERSION = "7.2";
 const APP_DATE = "08/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -391,8 +391,11 @@ async function diagnostiquerEntrante(ent, bouton) {
      ouvert du client, une autre carte. */
   const premier = DIAG.devisListe[0] || null;
   /* v7.1 : un devis cite mais deja commande n est pas ouvert, il est signale. */
-  if (premier && (premier.cite_au_po || premier.meme_montant) && !estRecommande(premier, ent)) { await confronter(ent, premier.nom); return; }
-  afficherChoixDevis(z, premier && estRecommande(premier, ent) ? premier : null);
+  /* v7.1c (retour Olivier) : un devis cite deja commande est quand meme OUVERT :
+     sa feuille de route (carte, article, projet) est la meilleure source qui
+     soit. Seule l etape 6 change : re-commande -> devis refab sur cette carte. */
+  if (premier && (premier.cite_au_po || premier.meme_montant)) { await confronter(ent, premier.nom); return; }
+  afficherChoixDevis(z, null);
 }
 
 /* Confronte l entrante a un devis, puis lance la lecture des 5 pieces sur ce
@@ -446,7 +449,7 @@ function htmlRecommande(d, ent) {
     'Le bon de commande <code>' + ech(ent.num_commande_client || '?') + '</code> est une <b>re-commande</b> : on ne r\u00e9\u00e9crit pas un devis clos, on en cr\u00e9e un nouveau.' +
     '<div class="p-actions">' +
     '<button class="btn-p" data-refab-entrante="1" data-so="' + ech(viaSO ? d.nom : '') + '">Cr\u00e9er le devis refab</button>' +
-    '<span class="why">' + (viaSO ? 'sur la m\u00eame carte que ' + ech(d.nom) + ' (retrouv\u00e9e par l\u2019article)' : (ent.ref_detectee ? 'd\u2019apr\u00e8s la r\u00e9f lue au PO <code>' + ech(ent.ref_detectee) + '</code>' : 'aucune r\u00e9f\u00e9rence lue au PO')) +
+    '<span class="why">' + (viaSO ? 'sur la m\u00eame carte que ' + ech(d.nom) + (d.carte ? ' : <code>' + ech(d.carte) + '</code>' : ' (retrouv\u00e9e par l\u2019article)') : (ent.ref_detectee ? 'd\u2019apr\u00e8s la r\u00e9f lue au PO <code>' + ech(ent.ref_detectee) + '</code>' : 'aucune r\u00e9f\u00e9rence lue au PO')) +
     ' \u00b7 cadences pr\u00e9-remplies \u00b7 puis les \u00e9critures Odoo sur le nouveau devis</span></div></div>';
 }
 async function brancherRefab(z, ent) {
@@ -454,8 +457,15 @@ async function brancherRefab(z, ent) {
     const soCite = this.dataset.so || '';
     const texte = this.textContent; this.disabled = true;
     let cle = null;
-    if (soCite) {
-      /* la carte du devis cite, par le pont */
+    /* la carte est deja sous les yeux : feuille de route du devis cite */
+    try {
+      if (DERNIER && DERNIER.rep && DERNIER.entree && DERNIER.entree.mode === 'so' && (!soCite || DERNIER.entree.valeur === soCite)) {
+        const c = (DERNIER.rep.pieces || []).find(x => x.piece === 'carte');
+        if (c && c.verdict === 'existe' && c.carte) cle = c.carte.cle_produit;
+      }
+    } catch (e) { cle = null; }
+    if (!cle && soCite) {
+      /* sinon : la carte du devis cite, par le pont */
       this.textContent = 'Lecture de la carte de ' + soCite + '\u2026';
       try {
         const r = await appel('commande-diagnostic?so=' + encodeURIComponent(soCite));
@@ -904,7 +914,7 @@ function afficher(rep) {
   const recmd = conf ? estRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose }, ent) : false;
   if (conf) {
     if (DIAG.applique && DIAG.applique.ok) corps[6] = '<div class="journal">' + htmlJournal(DIAG.applique) + '</div>';
-    else if (recmd) corps[6] = htmlRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose }, ent);
+    else if (recmd) corps[6] = htmlRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose, carte: carteOk ? carte.carte.cle_produit + (carte.carte.indice ? ' \u00b7 indice ' + carte.carte.indice : '') : null }, ent);
     else corps[6] = htmlEcritures(conf);
   }
 
