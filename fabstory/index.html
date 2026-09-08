@@ -109,6 +109,9 @@ textarea{resize:vertical;min-height:64px}
 .tl-entree{border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px;background:#fff;cursor:pointer}
 .tl-entree:hover{border-color:var(--border2)}
 .tl-entree.choisie{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.tl-entree.caduque{opacity:.5}
+.tl-entree.caduque .tl-texte{text-decoration:line-through;text-decoration-color:var(--text3)}
+.chip-caduc{background:var(--amber-bg);color:var(--amber-badge);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500}
 .tl-entree.indice-evt{background:var(--info-bg);border-color:var(--info)}
 .tl-reponse{margin-left:26px;position:relative}
 .tl-reponse::before{content:'\21b3';position:absolute;left:-19px;top:10px;color:var(--text3)}
@@ -471,8 +474,8 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.23';
-const APP_DATE = '04/09/2026';
+const APP_VERSION = '4.24';
+const APP_DATE = '08/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -830,10 +833,15 @@ function passeFiltre(e){
   if(filtre === 'interne') return e.visible_client !== true && e.type !== 'indice';
   return true;
 }
+/* v4.24 (08/09, convention 28) : une reponse rendue caduque par une relance
+   reste lisible mais barree — elle n est plus la consigne opposable. */
 function htmlEntree(e, cls){
+  const caduc = !!e.caduque_par;
   return '<div class="tl-entree ' + (cls||'') + (e.type==='indice'?' indice-evt':'') +
+    (caduc?' caduque':'') +
     (e.id===choisieId?' choisie':'') + '" onclick="ouvrirVolet(' + e.id + ')">' +
     '<div class="tl-tete">' + chipsEntree(e, false) +
+    (caduc ? '<span class="chip-caduc">Remplac\u00e9e</span>' : '') +
     '<span class="tl-meta">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) + '</span></div>' +
     compEntree(e) +
     '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
@@ -1467,6 +1475,36 @@ function ouvrirVolet(id){
     }
   }
 
+  /* v4.24 : RELANCER. Quand une reponse ne convient plus (equivalent refuse,
+     boitier non conforme, delai intenable), on ne cree pas une question
+     independante : on relance dans le fil. La nouvelle question porte suite_de,
+     et la reponse depassee recoit caduque_par cote API. Le texte pre-rempli ne
+     contient QUE ce que la machine sait deja : le motif reste a l auteur. */
+  if((e.type === 'reponse_client' || e.type === 'reponse_interne') && !e.caduque_par){
+    const q = entree(e.repond_a) || {};
+    const suj = [ (e.mpn || q.mpn) ? (e.mpn || q.mpn) : null,
+                  (e.repere || q.repere) ? ('rep\u00e8res ' + (e.repere || q.repere)) : null ]
+                .filter(Boolean).join(', ');
+    const versClient = (e.type === 'reponse_client');
+    const pre = versClient
+      ? ('Bonjour,\nJe reviens vers vous concernant votre r\u00e9ponse du ' + fdate(e.cree_le) +
+         (suj ? ' au sujet de ' + suj : '') + '.\n' +
+         '[pr\u00e9ciser ici ce qui ne convient pas]\n' +
+         'Merci de nous indiquer la marche \u00e0 suivre.\n\nCordialement.')
+      : ('Je rouvre ce point : la r\u00e9ponse du ' + fdate(e.cree_le) +
+         (suj ? ' (' + suj + ')' : '') + ' ne convient pas.\n' +
+         '[pr\u00e9ciser ici pourquoi]');
+    h += '<details class="v-sec" open><summary><i class="ti ti-refresh"></i> Relancer' +
+      (versClient ? ' le client' : ' en interne') + '</summary>' +
+      '<p class="hint" style="margin:0 0 8px">Cette r\u00e9ponse ne convient plus. La relance repart du m\u00eame sujet' +
+      (suj ? ' (' + esc(suj) + ')' : '') + '. Cette r\u00e9ponse restera lisible, mais barr\u00e9e.</p>' +
+      '<textarea id="v-rel-texte" rows="7">' + esc(pre) + '</textarea>' +
+      '<div id="v-rel-msg" style="min-height:16px"></div>' +
+      '<button class="btn-p" onclick="FS.voletRelancer()"><i class="ti ti-send"></i> Enregistrer la relance</button>' +
+      '<p class="hint" style="margin:7px 0 0">Elle rejoint les questions en attente' +
+      (versClient ? ' et partira par le mail client habituel.' : '.') + '</p></details>';
+  }
+
   if(e.type !== 'indice'){
     h += '<details class="v-sec"><summary><i class="ti ti-pencil"></i> Modifier le texte</summary>' +
       '<textarea id="v-mod-texte" rows="4">' + esc(e.texte_brut||'') + '</textarea>' +
@@ -1587,6 +1625,31 @@ FS.voletRepondre = async function(){
       etape_code: e.etape_code || null,
       so_canonique: e.so_canonique || soCourant(),
       portee_validation: (e.type === 'question_client' && porteeBtn) ? porteeBtn.dataset.portee : null,
+      source: 'fabstory',
+      differer_notif: true
+    });
+    await recharger(true);
+  }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+FS.voletRelancer = async function(){
+  const e = entree(choisieId); if(!e) return;
+  const texte = (el('v-rel-texte').value||'').trim();
+  const msg = el('v-rel-msg');
+  if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est n\u00e9cessaire.</span>'; return; }
+  if(/\[[^\]]+\]/.test(texte) &&
+     !confirm('Le texte contient encore un passage entre crochets \u00e0 compl\u00e9ter.\n\nEnregistrer quand m\u00eame ?')) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  const q = entree(e.repond_a) || {};
+  msg.innerHTML = '<span class="spin"></span>';
+  try{
+    await postJson(BASE + '/fabstory-note', {
+      produit_id: P.id, suite_de: e.id, auteur, texte_brut: texte,
+      type: e.type === 'reponse_client' ? 'question_client' : 'question_interne',
+      etape_code: e.etape_code || q.etape_code || null,
+      so_canonique: e.so_canonique || q.so_canonique || soCourant(),
+      repere: e.repere || q.repere || null,
+      mpn: e.mpn || q.mpn || null,
+      lien: e.lien || q.lien || null,
       source: 'fabstory',
       differer_notif: true
     });
