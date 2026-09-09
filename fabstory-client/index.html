@@ -110,6 +110,10 @@
   .jalon.actuel .pt { background: var(--accent); border-color: var(--accent); color: #fff; }
   .jalon.actuel .lbl { color: var(--accent-fonce); font-weight: 700; }
   .jalon.actuel:not(:first-child)::before { background: var(--info); }
+  /* v0.48 : avancement proportionnel dans Fabrication (operations faites / total) */
+  .jalons { position: relative; }
+  .prog-fill { position: absolute; top: 15px; left: 0; height: 2px; background: var(--info); pointer-events: none; }
+  .prog-pt { position: absolute; top: 10px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px #fff; z-index: 2; pointer-events: none; }
   .jalons.attente .pt { animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
   @media (prefers-reduced-motion: reduce) { .jalons.attente .pt { animation: none; } }
@@ -482,8 +486,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.47";
-const APP_DATE = "04/09/2026";
+const APP_VERSION = "0.48";
+const APP_DATE = "09/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -937,7 +941,7 @@ async function chargerStatut() {
       SO_CIBLE = String(r.so).trim();
       if (DONNEES) { rendrePoints(DONNEES); rendreFil(DONNEES); }
     }
-    rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null);
+    rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null, false, r && r.ok ? r.operations : null);
     rendreInspection(r && r.ok ? r.inspection : null);
     if (r && r.ok && r.conformite) { r.conformite.so = r.conformite.so || r.so || ""; if (r.conformite.qte == null) r.conformite.qte = r.qte_cmd; }
     rendreCartouche(r && r.ok ? r : null);
@@ -1142,12 +1146,24 @@ function rendreHero(r) {
   if (r.repondable === false) document.getElementById("bandeauLecture").style.display = "block";
 }
 
-function rendreJalons(statut, so, enAttente) {
+function rendreJalons(statut, so, enAttente, operations) {
   const conteneur = document.getElementById("jalons");
   const note = document.getElementById("jalonsNote");
   const idx = JALONS.findIndex(function (j) { return j.code === statut; });
   conteneur.classList.toggle("attente", !!enAttente);
   let html = "";
+  /* v0.48 (decision Olivier 09/09) : dans Fabrication, le point avance au prorata
+     des operations faites (liste deja fournie par le statut). Hors Fabrication :
+     barre inchangee. */
+  if (statut === "fabrication" && Array.isArray(operations) && operations.length && idx >= 0 && idx < JALONS.length - 1) {
+    const n = JALONS.length;
+    const faites = operations.filter(function (o) { return o && o.fait; }).length;
+    const p = Math.max(0, Math.min(1, faites / operations.length));
+    const c0 = (idx + 0.5) / n * 100, c1 = (idx + 1.5) / n * 100;
+    const pos = c0 + p * (c1 - c0);
+    html += '<div class="prog-fill" style="width:' + pos.toFixed(2) + '%"></div>';
+    if (p > 0) html += '<div class="prog-pt" style="left:' + pos.toFixed(2) + '%"></div>';
+  }
   JALONS.forEach(function (j, i) {
     let cls = "jalon";
     if (idx >= 0) {
