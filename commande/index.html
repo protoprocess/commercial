@@ -244,8 +244,8 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.5";
-const APP_DATE = "08/09/2026";
+const APP_VERSION = "7.6";
+const APP_DATE = "09/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
 
@@ -300,8 +300,11 @@ function propositionDepuisEntrante() {
   const ref = String(ENTRANTE.ref_detectee || '').trim();
   if (!ref) return null;
   const m = ref.match(/^\s*(CLI\d+)\s*[-\u2013\u2014]?\s*(.*)$/i);
+  /* v7.6 : sans CLIxxx dans la ref, le code client vient de l API (client_connu :
+     un seul code connu de FabStory pour ce nom de client), jamais devine. */
+  const connu = (DERNIER && DERNIER.rep && DERNIER.rep.client_connu && DERNIER.rep.client_connu.code) ? String(DERNIER.rep.client_connu.code).toUpperCase() : '';
   return {
-    code_client: m ? m[1].toUpperCase() : '',
+    code_client: m ? m[1].toUpperCase() : connu,
     ref_carte: m ? (m[2] || '').trim() : ref,
     indice: ENTRANTE.indice_detecte || '',
     libelle: '',
@@ -796,7 +799,10 @@ async function diagnostiquer(sansConf) {
   el('confrontation').innerHTML = '';
   el('rapport').classList.remove('visible');
   try {
-    const q = (a.mode === 'so' ? 'so=' : 'produit=') + encodeURIComponent(a.valeur);
+    /* v7.6 : en entree par produit, le nom du client lu au PO est transmis :
+       l API en deduit le code CLIxxx connu de FabStory (creation de carte). */
+    const q = (a.mode === 'so' ? 'so=' : 'produit=') + encodeURIComponent(a.valeur) +
+      (a.mode !== 'so' && ENTRANTE && ENTRANTE.client_detecte ? '&client=' + encodeURIComponent(ENTRANTE.client_detecte) : '');
     const promesses = [appel('commande-diagnostic?' + q)];
     const relireConf = !sansConf && DIAG && DIAG.ent && DIAG.so && a.mode === 'so' && a.valeur === DIAG.so.nom;
     if (relireConf) promesses.push(appel('commande-confronter?entrante=' + encodeURIComponent(DIAG.ent.id) + '&so=' + encodeURIComponent(DIAG.so.nom)).catch(() => null));
@@ -858,7 +864,10 @@ function afficher(rep) {
   E.push({ n: 4, lib: 'Lien article \u2194 carte', done: liensOk, bloque: !liensOk && liens.verdict !== 'a_poser', dep: 2 });
   // 5. projet (libre)
   const projOk = proj.verdict === 'trouve' || proj.verdict === 'rattache';
-  E.push({ n: 5, lib: 'Projet Odoo', done: projOk, bloque: false, libre: true });
+  /* v7.6 (retour Olivier 09/09) : l etape projet est DANS L ORDRE, plus « libre » :
+     le deroule s y arrete avant les ecritures. « passer » la replie pour ce dossier. */
+  const projPasse = !!(DIAG && DIAG.projetPasse === (so.so || (carte.carte && carte.carte.cle_produit) || ''));
+  E.push({ n: 5, lib: 'Projet Odoo', done: projOk || projPasse, bloque: false });
   // 6. ecritures (si PO)
   if (conf) E.push({ n: 6, lib: '\u00c9critures Odoo', done: !!(DIAG.applique && DIAG.applique.ok), bloque: false });
   // 7. manuel
@@ -934,15 +943,16 @@ function afficher(rep) {
   else if (projOk) corps[5] = ech(proj.projet.name) + ' <code>#' + proj.projet.id + '</code> \u2014 trouv\u00e9 par son nom' +
     (so && so.so_id ? '<div class="p-actions">' + btnRattacher(proj.projet, 'btn-s') + '<span class="why">pose le lien devis \u2192 projet dans Odoo, pour ne plus d\u00e9pendre du nom</span></div>' : '');
   else if (proj.verdict === 'plusieurs') corps[5] = 'Plusieurs projets au nom attendu : ' + proj.candidats.map(c => ech(c.name)).join(' / ') + ' \u2014 \u00e0 trancher dans Odoo';
+  else if (projPasse) corps[5] = '<span style="color:var(--text3)">\u00e9tape pass\u00e9e pour ce dossier</span> <a class="lien" data-projet-reprendre="1">reprendre</a>';
   else if (proj.verdict === 'candidats') corps[5] = ech(proj.detail || '') + '<div class="p-actions">' +
     proj.candidats.map(c => btnRattacher(c)).join('') +
     '<button class="btn-s" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Aucun : cr\u00e9er le projet</button>' +
     '<span class="why" style="width:100%">Renommer est facultatif \u2014 nom attendu par la convention : <code>' + ech(proj.nom_attendu) + '</code> \u00b7 ' +
-    proj.candidats.map(c => '<a class="lien" data-projet-renommer="' + c.id + '" data-nom="' + ech(proj.nom_attendu) + '">renommer \u00ab ' + ech(c.name) + ' \u00bb</a>').join(' \u00b7 ') + '</span></div>';
+    proj.candidats.map(c => '<a class="lien" data-projet-renommer="' + c.id + '" data-nom="' + ech(proj.nom_attendu) + '">renommer \u00ab ' + ech(c.name) + ' \u00bb</a>').join(' \u00b7 ') + '</span>' + '<a class="lien" data-projet-passer="1" style="margin-left:auto">passer cette \u00e9tape</a>' + '</div>';
   else if (proj.verdict === 'introuvable') corps[5] = 'Introuvable \u2014 nom attendu <code class="copiable" title="Cliquer pour copier">' + ech(proj.nom_attendu) + '</code><div class="p-actions">' +
     '<button class="btn-p" data-projet-creer="1" data-nom="' + ech(proj.nom_attendu) + '" data-so="' + ech(proj.so_numero || '') + '">Cr\u00e9er le projet</button>' +
-    (proj.so_numero ? '<span class="why">avec l\u2019\u00e9tape ' + ech(proj.so_numero) + '</span>' : '') + '</div>';
-  else corps[5] = ech(proj.detail || '');
+    (proj.so_numero ? '<span class="why">avec l\u2019\u00e9tape ' + ech(proj.so_numero) + '</span>' : '') + '<a class="lien" data-projet-passer="1" style="margin-left:auto">passer cette \u00e9tape</a>' + '</div>';
+  else corps[5] = ech(proj.detail || '') + '<div class="p-actions">' + '<a class="lien" data-projet-passer="1" style="margin-left:auto">passer cette \u00e9tape</a>' + '</div>';
 
   // 6
   const recmd = conf ? estRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose }, ent) : false;
@@ -1102,6 +1112,14 @@ function afficher(rep) {
     const champNom = this.parentElement.querySelector('.fa-nom');
     agir(this, 'commande-creer-article', { produit_id: parseInt(this.dataset.creerArticle, 10), nom: champNom ? champNom.value.trim() : null },
       r => 'Article \u00ab ' + r.article_nom + ' \u00bb cr\u00e9\u00e9 (#' + r.article_id + '), liens pos\u00e9s.');
+  }));
+  const cleDossier = so.so || (carte.carte && carte.carte.cle_produit) || '';
+  z.querySelectorAll('[data-projet-passer]').forEach(b => b.addEventListener('click', function () {
+    if (!DIAG) DIAG = { ent: ENTRANTE, so: null, conf: null, applique: null, devisListe: [], note: null };
+    DIAG.projetPasse = cleDossier; afficher(DERNIER.rep);
+  }));
+  z.querySelectorAll('[data-projet-reprendre]').forEach(b => b.addEventListener('click', function () {
+    if (DIAG) DIAG.projetPasse = null; afficher(DERNIER.rep);
   }));
   z.querySelectorAll('[data-projet-rattacher]').forEach(b => b.addEventListener('click', function () {
     agir(this, 'commande-projet', { action: 'rattacher', projet_id: parseInt(this.dataset.projetRattacher, 10), so_id: parseInt(this.dataset.soId, 10) },
