@@ -111,6 +111,7 @@
   .jalon.actuel .lbl { color: var(--accent-fonce); font-weight: 700; }
   .jalon.actuel:not(:first-child)::before { background: var(--info); }
   /* v0.48 : avancement proportionnel dans Fabrication (operations faites / total) */
+  .rx-ou { color: #6b7280; font-size: 11.5px; }
   .jalons { position: relative; }
   .prog-fill { position: absolute; top: 15px; left: 0; height: 2px; background: var(--info); pointer-events: none; }
   .prog-pt { position: absolute; top: 10px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px #fff; z-index: 2; pointer-events: none; }
@@ -486,8 +487,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.48";
-const APP_DATE = "09/09/2026";
+const APP_VERSION = "0.49";
+const APP_DATE = "10/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -589,7 +590,7 @@ const T = {
     historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
-    inspection_titre: "Inspection avant emballage", insp_col_item: "Points inspect\u00e9s", insp_col_conf: "Conformit\u00e9", insp_col_comment: "Commentaires", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous", rx_lien: "T\u00e9l\u00e9charger les clich\u00e9s RX",
+    inspection_titre: "Inspection avant emballage", insp_col_item: "Points inspect\u00e9s", insp_col_conf: "Conformit\u00e9", insp_col_comment: "Commentaires", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous", rx_lien: "T\u00e9l\u00e9charger les clich\u00e9s RX", rx_ou: "Clich\u00e9s RX disponibles 15 jours depuis votre espace client : portail.proto-process.fr \u2192 Suivi de fabrication \u2192 cette carte.",
     statut_lecture: "Statut de fabrication en cours de lecture\u2026", statut_indispo: "Statut de fabrication indisponible pour le moment.",
     statut_actuel: "Statut actuel : ", commande: "commande", indice: "Indice ",
     jalon_devis: "Devis", jalon_preparation: "Pr\u00e9paration", jalon_fabrication: "Fabrication", jalon_expediee: "Exp\u00e9di\u00e9e",
@@ -644,7 +645,7 @@ const T = {
     historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
-    inspection_titre: "Pre-packing inspection", insp_col_item: "Inspected items", insp_col_conf: "Conformity", insp_col_comment: "Comments", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side", rx_lien: "Download X-ray images",
+    inspection_titre: "Pre-packing inspection", insp_col_item: "Inspected items", insp_col_conf: "Conformity", insp_col_comment: "Comments", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side", rx_lien: "Download X-ray images", rx_ou: "X-ray images available for 15 days from your customer portal: portail.proto-process.fr \u2192 Manufacturing tracking \u2192 this board.",
     statut_lecture: "Reading production status\u2026", statut_indispo: "Production status unavailable for now.",
     statut_actuel: "Current status: ", commande: "order", indice: "Revision ",
     jalon_devis: "Quotation", jalon_preparation: "Preparation", jalon_fabrication: "Production", jalon_expediee: "Shipped",
@@ -979,7 +980,8 @@ async function chargerRx() {
     var r = await fetch(API + "/fabstory-client-rx?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO_CIBLE));
     var j = await r.json();
     if (j && j.ok && j.cliches && j.cliches.length) {
-      RX_LIEN = "rx.html?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO_CIBLE);
+      /* v0.49 : lien ABSOLU, sinon il est mort dans le PDF imprime. */
+      RX_LIEN = location.origin + location.pathname.replace(/[^\/]*$/, "") + "rx.html?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO_CIBLE);
       if (INSPECTION_PTS) rendreInspection(INSPECTION_PTS);
     }
   } catch (e) { /* pas de cliche = rien a montrer */ }
@@ -1010,7 +1012,10 @@ function rendreInspection(pts) {
     pts.map(function (p) {
       var obs = esc(p.commentaire || "");
       if (p.code === "controle_rx" && RX_LIEN) {
-        obs += (obs ? '<br>' : '') + '<a href="' + esc(RX_LIEN) + '" target="_blank" rel="noopener">' + esc(t("rx_lien")) + '</a>';
+        /* v0.49 (retour Olivier 10/09) : sur papier le lien ne suffit pas ; on ecrit
+           OU et COMBIEN DE TEMPS les cliches sont disponibles. */
+        obs += (obs ? '<br>' : '') + '<a href="' + esc(RX_LIEN) + '" target="_blank" rel="noopener">' + esc(t("rx_lien")) + '</a>' +
+               '<br><span class="rx-ou">' + esc(t("rx_ou")) + '</span>';
       }
       return '<tr><td>' + esc(tInsp(p.code, p.libelle)) + '</td>' +
         '<td style="text-align:center" class="f08-fort">' + (p.conforme ? esc(t("conforme")) : "") + '</td>' +
