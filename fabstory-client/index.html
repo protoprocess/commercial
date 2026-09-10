@@ -487,7 +487,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.49";
+const APP_VERSION = "0.50";
 const APP_DATE = "10/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
@@ -982,7 +982,8 @@ async function chargerRx() {
     if (j && j.ok && j.cliches && j.cliches.length) {
       /* v0.49 : lien ABSOLU, sinon il est mort dans le PDF imprime. */
       RX_LIEN = location.origin + location.pathname.replace(/[^\/]*$/, "") + "rx.html?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO_CIBLE);
-      if (INSPECTION_PTS) rendreInspection(INSPECTION_PTS);
+      /* v0.50 : meme sans point d inspection, des cliches existent -> la ligne doit apparaitre. */
+      rendreInspection(INSPECTION_PTS || []);
     }
   } catch (e) { /* pas de cliche = rien a montrer */ }
 }
@@ -999,7 +1000,15 @@ function rendreInspection(pts) {
   const bloc = document.getElementById("inspectionBloc");
   const zone = document.getElementById("inspectionZone");
   if (!bloc || !zone) return;
-  if (!pts || !pts.length) { bloc.style.display = "none"; majRapportVide(); return; }
+  pts = (pts || []).slice();
+  /* v0.50 (retour Olivier 10/09) : la ligne Controle RX depend du projet Odoo, elle
+     n y est pas toujours. Si des cliches ont ete deposes, on l AJOUTE : les cliches
+     ne doivent jamais etre invisibles au client faute de ligne ou les accrocher. */
+  if (RX_LIEN && !pts.some(function (p) { return p && p.code === "controle_rx"; })) {
+    /* conforme volontairement non coche : les cliches prouvent le controle, pas sa conclusion. */
+    pts.push({ code: "controle_rx", conforme: false, commentaire: "" });
+  }
+  if (!pts.length) { bloc.style.display = "none"; majRapportVide(); return; }
   INSPECTION_PTS = pts; /* v0.47 (ch.163) : conserve pour re-rendre avec le lien RX quand il arrive. */
   /* Presentation au format du formulaire F08/B : tableau borde
      Points inspectes | Ok | Commentaires. X dans Ok quand le controle final
