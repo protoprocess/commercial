@@ -478,8 +478,8 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.25';
-const APP_DATE = '09/09/2026';
+const APP_VERSION = '4.26';
+const APP_DATE = '10/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1153,7 +1153,7 @@ function rfRxHtml(){
     h += '<p class="vide">Aucun clich\u00e9 pour l\u2019instant.</p>';
   }
   h += '<div style="margin-top:6px"><button class="btn-s" onclick="FS.rxAjouter()"><i class="ti ti-plus"></i> Ajouter des clich\u00e9s RX</button>' +
-    '<input type="file" id="rf-rx-in" accept="image/*" multiple style="display:none">' +
+    '<input type="file" id="rf-rx-in" accept="image/*,.zip,application/zip" multiple style="display:none">' +
     '<span id="rf-rx-msg" class="hint" style="margin-left:8px"></span></div></div>';
   return h;
 }
@@ -1177,10 +1177,38 @@ function rfBrancherRx(){
   if(inp) inp.addEventListener('change', function(ev){ const fs = Array.from(ev.target.files || []); ev.target.value=''; FS.rxDeposer(fs); });
 }
 FS.rxAjouter = function(){ const i = el('rf-rx-in'); if(i) i.click(); };
+/* v4.26 (10/09, demande Olivier) : un .zip de cliches est ouvert DANS le navigateur
+   (JSZip charge a la demande depuis cdnjs), ses images rejoignent la meme boucle
+   d envoi que les fichiers choisis un a un. Le zip lui-meme n est jamais stocke.
+   Sont ignores : dossiers, fichiers non image, fichiers caches (__MACOSX, ._x). */
+async function rxOuvrirZips(fichiers){
+  const zips = fichiers.filter(f => /\.zip$/i.test(f.name || '') || f.type === 'application/zip');
+  if(!zips.length) return fichiers;
+  if(!window.JSZip){
+    await new Promise((ok, ko) => { const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      sc.onload = ok; sc.onerror = () => ko(new Error('JSZip non charg\u00e9.')); document.head.appendChild(sc); });
+  }
+  const out = fichiers.filter(f => zips.indexOf(f) < 0);
+  for(const z of zips){
+    const arch = await window.JSZip.loadAsync(z);
+    const noms = Object.keys(arch.files).filter(n => { const e = arch.files[n];
+      return !e.dir && !/(^|\/)(__MACOSX|\._)/.test(n) && /\.(jpe?g|png|tiff?|bmp|webp)$/i.test(n); }).sort();
+    for(const n of noms){
+      const blob = await arch.files[n].async('blob');
+      const base = n.split('/').pop();
+      out.push(new File([blob], base, { type: /\.png$/i.test(base) ? 'image/png' : 'image/jpeg' }));
+    }
+  }
+  return out;
+}
 FS.rxDeposer = async function(fichiers){
   if(!fichiers.length) return;
   const auteur = auteurOuStop(); if(!auteur) return;
   const msg = el('rf-rx-msg');
+  try{ fichiers = await rxOuvrirZips(fichiers); }
+  catch(e){ if(msg) msg.textContent = '\u00c9chec \u00e0 l\u2019ouverture du zip : ' + e.message; return; }
+  if(!fichiers.length){ if(msg) msg.textContent = 'Aucune image trouv\u00e9e dans l\u2019archive.'; return; }
   for(let k=0;k<fichiers.length;k++){
     const f = fichiers[k];
     if(msg) msg.textContent = 'Envoi ' + (k+1) + '/' + fichiers.length + '\u2026';
