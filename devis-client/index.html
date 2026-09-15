@@ -587,7 +587,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.14";
+const APP_VERSION = "12.15";
 const APP_DATE = "15/09/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
@@ -2417,7 +2417,7 @@ function tableBomBrute(d){
      ${filtre ? `<span class="hint" style="display:inline;margin-left:9px">${visibles.length} sur ${rows.length}</span>` : ''}</div>`;
   h += `<div class="tblwrap"><table><thead><tr>` +
        utiles.map(c=>`<th${/^COL_\d+$/i.test(String(c))?' style="color:var(--text3);font-style:italic"':''}>${esc(titreCol(c))}</th>`).join('') +
-       `<th class="fdv-ckc" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>` +
+       `<th class="fdv-ckc" title="Cocher = ajouter ce point à la fiche de vie (FabStory)"><i class="ti ti-notebook" style="font-size:16px;color:var(--blue);line-height:1"></i></th>` +
        `</tr></thead><tbody>`;
   visibles.forEach((r) => {
     const ix = 'b:' + rows.indexOf(r);
@@ -2502,7 +2502,7 @@ function tableBom(d){
   h += `<div class="tblwrap"><table><thead><tr>
     <th>Repères</th><th>Description client</th><th>Famille</th><th>Valeur</th><th>Boîtier</th>
     <th>MPN client</th><th>IPN proposé</th><th>Statut</th><th>Confiance</th>
-    <th class="fdv-ckc" title="Ajouter à la fiche de vie"><i class="ti ti-notebook"></i></th>
+    <th class="fdv-ckc" title="Cocher = ajouter ce point à la fiche de vie (FabStory)"><i class="ti ti-notebook" style="font-size:16px;color:var(--blue);line-height:1"></i></th>
     </tr></thead><tbody>`;
   if(!lignes.length) h += `<tr><td colspan="10" style="color:var(--text3);text-align:center;padding:20px">Aucune ligne pour ce filtre.</td></tr>`;
   for(const l of lignes){
