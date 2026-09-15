@@ -478,7 +478,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.27';
+const APP_VERSION = '4.28';
 const APP_DATE = '15/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -1812,7 +1812,7 @@ let assistant = { produit:null, ecran:0, code:null, vals:{}, specsLignes:null, p
    le parcours assistant est reutilise, l'enregistrement met a jour la question
    (texte_reformule : le brut d'origine reste en trace) au lieu d'en creer une. */
 let remoulage = null;
-const AUTO_VARS = ['DATE','LIEN','DATASHEET'];
+const AUTO_VARS = ['DATE','LIEN','DATASHEET','PJ'];   /* v4.28 : {PJ} = « Voir photo jointe. » posé automatiquement si une pièce est déposée, sinon le segment [ {PJ}] saute */
 const VAR_LABELS = {
   REF:           ['Référence concernée', 'Servira aussi de MPN sur la fiche.'],
   REP:           ['Repère(s) sur la carte', ''],
@@ -1947,7 +1947,7 @@ FS.remoulerOuvrir = async function(id){
     if(assistant.ecran === 1) rendreSaisie();
   }
 };
-FS.assistantEcran = function(n){ assistant.ecran = n; rendreSaisie(); };
+FS.assistantEcran = function(n){ if(n < 3) assistant.texteEdite = null; assistant.ecran = n; rendreSaisie(); };
 
 /* --------------------------------------------------------------- écran 1 -- */
 function htmlEcranSituations(){
@@ -1987,7 +1987,7 @@ function htmlEcranSituations(){
   return h;
 }
 FS.choisirSituation = function(code){
-  assistant.code = code; assistant.vals = {}; assistant.portee = true;
+  assistant.code = code; assistant.vals = {}; assistant.portee = true; assistant.texteEdite = null;
   if(remoulage && remoulage.prefill){
     Object.keys(remoulage.prefill).forEach(k => {
       if(remoulage.prefill[k]) assistant.vals[k] = remoulage.prefill[k];
@@ -2275,9 +2275,18 @@ function texteAssemble(){
   let t = m.texte_client || '';
   t = t.replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (x,a,b) => ctxModele === 'devis' ? a : b);
   if(assistant.specsLignes) t = t.replace('{SPECS}', assistant.specsLignes.map(l => l[0] + ' : ' + l[1]).join('\n'));
+  if(piecesSaisie.length) t = t.split('{PJ}').join('Voir photo jointe.');
   t = nettoyerAuto(remplirVars(t));
   return t.replace(/\n{3,}/g,'\n\n').trim();
 }
+/* v4.28 : le message est MODIFIABLE à l'aperçu (contenteditable). Le texte édité
+   prime tant qu'on reste sur l'écran 3 ; retourner à l'écran 2 le réinitialise
+   (les variables peuvent avoir changé). */
+function texteFinal(){
+  const e = assistant.texteEdite;
+  return (typeof e === 'string' && e.trim()) ? e.trim() : texteAssemble();
+}
+FS.apercuTexteSaisi = function(div){ assistant.texteEdite = div.innerText; };
 function porteeDuModele(){
   const m = modeleCourant();
   if(!m || !m.portee_libelle) return null;
@@ -2290,7 +2299,8 @@ function htmlEcranApercu(){
     '<button class="btn-lien" onclick="FS.assistantEcran(2)">modifier les réponses</button></div>';
 
   h += '<div class="sec-titre" style="margin-top:4px">Message au client</div>' +
-    '<div class="apercu-mail">' + esc(texteAssemble()) + '</div>';
+    '<div class="apercu-mail" id="apercu-mail" contenteditable="true" spellcheck="false" oninput="FS.apercuTexteSaisi(this)" title="Cliquez pour modifier le texte">' + esc(texteFinal()) + '</div>' +
+    '<p class="mini" style="margin:3px 0 0"><i class="ti ti-pencil"></i> Texte modifiable directement ici. « modifier les réponses » régénère le message depuis les champs.</p>';
   if(piecesSaisie.length){
     h += piecesSaisie.map(p => '<span class="piece-ligne" style="display:inline-flex"><i class="ti ti-paperclip"></i> ' +
       esc(p.nom) + ' — jointe au mail, visible côté client</span>').join(' ');
@@ -2681,7 +2691,7 @@ FS.enregistrerModele = async function(){
 async function envoyerNote(){
   const estNote = (assistant.code === 'NOTE');
   if(estNote) { const ta = el('as-var-TEXTE'); if(ta) assistant.vals.TEXTE = ta.value.trim(); }
-  const texte = estNote ? (assistant.vals.TEXTE || '') : texteAssemble();
+  const texte = estNote ? (assistant.vals.TEXTE || '') : texteFinal();
   const msg = el('note-msg');
   if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est nécessaire.</span>'; return; }
   if(envoiPiece){ msg.innerHTML = '<span class="err-msg">Une pièce est en cours d’envoi, un instant.</span>'; return; }
