@@ -587,8 +587,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.13";
-const APP_DATE = "03/09/2026";
+const APP_VERSION = "12.14";
+const APP_DATE = "15/09/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -2134,10 +2134,19 @@ function synthDossier(d){
     const decl = {};
     (d.declencheurs_rfq||[]).forEach(x=>{ const c = MAP_DECL[x.critere]; if(c) decl[c] = x.message; });
     const bloq = (d.hors_capacite && MAP_DECL[d.hors_capacite.critere]) || null;
+    // 15/09 v12.14 : les criteres en alerte (cuivre epais, materiau, carte mince...)
+    // etaient affiches avec une coche verte et un motif en petit gris — l'alerte
+    // cuivre 105 um des cartes AURA est passee inapercue et six PCB ont ete
+    // chiffres a 35 um. Desormais chaque critere en alerte occupe une ligne
+    // ambree pleine largeur, valeur en gros. Les couches sont exclues (4 couches
+    // est courant, la surbrillance perdrait son sens).
+    const estAlerte = c => !!c.alerte && c.champ !== 'couches' && c.etat === 'trouve';
+    const nAlertes = crit.filter(estAlerte).length;
     const nSrc = d.nb_criteres_renseignes != null ? d.nb_criteres_renseignes : crit.filter(c=>c.etat==='trouve').length;
     const nApp = d.nb_criteres_applicables != null ? d.nb_criteres_applicables : crit.filter(c=>c.etat!=='sans_objet').length;
     h += `<div class="card ${bloq?'err':''}"><h2><i class="ti ti-circuit-board"></i> Caractéristiques du circuit imprimé
         <span class="badge ${nSrc===nApp?'b-ok':'b-warn'}">${nSrc} / ${nApp} renseignés</span>
+        ${nAlertes?`<span class="badge b-warn" style="font-weight:700">${nAlertes} point${nAlertes>1?'s':''} d’attention</span>`:''}
         ${nLibre?`<span class="badge b-warn">${nLibre} à surveiller au relevé</span>`:''}</h2>
       <p style="font-size:11.5px;color:var(--text2);margin:0 0 10px">
         Les valeurs en rouge sont celles qui ont fait basculer le verdict. Le reste est informatif.</p>`;
@@ -2146,10 +2155,33 @@ function synthDossier(d){
     if(crit.length){
       const ordre = crit;   // ordre fige, defini cote n8n : l'oeil apprend les positions
       h += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Critères de la check-list</div>`;
+      // les sources par champ, pour afficher d'ou vient une valeur en alerte
+      const srcPar = {};
+      (d.sources||[]).forEach(s=>{ if(s&&s.champ&&!srcPar[s.champ]) srcPar[s.champ] = s; });
+      const CHAMP_SRC = { epaisseur_cuivre:'epaisseur_cuivre_um', materiau:'materiau', epaisseur:'epaisseur_mm',
+        percage_mini:'percage_mini_mm', piste_mini:'piste_mini_um', impedance:'impedance_controlee',
+        bouchage_vias:'bouchage_vias', vias_recouverts:'vias_recouverts', vernis:'vernis_couleur', classe_ipc:'classe_ipc', aspect:'aspect' };
       h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:2px 18px">`;
       ordre.forEach(c=>{
         const na = c.etat==='sans_objet', abs = c.etat==='absent';
         const estBloq = bloq === c.champ, estDecl = !!decl[c.champ];
+        if(!estBloq && !estDecl && estAlerte(c)){
+          const sk = CHAMP_SRC[c.champ] || c.champ;
+          const src = srcPar[sk] || srcPar[c.champ] || null;
+          const valeur = c.couleur ? badgeCouleur(c.couleur) : esc(c.valeur||'?');
+          h += `<div style="grid-column:1 / -1;display:flex;align-items:center;gap:12px;padding:8px 12px;margin:3px 0;border-radius:var(--radius);background:var(--amber-bg);border-left:4px solid var(--amber-badge)">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:var(--amber-badge);color:#fff;font-weight:800;font-size:14px;line-height:1;flex:none">!</span>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--amber-badge)">${esc(c.libelle)}</span>
+                <span style="font-size:17px;font-weight:800;color:var(--amber-badge)">${valeur}</span>
+                ${c.detail?`<span style="font-size:12px;color:var(--amber-badge)">${esc(c.detail)}</span>`:''}
+              </div>
+              ${src?`<div style="font-size:10.5px;color:var(--amber-badge);opacity:.85;margin-top:2px">source : ${esc(src.document||'')}${src.emplacement?' — '+esc(src.emplacement):''}</div>`:''}
+            </div>
+          </div>`;
+          return;
+        }
         // V vert si renseigne, ? si absent, tiret si sans objet, ! rouge si declencheur
         let fond, enc, sym;
         if(estBloq){      fond='var(--red-badge)'; enc='#fff';               sym='!'; }
