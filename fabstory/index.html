@@ -478,8 +478,8 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.26';
-const APP_DATE = '10/09/2026';
+const APP_VERSION = '4.27';
+const APP_DATE = '15/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -1819,7 +1819,9 @@ const VAR_LABELS = {
   PROPOSITION:   ['Équivalent proposé', ''],
   LISTE:         ['Passifs concernés (repère + référence, une ligne chacun)', 'La liste part complète dans le mail ; repliée au-delà de 5 réfs à l’écran client.'],
   POINT_A_VERIFIER: ['Point à vérifier', ''],
-  BOITIER_RECU:  ['Boîtier reçu', '']
+  BOITIER_RECU:  ['Boîtier reçu', ''],
+  TECHNO_BOM:    ['Techno du composant en BOM', 'ex. traversant (THT) ou CMS'],
+  PRECISION:     ['Précision PP', 'Une phrase de plus dans le message — vide : rien n’apparaît.']
 };
 const VARS_LONGUES = ['LISTE','POINT_A_VERIFIER'];
 const DESCRIPTIONS_SITU = {
@@ -1829,7 +1831,8 @@ const DESCRIPTIONS_SITU = {
   M4:'Le dossier ne précise pas de spécifications PCB — faire valider le standard PP.',
   M5:'Autre point à vérifier avant câblage (réponse libre du client).',
   M5A:'Doute sur le sens de montage — une orientation est proposée en photo.',
-  M5B:'Le boîtier reçu ne correspond pas à l’empreinte du PCB.'
+  M5B:'Le boîtier reçu ne correspond pas à l’empreinte du PCB.',
+  M6:'La référence en BOM (THT/CMS) ne correspond pas à l’empreinte du PCB.'
 };
 const DOMAINES_LIBELLES = { appro:'Approvisionnement', devis:'Devis / dossier', production:'Câblage / production', logistique:'Logistique', transverse:'Divers' };
 const INITIALES_COMMERCIAL = ['AC','OC','DG','MM'];   /* mapping expéditeur (Olivier 08/08) */
@@ -1841,6 +1844,17 @@ function soCourant(){ return (STATUT && STATUT.so) ? String(STATUT.so).trim() ||
 function etapePourModele(m){
   if(m.code === 'M4') return 'PCB';
   return { appro:'APPRO', devis:'DEVIS', production:'CMS', logistique:'DIVERS_PROD' }[m.domaine] || 'DIVERS_PROD';
+}
+/* v4.27 : une variable entre [crochets] est FACULTATIVE — champ sans *, non
+   bloquant ; vide, tout le segment entre crochets saute du message (même
+   mécanique que {DATE}/{LIEN}). Ex. M5B « [{PRECISION}] ». */
+function varsFacultatives(m){
+  const t = m.texte_client || '';
+  const out = {};
+  (t.match(/\[[^\[\]|]*\]/g) || []).forEach(seg => {
+    (seg.match(/\{([A-Z0-9_]+)\}/g) || []).forEach(v => { out[v.slice(1,-1)] = true; });
+  });
+  return out;
 }
 function varsDuModele(m){
   const t = m.texte_client || '';
@@ -2016,12 +2030,14 @@ function titreSituation(){
 function htmlChampVar(v){
   const def = VAR_LABELS[v] || [v.replace(/_/g,' ').toLowerCase(), ''];
   const long = VARS_LONGUES.includes(v);
+  const m = modeleCourant();
+  const facultatif = !!(m && varsFacultatives(m)[v]);
   const champ = long
     ? '<textarea id="as-var-' + v + '" style="font-family:var(--mono)">' + esc(assistant.vals[v]||'') + '</textarea>'
     : '<input type="text" id="as-var-' + v + '" style="font-family:var(--mono)" value="' + esc(assistant.vals[v]||'') + '"' +
       ((v === 'REF' || v === 'PROPOSITION') ? ' onchange="FS.chercherLienMouser(false)"' : '') + '>';
   return '<div' + (long?' style="grid-column:1/-1"':'') + '><label class="lbl">' + esc(def[0]) +
-    ' <span style="color:var(--accent-fonce)">*</span></label>' + champ +
+    (facultatif ? ' <span class="mini" style="font-weight:400">(facultatif)</span>' : ' <span style="color:var(--accent-fonce)">*</span>') + '</label>' + champ +
     (def[1] ? '<p class="mini" style="margin:3px 0 0">' + esc(def[1]) + '</p>' : '') + '</div>';
 }
 function htmlEcranCompleter(){
@@ -2121,9 +2137,13 @@ function htmlEcranCompleter(){
 function lireChampsEcran2(){
   const m = modeleCourant();
   const vars = m ? varsDuModele(m) : ['TEXTE'];
+  const fac = m ? varsFacultatives(m) : {};
   vars.forEach(v => {
     const e = el('as-var-' + v);
-    if(e) assistant.vals[v] = e.value.trim();
+    if(!e) return;
+    const val = e.value.trim();
+    /* v4.27 : une variable facultative vide est SUPPRIMEE de vals (segment saute) */
+    if(val || !fac[v]) assistant.vals[v] = val; else delete assistant.vals[v];
   });
   /* v4.2 : variables facultatives — une valeur vide est SUPPRIMEE de vals,
      sinon remplirVars() viderait {DATE} et le segment optionnel ne sauterait plus */
@@ -2139,15 +2159,37 @@ function lireChampsEcran2(){
 FS.assistantApercu = function(){
   lireChampsEcran2();
   const m = modeleCourant();
-  const vars = m ? varsDuModele(m) : ['TEXTE'];
+  const fac = m ? varsFacultatives(m) : {};
+  const vars = (m ? varsDuModele(m) : ['TEXTE']).filter(v => !fac[v]);
   const manque = vars.filter(v => !String(assistant.vals[v]||'').trim());
   if(manque.length || !qui()){
     el('note-msg').innerHTML = '<span class="err-msg">Complétez les champs marqués * (et vos initiales) avant l’aperçu.</span>';
     return;
   }
+  synchroniserChoixConditionnels();
   assistant.ecran = 3;
   rendreSaisie();
 };
+/* v4.27 : un choix du modèle porteur de si_variable:"X" n'est proposé au client
+   que si la variable X est remplie (ex. M6 « Proposition PP acceptée » sans
+   proposition). Re-synchronisé à chaque passage à l'aperçu : retiré si vide,
+   remis à sa place si rempli entre-temps. */
+function synchroniserChoixConditionnels(){
+  const m = modeleCourant();
+  if(!m) return;
+  (m.choix || []).forEach(c => {
+    if(!c.si_variable) return;
+    const rempli = !!String(assistant.vals[c.si_variable] || '').trim();
+    const idx = choixEdit.findIndex(x => x.libelle === c.libelle);
+    if(!rempli && idx >= 0) choixEdit.splice(idx, 1);
+    if(rempli && idx < 0){
+      choixEdit.push({ ordre: c.ordre, libelle: c.libelle,
+        aide: (ctxModele === 'devis' ? (c.aide_devis || c.aide) : (c.aide_commande || c.aide)) || null,
+        commentaire_obligatoire: !!c.commentaire_obligatoire });
+      choixEdit.sort((a,b) => (a.ordre||0) - (b.ordre||0));
+    }
+  });
+}
 
 /* --------------------------------------------------------------- écran 3 -- */
 function remplirVars(t){
@@ -2220,7 +2262,7 @@ function nettoyerAuto(t){
      une variable auto non remplie saute EN ENTIER, crochets compris ; s'il ne
      contient plus de variable (passe 2, valeur remplie), seuls les crochets
      tombent. Le segment [pas|plus] est deja resolu avant cet appel. */
-  return t.replace(/\[[^\[\]|]*\{(DATE|LIEN)\}[^\[\]|]*\]/g, '')
+  return t.replace(/\n?\[[^\[\]|]*\{[A-Z0-9_]+\}[^\[\]|]*\]/g, '')   /* v4.27 : toute variable, pas seulement DATE/LIEN ; le saut de ligne qui précède part avec le segment */
           .replace(/\[([^\[\]|]*)\]/g, '$1')
           .replace(/\s*\(\{(DATE|LIEN)\}\)/g, '')
           .replace(/\s*[—–-]\s*\{(DATE|LIEN)\}/g, '')
