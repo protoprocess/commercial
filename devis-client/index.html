@@ -587,8 +587,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.15";
-const APP_DATE = "15/09/2026";
+const APP_VERSION = "12.16";
+const APP_DATE = "17/09/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -940,9 +940,13 @@ function construireFdDossier(refProjet){
   fd.append('mail_corps', MAIL_CTX
     ? (MAIL_CTX.texte + (commentaire ? '\n\n--- commentaire saisi dans l\'appli ---\n' + commentaire : ''))
     : commentaire);
+  // v12.16 (17/09) : le TEXTE du mail part avec le contexte, pour etre pose dans
+  // le fil du devis Odoo (regle precisee : ce sont les pieces jointes qu on ne
+  // copie pas dans Odoo, pas le texte). Plafonne a 6 000 caracteres.
   if(MAIL_CTX) fd.append('contexte_mail', JSON.stringify({
     message_id: MAIL_CTX.message_id || '', de: MAIL_CTX.de || '', a: MAIL_CTX.a || '',
     objet: MAIL_CTX.objet || '', date: MAIL_CTX.date || '', mailer: MAIL_CTX.mailer || '',
+    texte: String(MAIL_CTX.texte || '').slice(0, 6000),
     pieces: (MAIL_CTX.pieces || []).map(p => ({ nom: p.nom, octets: p.octets, prof: p.prof, joint: !!p.joint }))
   }));
   if(info) fd.append('client_fiche', JSON.stringify(info));
