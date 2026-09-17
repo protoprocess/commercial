@@ -487,8 +487,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.50";
-const APP_DATE = "10/09/2026";
+const APP_VERSION = "0.51";
+const APP_DATE = "17/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -846,6 +846,22 @@ function htmlPieces(pieces) {
   });
   return h + "</div>";
 }
+function htmlPhotosEntree(e) {
+  /* v0.51 (17/09, demande Olivier) : photos prises EN INTERNE avec une question ou
+     une note (fiche_de_vie.photos) — jusqu ici invisibles cote client. Meme tuile
+     que les pieces ; le lien porte le jeton + id d entree + index, le serveur
+     verifie l appartenance a la carte et visible_client avant de signer l URL. */
+  if (!e || !Array.isArray(e.photos) || !e.photos.length) return "";
+  let h = "<div>";
+  e.photos.forEach(function (chemin, i) {
+    const nom = String(chemin || "").split("/").pop().replace(/^[a-z0-9]{8}-/i, "");
+    const url = API + "/fabstory-client-photo?jeton=" + encodeURIComponent(JETON) + "&fiche=" + e.id + "&n=" + i;
+    h += '<a class="piece-tuile" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      '<img class="mini" src="' + esc(url) + '" alt="" loading="lazy">' +
+      '<span class="p-nom">' + esc(nom) + "</span></a>";
+  });
+  return h + "</div>";
+}
 const EXT_OK = ["pdf", "png", "jpg", "jpeg", "webp", "gif", "xlsx", "xls", "csv"];
 function lireFichierB64(fichier) {
   return new Promise(function (res, rej) {
@@ -1165,7 +1181,10 @@ function rendreJalons(statut, so, enAttente, operations) {
   const note = document.getElementById("jalonsNote");
   const idx = JALONS.findIndex(function (j) { return j.code === statut; });
   conteneur.classList.toggle("attente", !!enAttente);
-  let html = "";
+  let html = "", progHtml = "";
+  /* v0.51 (17/09) : la barre d avancement est ajoutee APRES les jalons. Placee
+     avant, "Devis" n etait plus :first-child et recevait un segment de liaison
+     vers la gauche, dans le vide (meme bug que FabStory interne v4.29). */
   /* v0.48 (decision Olivier 09/09) : dans Fabrication, le point avance au prorata
      des operations faites (liste deja fournie par le statut). Hors Fabrication :
      barre inchangee. */
@@ -1175,8 +1194,8 @@ function rendreJalons(statut, so, enAttente, operations) {
     const p = Math.max(0, Math.min(1, faites / operations.length));
     const c0 = (idx + 0.5) / n * 100, c1 = (idx + 1.5) / n * 100;
     const pos = c0 + p * (c1 - c0);
-    html += '<div class="prog-fill" style="width:' + pos.toFixed(2) + '%"></div>';
-    if (p > 0) html += '<div class="prog-pt" style="left:' + pos.toFixed(2) + '%"></div>';
+    progHtml += '<div class="prog-fill" style="width:' + pos.toFixed(2) + '%"></div>';
+    if (p > 0) progHtml += '<div class="prog-pt" style="left:' + pos.toFixed(2) + '%"></div>';
   }
   JALONS.forEach(function (j, i) {
     let cls = "jalon";
@@ -1186,7 +1205,7 @@ function rendreJalons(statut, so, enAttente, operations) {
     }
     html += '<div class="' + cls + '"><span class="pt">' + svgJalon(j.code) + '</span><span class="lbl">' + esc(j.label) + "</span></div>";
   });
-  conteneur.innerHTML = html;
+  conteneur.innerHTML = html + progHtml;
   if (enAttente) { note.textContent = t("statut_lecture"); return; }
   if (idx < 0) { note.textContent = t("statut_indispo"); return; }
   note.textContent = t("statut_actuel") + t(JALONS[idx].cle) + (so ? " (" + t("commande") + " " + so + ")" : "");
@@ -1233,7 +1252,7 @@ function construirePoint(e) {
         (soBadge ? '<div style="margin-bottom:7px">' + soBadge + "</div>" : "") +
         comp +
         '<div class="point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
-        htmlPieces(e.pieces) +
+        htmlPhotosEntree(e) + htmlPieces(e.pieces) +
         '<div class="point-meta">' + t("question_posee") + esc(fmtDate(e.cree_le)) +
           (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
         construireFormulaire(e) +
@@ -1619,13 +1638,13 @@ function rendreFil(r) {
     let plein = '<div class="entree-tete">' + chips.join("") +
       '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
       comp + '<div class="entree-texte point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
-      htmlPieces(e.pieces);
+      htmlPhotosEntree(e) + htmlPieces(e.pieces);
     (reponsesDe[e.id] || []).forEach(function (rep) {
       plein += '<div class="reponse-bloc">' +
         '<div class="reponse-de">' + esc(rep.auteur || (rep.emetteur === "client" ? t("vous") : "Proto Process")) +
         " \u00b7 " + esc(fmtDate(rep.cree_le)) + "</div>" +
         '<div class="entree-texte">' + esc(rep.texte) + "</div>" +
-        htmlPieces(rep.pieces) + "</div>";
+        htmlPhotosEntree(rep) + htmlPieces(rep.pieces) + "</div>";
     });
     /* ch.137 (01/09, demande Olivier) : dans le PDF, une question resolue a
        choix fermes est remplacee par sa CONCLUSION en une ligne, construite
