@@ -587,8 +587,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.16";
-const APP_DATE = "17/09/2026";
+const APP_VERSION = "12.17";
+const APP_DATE = "18/09/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -1678,7 +1678,7 @@ const VERDICT = {
   RFQ:              {cls:'v-rfq',   ico:'ti-alert-triangle', t:'Demande de prix fournisseur',  s:'PCB hors standards — lancer la consultation tout de suite (réponse 48 à 72 h)'},
   STANDARD:         {cls:'v-std',   ico:'ti-circle-check',   t:'PCB standard',                 s:'Chiffrage en ligne possible'},
   INDETERMINE:      {cls:'v-ind',   ico:'ti-help-circle',    t:'Analyse incomplète',           s:'Un critère décisif n’a pas pu être lu — vérification humaine nécessaire'},
-  PCB_FOURNI_CLIENT:{cls:'v-fourni',ico:'ti-package-import', t:'PCB fourni par le client',     s:'Aucune analyse ni consultation nécessaire'},
+  PCB_FOURNI_CLIENT:{cls:'v-fourni',ico:'ti-package-import', t:'PCB fournis par le client',    s:''},
   HORS_CAPACITE:    {cls:'v-hors',  ico:'ti-ban',            t:'Hors capacité de fabrication', s:'Format au-delà de 300 × 400 mm — la demande est à décliner'}
 };
 
@@ -2042,7 +2042,12 @@ function synthDossier(d){
     h += `<ul class="li" style="margin-top:11px"><li class="rfq"><span class="synth-l">${
       synthCase('hc', d.hors_capacite.message, 'question_interne')}<span>${esc(d.hors_capacite.message)}</span></span></li></ul>`;
   }
-  if((d.declencheurs_rfq||[]).length){
+  // 18/09 v12.17 : PCB fournis par le client -> on ne montre pas les
+  // declencheurs RFQ (piste fine, vias borgnes...). Ils sont mesures mais ne
+  // changent rien au devis : deux lignes rouges sous "PCB fournis" faisaient
+  // croire a une demande de prix a lancer (dossier LAPP, 16/09).
+  const pcbFourni = d.decision_pcb==='PCB_FOURNI_CLIENT';
+  if(!pcbFourni && (d.declencheurs_rfq||[]).length){
     h += `<ul class="li" style="margin-top:11px">` +
       d.declencheurs_rfq.map((x,i)=>`<li class="rfq"><span class="synth-l">${
         synthCase('r'+i, x.message, 'question_interne')}<span>${esc(x.message)}</span></span></li>`).join('') + `</ul>`;
@@ -2130,6 +2135,16 @@ function synthDossier(d){
   const carPcb = (d.autres_caracteristiques_pcb||[]).filter(c=>c&&typeof c==='object');
 
   if(crit.length||carPcb.length){
+    // 18/09 v12.17 : PCB fournis par le client -> le bloc est replie derriere
+    // un lien discret. L'analyse reste consultable (verifier un percage a la
+    // reception) sans alourdir la fiche.
+    if(pcbFourni){
+      h += `<div style="margin:2px 0 12px 2px;font-size:11.5px">
+        <a href="#" onclick="document.getElementById('pcb-analyse').classList.toggle('hidden');this.textContent=document.getElementById('pcb-analyse').classList.contains('hidden')?'voir l\u2019analyse PCB':'masquer l\u2019analyse PCB';return false"
+           style="color:var(--text3);text-decoration:underline dotted">voir l\u2019analyse PCB</a>
+        <span style="color:var(--text3)"> &mdash; informative, le client fournit ses circuits</span>
+      </div><div id="pcb-analyse" class="hidden">`;
+    }
     const nLibre = d.nb_alertes_releve||0;
     // les criteres qui ont fait basculer le verdict : eux seuls sont signales
     const MAP_DECL = { couches:'couches', percage_mini:'percage_mini', piste_mini:'piste_mini',
@@ -2235,6 +2250,7 @@ function synthDossier(d){
       h += `</div></div>`;
     }
     h += `</div>`;
+    if(pcbFourni) h += `</div>`;
   }
 
   // exigences de montage : colonnes, pastille d'alerte sur les operations speciales
