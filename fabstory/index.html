@@ -79,6 +79,27 @@ textarea{resize:vertical;min-height:64px}
 .badge-indice .plus{background:var(--info);color:#fff;border:none;border-radius:999px;width:19px;height:19px;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
 .statut-ligne{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
 .statut-nom{font-size:13.5px;font-weight:600}
+/* v4.32 (ch.171) : bloc Fournitures client, SOUS la barre d avancement */
+.fourn{margin-top:12px}
+.fourn-tete{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fourn-tete h2{margin:0;font-size:14px;display:flex;align-items:center;gap:7px}
+.fourn-tete h2 i{color:var(--accent-fonce)}
+.fourn-compte{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;background:var(--amber-bg);color:var(--amber-badge)}
+.fourn-l{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) 92px 86px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px}
+.fourn-l.entete{border-top:none;padding:10px 0 4px;font-size:11px;color:var(--text3)}
+.fourn-ref{font-family:var(--mono);overflow-wrap:anywhere}
+.fourn-rep{color:var(--text2);font-size:11.5px;overflow-wrap:anywhere}
+.fourn-pill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;justify-self:start}
+.fourn-pill.attendu{background:var(--surface2);color:var(--text2)}
+.fourn-pill.partiel{background:var(--amber-bg);color:var(--amber-badge)}
+.fourn-pill.recu{background:var(--green-bg);color:var(--green-badge)}
+.fourn-pill.non_cable,.fourn-pill.masque{background:var(--surface2);color:var(--text3)}
+.fourn-l.off .fourn-ref,.fourn-l.off .fourn-qte{text-decoration:line-through;color:var(--text3)}
+.fourn-act{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.fourn-act .note{margin-right:auto;font-size:11.5px;color:var(--text3)}
+.fourn-act select{font-size:12px;padding:4px 6px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text)}
+.fourn-pli{cursor:pointer}
+.fourn-pli:hover{background:var(--surface2)}
 .statut-motif{font-size:11.5px;color:var(--text3)}
 .jalons{display:flex;gap:0;margin-top:10px}
 .jalon{flex:1;text-align:center;position:relative}
@@ -480,7 +501,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.31';
+const APP_VERSION = '4.32';
 const APP_DATE = '21/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
@@ -524,6 +545,9 @@ let ATTENTE = {};   // produit_id -> nb d entrees enregistrees non transmises
 let P = null;
 let FICHE = null;
 let STATUT = null;
+let FOURN = null;          // v4.32 (ch.171) : fournitures client des SO en cours, lues UNE fois par session
+let fournDeplie = false;
+let fournEdition = null;   // id de la ligne dont on saisit le motif de masquage
 let filtre = 'tous';
 let filtreMetier = '';
 let filtreConcerne = '';
@@ -613,6 +637,7 @@ async function chargerCartes(){
       ATTENTE = (a && a.attente) || {};
       rendreCartes(filtreTxt);
     }catch(err){ /* silencieux */ }
+    chargerFournitures();   /* v4.32 : confort, jamais bloquant */
   }catch(e){
     z.innerHTML = '<div class="card"><h2><i class="ti ti-cpu"></i> Quelle carte ?</h2>' +
       '<p class="err-msg" style="margin:0 0 9px">Liste indisponible : ' + esc(e.message) + '</p>' +
@@ -706,6 +731,7 @@ async function chargerStatut(){
   }
   const zone = el('zone-statut');
   if(zone) zone.outerHTML = htmlStatut();
+  majFournitures();
 }
 async function recharger(garderVolet){
   if(!P) return;
@@ -753,6 +779,100 @@ function htmlStatut(){
   }
   return '<div class="statut-ligne" id="zone-statut">' + inner + '</div>';
 }
+/* ------------------------------------------------ fournitures client -- */
+/* v4.32 (ch.171, decisions Olivier 21/09/2026) : bloc SOUS la barre d avancement, visible tant qu une
+   fourniture client du SO courant n est pas recue ; masque des que la carte est expediee. Les lignes recues
+   sont repliees en une ligne de synthese. Une ligne peut etre masquee au client (motif OBLIGATOIRE), et
+   reaffichee par n importe qui. Source : table fournitures_client (feuille achat + reception appro V2). */
+const FOURN_MOTIFS = ['Pas une fourniture client', 'Pi\u00e8ce m\u00e9canique g\u00e9r\u00e9e \u00e0 part', 'D\u00e9j\u00e0 chez nous', 'Autre'];
+async function chargerFournitures(){
+  try{
+    const j = await getJson(BASE + '/fabstory-fournitures');
+    FOURN = (j && j.lignes) || [];
+    majFournitures();
+  }catch(e){ /* silencieux : le bloc n apparait pas, rien d autre n est gene */ }
+}
+function fournDuSo(){
+  if(!FOURN || !STATUT || !STATUT.so || STATUT.statut === 'expediee') return [];
+  const so = String(STATUT.so).trim().toUpperCase();
+  return FOURN.filter(l => String(l.so || '').toUpperCase() === so);
+}
+function fournReperes(txt){
+  const t = String(txt || '').split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+  if(t.length <= 4) return t.join(', ');
+  return t.slice(0, 4).join(', ') + ' \u2026 (' + t.length + ' rep\u00e8res)';
+}
+function fournLigne(l){
+  const etat = l.masque ? 'masque' : l.etat;
+  const lib = { attendu:'Attendu', partiel:'Partiel', recu:'Re\u00e7u', non_cable:'Non c\u00e2bl\u00e9', masque:'Masqu\u00e9e' }[etat] || etat;
+  let act = '';
+  if(l.masque){
+    act = '<div class="fourn-act"><span class="note">Masqu\u00e9e au client' + (l.masque_par ? ' par ' + esc(l.masque_par) : '') +
+      (l.masque_le ? ' le ' + fjour(l.masque_le) : '') + ' \u2014 motif : ' + esc(l.motif || '') + '</span>' +
+      '<button class="btn-s" onclick="FS.fournReafficher(' + l.id + ')">R\u00e9afficher</button></div>';
+  } else if(fournEdition === l.id){
+    act = '<div class="fourn-act"><select id="fourn-motif"><option value="">Motif (obligatoire)\u2026</option>' +
+      FOURN_MOTIFS.map(m => '<option>' + esc(m) + '</option>').join('') + '</select>' +
+      '<button class="btn-s" onclick="FS.fournAnnuler()">Annuler</button>' +
+      '<button class="btn" onclick="FS.fournConfirmer(' + l.id + ')">Masquer</button>' +
+      '<span class="err-msg" id="fourn-err" style="margin:0"></span></div>';
+  } else if(l.etat !== 'recu'){
+    act = '<div class="fourn-act"><button class="btn-s" onclick="FS.fournMasquer(' + l.id + ')"><i class="ti ti-eye-off"></i> Masquer au client</button></div>';
+  }
+  return '<div class="fourn-l' + ((l.masque || l.etat === 'non_cable') ? ' off' : '') + '">' +
+    '<span class="fourn-ref">' + esc(l.ref) + '</span>' +
+    '<span class="fourn-rep" title="' + esc(l.reperes || '') + '">' + esc(fournReperes(l.reperes)) + '</span>' +
+    '<span class="fourn-qte">' + Math.round(l.recu || 0) + ' / ' + Math.round(l.attendu || 0) + '</span>' +
+    '<span class="fourn-pill ' + etat + '">' + lib + '</span>' + act + '</div>';
+}
+function htmlFournitures(){
+  const ls = fournDuSo();
+  if(!ls.length) return '<div id="zone-fourn"></div>';
+  const visibles = ls.filter(l => !l.masque);
+  const recues = visibles.filter(l => l.etat === 'recu');
+  const comptees = visibles.filter(l => l.etat !== 'non_cable');
+  const masquees = ls.filter(l => l.masque).length;
+  if(!visibles.some(l => l.etat === 'attendu' || l.etat === 'partiel') && !masquees) return '<div id="zone-fourn"></div>';
+  const autres = ls.filter(l => l.masque || l.etat !== 'recu');
+  let h = '<div class="card fourn" id="zone-fourn"><div class="fourn-tete"><h2><i class="ti ti-package"></i> Fournitures client</h2>' +
+    '<span class="fourn-compte">' + recues.length + ' re\u00e7ue' + (recues.length > 1 ? 's' : '') + ' sur ' + comptees.length +
+    (masquees ? ' \u00b7 ' + masquees + ' masqu\u00e9e' + (masquees > 1 ? 's' : '') : '') + '</span></div>' +
+    '<div class="fourn-l entete"><span>R\u00e9f\u00e9rence</span><span>Rep\u00e8res</span><span>Re\u00e7u / attendu</span><span>\u00c9tat</span></div>';
+  h += autres.map(fournLigne).join('');
+  if(recues.length){
+    h += '<div class="fourn-l fourn-pli" onclick="FS.fournPlier()"><span><i class="ti ti-chevron-' + (fournDeplie ? 'down' : 'right') + '"></i> ' +
+      recues.length + ' fourniture' + (recues.length > 1 ? 's' : '') + ' re\u00e7ue' + (recues.length > 1 ? 's' : '') + '</span>' +
+      '<span class="fourn-rep">' + (fournDeplie ? 'cliquer pour replier' : 'cliquer pour d\u00e9plier') + '</span><span></span>' +
+      '<span class="fourn-pill recu">Re\u00e7u</span></div>';
+    if(fournDeplie) h += recues.map(fournLigne).join('');
+  }
+  return h + '</div>';
+}
+function majFournitures(){ const z = el('zone-fourn'); if(z) z.outerHTML = htmlFournitures(); }
+FS.fournPlier = function(){ fournDeplie = !fournDeplie; majFournitures(); };
+FS.fournMasquer = function(id){ fournEdition = id; majFournitures(); };
+FS.fournAnnuler = function(){ fournEdition = null; majFournitures(); };
+FS.fournConfirmer = async function(id){
+  const motif = (el('fourn-motif') || {}).value || '';
+  if(!motif){ const e = el('fourn-err'); if(e) e.textContent = 'Choisis un motif'; return; }
+  const auteur = auteurOuStop(); if(!auteur) return;
+  try{
+    await postJson(BASE + '/fabstory-fournitures-action', { id: id, action: 'masquer', motif: motif, auteur: auteur });
+    const l = (FOURN || []).find(x => x.id === id);
+    if(l){ l.masque = true; l.motif = motif; l.masque_par = auteur; l.masque_le = new Date().toISOString(); }
+    fournEdition = null; majFournitures();
+  }catch(e){ const z = el('fourn-err'); if(z) z.textContent = e.message; }
+};
+FS.fournReafficher = async function(id){
+  const auteur = auteurOuStop(); if(!auteur) return;
+  try{
+    await postJson(BASE + '/fabstory-fournitures-action', { id: id, action: 'reafficher', auteur: auteur });
+    const l = (FOURN || []).find(x => x.id === id);
+    if(l){ l.masque = false; l.motif = null; l.masque_par = null; l.masque_le = null; }
+    majFournitures();
+  }catch(e){ alert('R\u00e9affichage impossible : ' + e.message); }
+};
+
 function htmlIndice(){
   const ind = FICHE.indice_courant;
   const hist = FICHE.indices || [];
@@ -969,7 +1089,7 @@ function rendreFiche(){
     htmlIndice() + htmlLien() +
     '<span class="hero-cli">' + esc(P.nom_client || P.code_client || '') + '</span>' +
     (P.libelle_carte ? '<span class="hero-lib">' + esc(P.libelle_carte) + '</span>' : '') +
-    '</div>' + htmlStatut() + '</div>';
+    '</div>' + htmlStatut() + '</div>' + htmlFournitures();
 
   html += htmlBandeauNotifier();
 
