@@ -97,7 +97,9 @@ textarea{resize:vertical;min-height:64px}
 .fourn-l.off .fourn-ref,.fourn-l.off .fourn-qte{text-decoration:line-through;color:var(--text3)}
 .fourn-act{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
 .fourn-act .note{margin-right:auto;font-size:11.5px;color:var(--text3)}
-.fourn-act select{font-size:12px;padding:4px 6px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text)}
+.fourn-act input[type=text]{font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text);flex:1;min-width:220px}
+.fourn-lien{color:var(--info-txt);font-weight:600;font-size:11.5px}
+.fourn-pli i{color:var(--info-txt)}
 .fourn-pli{cursor:pointer}
 .fourn-pli:hover{background:var(--surface2)}
 .statut-motif{font-size:11.5px;color:var(--text3)}
@@ -501,8 +503,8 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.32';
-const APP_DATE = '21/09/2026';
+const APP_VERSION = '4.33';
+const APP_DATE = '22/09/2026';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -784,7 +786,7 @@ function htmlStatut(){
    fourniture client du SO courant n est pas recue ; masque des que la carte est expediee. Les lignes recues
    sont repliees en une ligne de synthese. Une ligne peut etre masquee au client (motif OBLIGATOIRE), et
    reaffichee par n importe qui. Source : table fournitures_client (feuille achat + reception appro V2). */
-const FOURN_MOTIFS = ['Pas une fourniture client', 'Pi\u00e8ce m\u00e9canique g\u00e9r\u00e9e \u00e0 part', 'D\u00e9j\u00e0 chez nous', 'Autre'];
+/* v4.33 (Olivier 22/09) : motif en saisie libre, pas de liste. */
 async function chargerFournitures(){
   try{
     const j = await getJson(BASE + '/fabstory-fournitures');
@@ -811,8 +813,8 @@ function fournLigne(l){
       (l.masque_le ? ' le ' + fjour(l.masque_le) : '') + ' \u2014 motif : ' + esc(l.motif || '') + '</span>' +
       '<button class="btn-s" onclick="FS.fournReafficher(' + l.id + ')">R\u00e9afficher</button></div>';
   } else if(fournEdition === l.id){
-    act = '<div class="fourn-act"><select id="fourn-motif"><option value="">Motif (obligatoire)\u2026</option>' +
-      FOURN_MOTIFS.map(m => '<option>' + esc(m) + '</option>').join('') + '</select>' +
+    act = '<div class="fourn-act"><input type="text" id="fourn-motif" maxlength="120" placeholder="Motif (obligatoire), ex : pass\u00e9e en fourniture PP" ' +
+      'onkeydown="if(event.key===\'Enter\')FS.fournConfirmer(' + l.id + ')">' +
       '<button class="btn-s" onclick="FS.fournAnnuler()">Annuler</button>' +
       '<button class="btn" onclick="FS.fournConfirmer(' + l.id + ')">Masquer</button>' +
       '<span class="err-msg" id="fourn-err" style="margin:0"></span></div>';
@@ -822,7 +824,8 @@ function fournLigne(l){
   return '<div class="fourn-l' + ((l.masque || l.etat === 'non_cable') ? ' off' : '') + '">' +
     '<span class="fourn-ref">' + esc(l.ref) + '</span>' +
     '<span class="fourn-rep" title="' + esc(l.reperes || '') + '">' + esc(fournReperes(l.reperes)) + '</span>' +
-    '<span class="fourn-qte">' + Math.round(l.recu || 0) + ' / ' + Math.round(l.attendu || 0) + '</span>' +
+    '<span class="fourn-qte">' + Math.round(l.recu || 0) + ' / ' + Math.round(l.attendu || 0) +
+      (l.a_verifier ? ' <i class="ti ti-alert-triangle" style="color:var(--amber)" title="Quantit\u00e9 inf\u00e9rieure au nombre de rep\u00e8res : export Luminovo sans pi\u00e8ce approuv\u00e9e, \u00e0 v\u00e9rifier"></i>' : '') + '</span>' +
     '<span class="fourn-pill ' + etat + '">' + lib + '</span>' + act + '</div>';
 }
 function htmlFournitures(){
@@ -842,22 +845,26 @@ function htmlFournitures(){
   if(recues.length){
     h += '<div class="fourn-l fourn-pli" onclick="FS.fournPlier()"><span><i class="ti ti-chevron-' + (fournDeplie ? 'down' : 'right') + '"></i> ' +
       recues.length + ' fourniture' + (recues.length > 1 ? 's' : '') + ' re\u00e7ue' + (recues.length > 1 ? 's' : '') + '</span>' +
-      '<span class="fourn-rep">' + (fournDeplie ? 'cliquer pour replier' : 'cliquer pour d\u00e9plier') + '</span><span></span>' +
+      '<span class="fourn-lien">' + (fournDeplie ? 'cliquer pour replier' : 'cliquer pour d\u00e9plier') + '</span><span></span>' +
       '<span class="fourn-pill recu">Re\u00e7u</span></div>';
-    if(fournDeplie) h += recues.map(fournLigne).join('');
+    if(fournDeplie){
+      h += recues.map(fournLigne).join('');
+      /* v4.33 : le meme bouton en fin de liste, pour ne pas remonter */
+      h += '<div class="fourn-l fourn-pli" onclick="FS.fournPlier()"><span><i class="ti ti-chevron-up"></i> <span class="fourn-lien">Replier les ' + recues.length + ' re\u00e7ues</span></span><span></span><span></span><span></span></div>';
+    }
   }
   return h + '</div>';
 }
 function majFournitures(){ const z = el('zone-fourn'); if(z) z.outerHTML = htmlFournitures(); }
 FS.fournPlier = function(){ fournDeplie = !fournDeplie; majFournitures(); };
-FS.fournMasquer = function(id){ fournEdition = id; majFournitures(); };
+FS.fournMasquer = function(id){ fournEdition = id; majFournitures(); const i = el('fourn-motif'); if(i) i.focus(); };
 FS.fournAnnuler = function(){ fournEdition = null; majFournitures(); };
 FS.fournConfirmer = async function(id){
   const motif = (el('fourn-motif') || {}).value || '';
-  if(!motif){ const e = el('fourn-err'); if(e) e.textContent = 'Choisis un motif'; return; }
+  if(!motif.trim()){ const e = el('fourn-err'); if(e) e.textContent = 'Indique un motif'; const i = el('fourn-motif'); if(i) i.focus(); return; }
   const auteur = auteurOuStop(); if(!auteur) return;
   try{
-    await postJson(BASE + '/fabstory-fournitures-action', { id: id, action: 'masquer', motif: motif, auteur: auteur });
+    await postJson(BASE + '/fabstory-fournitures-action', { id: id, action: 'masquer', motif: motif.trim(), auteur: auteur });
     const l = (FOURN || []).find(x => x.id === id);
     if(l){ l.masque = true; l.motif = motif; l.masque_par = auteur; l.masque_le = new Date().toISOString(); }
     fournEdition = null; majFournitures();
