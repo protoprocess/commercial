@@ -244,7 +244,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.8";
+const APP_VERSION = "7.9";
 const APP_DATE = "21/09/2026";
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -877,6 +877,9 @@ function afficher(rep) {
   /* etape active = premiere non faite, hors libre et manuel, et hors verrou */
   const courante = E.find(e => !e.done && !e.libre && !e.manuel && !e.verrou);
   const nCourante = courante ? courante.n : null;
+  /* v7.9 (21/09/2026, chantier 174) : informe le déroulé en pop-up (shared/deroule.js),
+     actif seulement si on arrive par le nouvel accueil. Sans effet sinon. */
+  try { if (window.ppDeroule) window.ppDeroule.maj({ etapes: E, courante: nCourante, dossier: so.so || (DERNIER && DERNIER.entree && DERNIER.entree.valeur) || '' }); } catch (errDeroule) {}
   const etat = e => e.done ? 'done' : (e.manuel ? 'info' : (e.libre ? 'active' : (e.n === nCourante ? 'active' : 'wait')));
 
   /* --- corps de chaque etape --- */
@@ -1379,5 +1382,6 @@ async function relier(bouton) {
 </script>
 
 <script src="../shared/retour-accueil.js" defer></script>
+<script src="../shared/deroule.js" data-appli="commande" defer></script>
 </body>
 </html>
