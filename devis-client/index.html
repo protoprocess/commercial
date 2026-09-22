@@ -587,8 +587,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.18";
-const APP_DATE = "21/09/2026";
+const APP_VERSION = "12.19";
+const APP_DATE = "22/09/2026";
 /* ---------- MODE OPERATOIRE ----------
    Le bouton vit dans le bandeau, a cote des reglages : une notice rangee
    ailleurs n est pas lue. Le gabarit est commun a toutes les applis
@@ -750,11 +750,33 @@ function icoFor(n){
   if(['drl','exc','xln','ncd'].includes(e)) return 'ti-target';
   return 'ti-file';
 }
+/* v12.19 (22/09) : au-dela de 20 Mo deposes, l analyse risque de faire tomber
+   n8n en manque de memoire (vecu : TECSUP 183012, zip de 25 Mo, 3 echecs le
+   22/09). On le dit AVANT d envoyer, et on donne le bon geste. */
+const SEUIL_DOSSIER_LOURD = 20 * 1024 * 1024;
+function tailleDepot(){ return FILES.reduce((s, f) => s + (f.size || 0), 0); }
+function enMo(o){ return (o / 1048576).toFixed(1).replace('.', ',') + ' Mo'; }
+/* Une connexion coupee n est presque jamais un "workflow non demarre" : c est
+   le plus souvent n8n qui s arrete en cours de traitement. Le message le dit. */
+function messageCoupure(e){
+  if(!/load failed|failed to fetch|networkerror/i.test(e && e.message || '')) return e.message;
+  const o = tailleDepot();
+  if(o > SEUIL_DOSSIER_LOURD) return 'Dossier volumineux (' + enMo(o) + ') : n8n a manqué de mémoire et a interrompu l\'analyse. '
+    + 'Redéposez seulement Gerber, perçage, nomenclature, pick & place et plans PDF (sans modèles 3D STEP/WRL ni images), en fichiers séparés.';
+  return 'Connexion interrompue pendant l\'analyse : n8n s\'est arrêté en cours de traitement ou n\'a pas répondu. '
+    + 'Relancez une fois ; si l\'erreur revient, cliquez « Signaler ».';
+}
 function renderFiles(){
+  const o = tailleDepot();
   document.getElementById('files').innerHTML = FILES.map((f,i)=>
     `<span class="file"><i class="ti ${icoFor(f.name)}"></i>${esc(f.name)}
       <span style="color:var(--text3)">${(f.size/1024).toFixed(0)} ko</span>
-      <i class="ti ti-x x" onclick="removeFile(${i})"></i></span>`).join('');
+      <i class="ti ti-x x" onclick="removeFile(${i})"></i></span>`).join('')
+    + (o > SEUIL_DOSSIER_LOURD
+      ? `<div style="flex-basis:100%;margin-top:6px;color:var(--amber);font-size:12px"><i class="ti ti-alert-triangle"></i>
+          Dossier volumineux (${enMo(o)}) : l'analyse risque d'échouer par manque de mémoire côté n8n.
+          En cas d'échec, déposez seulement Gerber, perçage, nomenclature, pick &amp; place et plans PDF — sans modèles 3D ni images.</div>`
+      : '');
   majBouton();
 }
 let MODE = 'complet'; // 'complet' | 'bom' — l'un OU l'autre, jamais les deux
@@ -1065,7 +1087,7 @@ async function analyserParCarte(modeSO){
   }catch(e){
     for(const z of zips) z.p.retenue = true;
     emlSync();
-    st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(e.message)}
+    st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(messageCoupure(e))}
       ${faites.length ? ' \u2014 ' + faites.length + ' fiche(s) déjà créée(s) avant l\'échec (voir Mes analyses).' : ''}</span>`;
   }finally{
     majBouton();
@@ -1120,9 +1142,7 @@ async function analyser(){
     if(!modeBom) poserLibellesGmail();
     if(!modeBom) rtOuvrirApresAnalyse();   // v12.10 : rattacher sans quitter l'écran
   }catch(e){
-    const m = /load failed|failed to fetch|networkerror/i.test(e.message)
-      ? "Appel bloqué par le navigateur ou workflow non démarré. Vérifiez que le workflow tourne dans n8n (bouton « Test workflow ») ou publiez-le."
-      : e.message;
+    const m = messageCoupure(e);
     st.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ${esc(m)}</span>`;
   }finally{
     majBouton();
@@ -1682,11 +1702,28 @@ const VERDICT = {
   HORS_CAPACITE:    {cls:'v-hors',  ico:'ti-ban',            t:'Hors capacité de fabrication', s:'Format au-delà de 300 × 400 mm — la demande est à décliner'}
 };
 
+/* v12.19 (22/09, Olivier) : un PDF trop lourd pour la lecture automatique
+   (> 10 Mo, workflow Triage PCB v2.1) doit se voir, et se lire, AVANT tout le
+   reste de la fiche : ce qu il contient n est pas dans l analyse. */
+function bandeauTropLourds(d){
+  const l = (d && d.documents_trop_lourds) || [];
+  if(!l.length) return '';
+  const n = l.length, s = n > 1 ? 's' : '';
+  return `<div style="margin:0 0 16px;border-left:4px solid var(--red-badge);padding:14px 16px;background:var(--surface2);border-radius:var(--radius)">
+    <div style="font-size:15px;font-weight:600;color:var(--red);margin-bottom:8px">
+      <i class="ti ti-alert-octagon"></i> ${n} document${s} NON LU${s.toUpperCase()} — trop lourd${s} pour la lecture automatique</div>
+    <div style="font-size:13.5px;color:var(--text);line-height:1.7">${l.map(x =>
+      `<span class="mono">${esc(x.nom)}</span> <span style="color:var(--text2)">— ${String(x.mo).replace('.', ',')} Mo</span>`).join('<br>')}</div>
+    <p style="margin:10px 0 0;font-size:13px;color:var(--text2);line-height:1.6">
+      <b style="color:var(--text)">Ce que contient ce document n'est pas dans la fiche ci-dessous</b> (specs PCB, exigences, plans).
+      Ouvrez-le et vérifiez-le à la main. S'il contient des specs utiles, redéposez-le allégé (pages utiles seulement, moins de 10 Mo).</p>
+  </div>`;
+}
 function afficher(){
   document.getElementById('res').classList.remove('hidden');
   const d = DATA || {};
   const estDossier = d.decision_pcb !== undefined;
-  document.getElementById('p-synthese').innerHTML = estDossier ? synthDossier(d) : synthBom(d);
+  document.getElementById('p-synthese').innerHTML = estDossier ? (bandeauTropLourds(d) + synthDossier(d)) : synthBom(d);
   if(estDossier) rendreSources(d);
   rendreBom();
   document.getElementById('p-brut').innerHTML = brut(d);
@@ -2101,7 +2138,7 @@ function synthDossier(d){
       </div></div>`;
   }
   h += `</div>`;
-  const nonLus = d.documents_non_lus || [];
+  const nonLus = (d.documents_non_lus || []).concat((d.documents_trop_lourds || []).map(x => x.nom + ' (trop lourd : ' + String(x.mo).replace('.', ',') + ' Mo)'));
   if(nonLus.length){
     h += `<div style="margin-top:11px;border-left:3px solid var(--amber-badge);padding:9px 12px;background:var(--surface2);border-radius:var(--radius)">
       <div style="font-size:12.5px;font-weight:600;color:var(--amber);margin-bottom:4px">
