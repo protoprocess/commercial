@@ -120,6 +120,33 @@
   @media (prefers-reduced-motion: reduce) { .jalons.attente .pt { animation: none; } }
   .jalons-note { margin-top: 8px; font-size: 11.5px; color: var(--text3); text-align: center; }
 
+  /* ---- v0.52 (ch.171) : Vos fournitures, SOUS la barre d avancement ---- */
+  .fourn { border-color: #f0d9b5; }
+  .fourn-tete { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fourn-tete h2 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .fourn-compte { font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 20px; background: #FAEEDA; color: #854F0B; }
+  .fourn-sous { font-size: 12.5px; color: var(--text2); margin: 4px 0 8px; }
+  .fourn-l { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1.2fr) 96px 92px; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .fourn-l.entete { border-top: none; padding: 6px 0 4px; font-size: 11.5px; color: var(--text3); }
+  .fourn-ref { font-family: var(--mono); overflow-wrap: anywhere; }
+  .fourn-rep { color: var(--text2); font-size: 12px; overflow-wrap: anywhere; }
+  .fourn-pill { font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 20px; white-space: nowrap; justify-self: start; }
+  .fourn-pill.attendu { background: var(--bg); color: var(--text2); border: 1px solid var(--border2); }
+  .fourn-pill.partiel { background: #FAEEDA; color: #854F0B; }
+  .fourn-pill.recu { background: var(--vert-bg); color: var(--vert); }
+  .fourn-pill.non_cable { background: var(--bg); color: var(--text3); }
+  .fourn-l.off .fourn-ref, .fourn-l.off .fourn-qte { text-decoration: line-through; color: var(--text3); }
+  .fourn-act { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .fourn-act .note { margin-right: auto; font-size: 12.5px; color: var(--text2); }
+  .fourn-btn { background: transparent; border: 1px solid var(--border2); color: var(--text2); border-radius: var(--radius); padding: 6px 12px; font-size: 12.5px; font-family: var(--sans); cursor: pointer; }
+  .fourn-btn:hover { border-color: var(--accent); color: var(--accent-fonce); }
+  .fourn-btn.ok { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .fourn-pli { cursor: pointer; }
+  .fourn-pli:hover { background: var(--bg); }
+  .fourn-lien { color: var(--info-txt); font-weight: 600; font-size: 12px; }
+  @media (max-width: 640px) { .fourn-l { grid-template-columns: minmax(0,1fr) 84px 84px; } .fourn-rep { grid-column: 1 / -1; } .fourn-l.entete .fourn-rep-h { display: none; } }
+  @media print { #fournBloc { display: none !important; } }
+
   /* ---- Bandeaux d'etat ---- */
   .bandeau { border-radius: var(--radius); padding: 12px 15px; font-size: 13px; margin-bottom: 18px; }
   .bandeau-info { background: var(--info-bg); color: var(--info-txt); border: 1px solid #cdeaf1; }
@@ -410,6 +437,8 @@
       <div class="jalons-note" id="jalonsNote">Statut de fabrication en cours de lecture&hellip;</div>
     </section>
 
+    <section id="fournBloc" class="carte fourn" style="display:none;margin-top:14px"></section>
+
     <div class="bandeau bandeau-info" id="bandeauLecture" style="display:none">
       Ce lien est en lecture seule : le suivi reste consultable, mais les r&eacute;ponses en ligne sont ferm&eacute;es. Contactez Proto Process pour toute question.
     </div>
@@ -487,8 +516,8 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.51";
-const APP_DATE = "17/09/2026";
+const APP_VERSION = "0.52";
+const APP_DATE = "22/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -574,6 +603,14 @@ const T = {
     titre_onglet: "Suivi des projets", btn_home: "Espace client", btn_home_title: "Retour \u00e0 votre espace client Proto Process",
     btn_print: "T\u00e9l\u00e9charger le rapport", btn_print_title: "T\u00e9l\u00e9charger le rapport de fabrication en PDF",
     chargement: "Chargement de votre suivi\u2026",
+    fourn_titre: "Vos fournitures", fourn_sous: "Composants que vous nous fournissez. La fabrication d\u00e9marre quand tout est re\u00e7u.",
+    fourn_compte: "{r} re\u00e7ue(s) sur {n} attendue(s)", fourn_ref: "R\u00e9f\u00e9rence", fourn_rep: "Rep\u00e8res", fourn_qte: "Re\u00e7u / attendu", fourn_etat: "\u00c9tat",
+    fourn_attendu: "Attendu", fourn_partiel: "Partiel", fourn_recu: "Re\u00e7u", fourn_nc: "Non c\u00e2bl\u00e9",
+    fourn_btn: "Ne pas c\u00e2bler", fourn_confirmer: "Confirmer", fourn_annuler: "Annuler",
+    fourn_question: "La carte sera livr\u00e9e sans ce composant. Confirmer ?",
+    fourn_decide: "D\u00e9cision du {d} : vous ne fournirez pas ce composant, la carte sera livr\u00e9e sans.",
+    fourn_deplier: "cliquer pour d\u00e9plier", fourn_replier: "cliquer pour replier", fourn_recues: "{n} fourniture(s) re\u00e7ue(s)",
+    fourn_reperes_n: "{n} rep\u00e8res", fourn_err: "La d\u00e9cision n\u2019a pas pu \u00eatre enregistr\u00e9e. R\u00e9essayez, ou contactez Proto Process.",
     refus_titre: "Ce lien n\u2019est pas ou plus valide",
     refus_texte: "Le lien de suivi que vous avez ouvert n\u2019est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.",
     refus_indispo: "Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.",
@@ -629,6 +666,14 @@ const T = {
     titre_onglet: "Project tracking", btn_home: "Customer portal", btn_home_title: "Back to your Proto Process customer portal",
     btn_print: "Download the report", btn_print_title: "Download the production report as PDF",
     chargement: "Loading your tracking\u2026",
+    fourn_titre: "Your supplied parts", fourn_sous: "Components you supply to us. Production starts once everything is received.",
+    fourn_compte: "{r} received out of {n} expected", fourn_ref: "Part number", fourn_rep: "Designators", fourn_qte: "Received / expected", fourn_etat: "Status",
+    fourn_attendu: "Expected", fourn_partiel: "Partial", fourn_recu: "Received", fourn_nc: "Not fitted",
+    fourn_btn: "Do not fit", fourn_confirmer: "Confirm", fourn_annuler: "Cancel",
+    fourn_question: "The board will be delivered without this component. Confirm?",
+    fourn_decide: "Decision of {d}: you will not supply this component, the board will be delivered without it.",
+    fourn_deplier: "click to expand", fourn_replier: "click to collapse", fourn_recues: "{n} part(s) received",
+    fourn_reperes_n: "{n} designators", fourn_err: "The decision could not be saved. Try again, or contact Proto Process.",
     refus_titre: "This link is not valid, or no longer valid",
     refus_texte: "The tracking link you opened is no longer active. To receive a new link, please contact your Proto Process contact person.",
     refus_indispo: "Tracking is temporarily unavailable. Please try again in a few minutes.",
@@ -942,6 +987,97 @@ async function charger() {
   document.getElementById("btnImprimer").style.display = "inline-flex";
 }
 
+
+/* ---------------------- v0.52 (ch.171) : Vos fournitures ---------------------- */
+/* Bloc SOUS la barre d avancement : fournitures client du SO courant, lu dans le meme
+   appel que le journal (DONNEES.fournitures, lignes masquees deja exclues en SQL).
+   Visible tant qu une fourniture est attendue ou partielle ; jamais si la carte est
+   expediee. Lignes recues repliees. « Ne pas cabler » = decision enregistree dans le
+   fil et au rapport de fabrication, puis appliquee aux achats par Proto Process. */
+let STATUT_CODE = null;
+let fournDeplie = false;
+let fournEdition = null;
+function fournListe() {
+  const l = (DONNEES && Array.isArray(DONNEES.fournitures)) ? DONNEES.fournitures : [];
+  if (!SO_CIBLE || STATUT_CODE === "expediee") return [];
+  return l.filter(function (x) { return String(x.so || "").toUpperCase() === String(SO_CIBLE).toUpperCase(); });
+}
+function fournReperes(txt) {
+  const tt = String(txt || "").split(/[,;\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+  if (tt.length <= 4) return tt.join(", ");
+  return tt.slice(0, 4).join(", ") + " \u2026 (" + t("fourn_reperes_n").replace("{n}", tt.length) + ")";
+}
+function fournLigne(l) {
+  const etat = l.etat;
+  const lib = t("fourn_" + ({ attendu: "attendu", partiel: "partiel", recu: "recu", non_cable: "nc" }[etat] || "attendu"));
+  let act = "";
+  if (etat === "non_cable") {
+    act = '<div class="fourn-act"><span class="note">' + esc(t("fourn_decide").replace("{d}", l.decision_le ? fmtDate(l.decision_le) : "")) + "</span></div>";
+  } else if (fournEdition === l.id) {
+    act = '<div class="fourn-act"><span class="note">' + esc(t("fourn_question")) + "</span>" +
+      '<button type="button" class="fourn-btn" onclick="fournAnnuler()">' + esc(t("fourn_annuler")) + "</button>" +
+      '<button type="button" class="fourn-btn ok" onclick="fournConfirmer(' + l.id + ')">' + esc(t("fourn_confirmer")) + "</button>" +
+      '<span class="rep-erreur" id="fourn-err" style="margin:0"></span></div>';
+  } else if (etat !== "recu" && DONNEES && DONNEES.repondable !== false && (l.recu || 0) === 0) {
+    act = '<div class="fourn-act"><button type="button" class="fourn-btn" onclick="fournDemander(' + l.id + ')">' + esc(t("fourn_btn")) + "</button></div>";
+  }
+  return '<div class="fourn-l' + (etat === "non_cable" ? " off" : "") + '">' +
+    '<span class="fourn-ref">' + esc(l.ref) + "</span>" +
+    '<span class="fourn-rep" title="' + esc(l.reperes || "") + '">' + esc(fournReperes(l.reperes)) + "</span>" +
+    '<span class="fourn-qte">' + Math.round(l.recu || 0) + " / " + Math.round(l.attendu || 0) + "</span>" +
+    '<span class="fourn-pill ' + etat + '">' + esc(lib) + "</span>" + act + "</div>";
+}
+function rendreFournitures() {
+  const bloc = document.getElementById("fournBloc");
+  if (!bloc) return;
+  const ls = fournListe();
+  const ouvertes = ls.filter(function (l) { return l.etat === "attendu" || l.etat === "partiel"; });
+  if (!ls.length || !ouvertes.length) { bloc.style.display = "none"; bloc.innerHTML = ""; return; }
+  const recues = ls.filter(function (l) { return l.etat === "recu"; });
+  const comptees = ls.filter(function (l) { return l.etat !== "non_cable"; });
+  const autres = ls.filter(function (l) { return l.etat !== "recu"; });
+  let h = '<div class="fourn-tete"><h2>' + esc(t("fourn_titre")) + "</h2>" +
+    '<span class="fourn-compte">' + esc(t("fourn_compte").replace("{r}", recues.length).replace("{n}", comptees.length)) + "</span></div>" +
+    '<p class="fourn-sous">' + esc(t("fourn_sous")) + "</p>" +
+    '<div class="fourn-l entete"><span>' + esc(t("fourn_ref")) + '</span><span class="fourn-rep-h">' + esc(t("fourn_rep")) + "</span><span>" + esc(t("fourn_qte")) + "</span><span>" + esc(t("fourn_etat")) + "</span></div>";
+  h += autres.map(fournLigne).join("");
+  if (recues.length) {
+    h += '<div class="fourn-l fourn-pli" onclick="fournPlier()"><span>' + (fournDeplie ? "\u25be" : "\u25b8") + " " + esc(t("fourn_recues").replace("{n}", recues.length)) + "</span>" +
+      '<span class="fourn-lien">' + esc(fournDeplie ? t("fourn_replier") : t("fourn_deplier")) + "</span><span></span>" +
+      '<span class="fourn-pill recu">' + esc(t("fourn_recu")) + "</span></div>";
+    if (fournDeplie) h += recues.map(fournLigne).join("");
+  }
+  bloc.innerHTML = h;
+  bloc.style.display = "block";
+}
+function fournPlier() { fournDeplie = !fournDeplie; rendreFournitures(); }
+function fournDemander(id) { fournEdition = id; rendreFournitures(); }
+function fournAnnuler() { fournEdition = null; rendreFournitures(); }
+async function fournConfirmer(id) {
+  const btn = document.querySelector(".fourn-btn.ok");
+  if (btn) btn.disabled = true;
+  let r = null;
+  try {
+    const rep = await fetch(API + "/fabstory-client-reponse", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jeton: JETON, fourniture_id: id, auteur: "" })
+    });
+    r = await rep.json();
+  } catch (e) { r = null; }
+  if (!r || !r.ok) {
+    if (btn) btn.disabled = false;
+    const z = document.getElementById("fourn-err");
+    if (z) { z.textContent = (r && r.motif) ? r.motif : t("fourn_err"); z.style.display = "block"; }
+    return;
+  }
+  const l = (DONNEES.fournitures || []).find(function (x) { return x.id === id; });
+  if (l) { l.etat = "non_cable"; l.decision_le = new Date().toISOString(); }
+  fournEdition = null;
+  rendreFournitures();
+  /* Le fil est recharge pour montrer la decision enregistree (question + rapport). */
+  try { const rep2 = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + (SO_CIBLE ? "&so=" + encodeURIComponent(SO_CIBLE) : "")); const d2 = await rep2.json(); if (d2 && d2.ok) { d2.fournitures = DONNEES.fournitures; DONNEES = d2; rendrePoints(d2); rendreFil(d2); } } catch (e) { /* sans gravite */ }
+}
+
 function montrerRefus(message) {
   document.getElementById("chargement").style.display = "none";
   const refus = document.getElementById("refus");
@@ -963,6 +1099,8 @@ async function chargerStatut() {
     if (r && r.ok && r.conformite) { r.conformite.so = r.conformite.so || r.so || ""; if (r.conformite.qte == null) r.conformite.qte = r.qte_cmd; }
     rendreCartouche(r && r.ok ? r : null);
     rendreConformite(r && r.ok ? r.conformite : null);
+    STATUT_CODE = (r && r.ok) ? (r.statut || null) : null;
+    rendreFournitures();
   } catch (e) {
     rendreJalons(null, null);
     rendreInspection(null);
