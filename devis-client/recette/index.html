@@ -588,8 +588,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.24-recette";
+const APP_VERSION = "12.25-recette";
 const APP_DATE = "24/09/2026";
+/* v12.25-recette (24/09/2026) : pop-up étapes 6 (scénarios, edOjKVBAObu0uN8t) et 7 (sourcing, questions client FabStory au go).
 /* v12.22-recette (24/09/2026) : spec PCB à 3 sources (documents client / fichiers / standards PP) à l'étape 4, écrite dans Luminovo au go.
 /* v12.21-recette (24/09/2026) : pop-up étape 4 (creer_rfq_pcb l6hg2MK0aeRdj7Rw : RfQ + fiche PCB + dépôt zip + spec lue dans les fichiers).
 /* v12.20-recette (24/09/2026) : pop-up « Déroulé devis — étape 5 (BOM) » branché sur les workflows n8n RECETTE
@@ -3900,6 +3901,7 @@ async function basculerAnalyse(jobId, statut, btn){
 .dd-rep{font-family:var(--mono);font-size:12px;font-weight:600}
 .dd-pill{padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:var(--sans)}
 .dd-pill.on{background:var(--accent);color:#fff;border-color:transparent}
+.dd-btn.on{background:var(--accent);color:#fff;border-color:transparent}
 .dd-pied{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--border)}
 .dd-btn{padding:6px 13px;border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:var(--sans);border:.5px solid var(--border);background:transparent;color:var(--text2)}
 .dd-btn.p{background:var(--accent);color:#fff;border:none;font-weight:500;padding:8px 16px;font-size:13px}
@@ -3921,7 +3923,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.2.2', DD_DATE = '24/09/2026'; // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.3', DD_DATE = '24/09/2026'; // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4027,7 +4029,59 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   function ecranSuite(){
     const d = ETAT.deroule || {};
     cadre('Étape ' + esc(d.etape) + '/8', 'à venir',
-      `<div class="dd-carte"><div class="dd-ligne">L'étape 5 est validée. L'étape ${esc(d.etape)} (scénarios) arrive au lot 2 : pour l'instant, continue dans Luminovo.</div></div>`, SIDE_REGLE, '');
+      `<div class="dd-carte"><div class="dd-ligne">Les étapes 4 à 7 sont passées. L'étape 8 (calcul, devis Odoo, fiche de cohérence) arrive au lot 4 : pour l'instant, continue dans Luminovo et Odoo.</div></div>`, SIDE_REGLE, '', false, 8);
+  }
+  function ecranAttenteN(n, texte){
+    const d = ETAT.deroule || {};
+    cadre('Étape ' + n + '/8', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>${esc(texte)} Cet écran se met à jour tout seul.</div></div>`, SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')}</span>`, false, n);
+  }
+  // ---------- étape 6 : scénarios ----------
+  const MODELES_FAB = ['FR - NOUVELLE FAB STD', 'FR - REFAB STD', 'FR - CMS LIGHT', 'FR - REFAB CMS LIGHT', 'FR - 100% TRAD', 'FR - REWORK', 'WW - NOUVELLE FAB STD', 'WW - REFAB STD', 'WW - 100% TRAD', 'WW - REWORK'];
+  function ecranScenarios(){
+    const a = ETAT.analyse || {};
+    let qtes = Array.isArray(a.quantites) ? a.quantites.map(Number).filter(x => x > 0) : [];
+    if (!qtes.length) qtes = [1];
+    qtes = [...new Set(qtes)].sort((x, y) => x - y);
+    const lignes = qtes.map((q, i) => `<tr><td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="${q}" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === (i === 0 ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD') ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td></tr>`).join('');
+    cadre('Étape 6/8 — Scénarios', 'à créer',
+      `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT creer_scenarios</div>
+        <div class="dd-ligne" style="line-height:1.6">Pour chaque quantité : un scénario de <b>sourcing</b> depuis le modèle « PP Chiffrage » (jamais copié d'un ancien), la <b>recherche de prix</b> lancée, et un scénario de <b>fabrication</b> créé depuis le modèle choisi. Nommage « Qté X - JJMMAA ». Règle : petite quantité en NOUVELLE FAB, grande quantité en REFAB ; CMS LIGHT si 1 à 10 CMS simples ; FR ou WW selon le pays du client.</div></div>
+       <div class="dd-carte"><div class="dd-h">QUANTITÉS ET MODÈLES</div>
+        <table id="dd-scen" style="border-collapse:collapse;font-size:12px"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Quantité</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Modèle de fabrication</th><th></th></tr>${lignes}</table>
+        <div><button class="dd-btn" onclick="DD.ajouterQte()">+ quantité</button></div>
+        <label class="dd-ligne">Faces à équiper : <select id="dd-faces" class="dd-sel"><option value="Top">dessus seulement</option><option value="Both">les deux faces</option></select></label></div>`,
+      SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="margin-top:6px">Quantités demandées par le client : ${esc(qtes.join(', '))} (analyse)</div></div>`,
+      `<span class="dd-ligne" style="margin-left:auto">Script creer_scenarios v1.0</span><button class="dd-btn p" onclick="DD.creerScenarios()">Créer les scénarios</button>`, false, 6);
+  }
+  function ecranPorte6(fin){
+    const d = fin.detail || {};
+    const rows = (d.scenarios || []).map(s => `<div class="dd-ligne">${s.deja ? '⏭ Qté ' + esc(s.qte) + ' : existait déjà' : s.erreur ? '⚠ Qté ' + esc(s.qte) + ' : ' + esc(s.erreur) : '✔ <b>' + esc(s.nom) + '</b> — sourcing + fabrication « ' + esc(s.modele) + ' »'}</div>`).join('');
+    cadre('Étape 6/8 — Scénarios', 'compteurs à saisir',
+      `<div><div class="dd-h">CRÉÉ DANS LUMINOVO (modèle sourcing : ${esc(d.modele_sourcing || '')}, faces : ${esc(d.pcb_sides || '')})</div><div class="dd-carte" style="margin-top:6px">${rows || '<div class="dd-ligne">rien</div>'}</div></div>
+       <div><div class="dd-h">À FAIRE DANS LUMINOVO</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne" style="line-height:1.6">Ouvre chaque scénario de fabrication et saisis les <b>compteurs manuels</b> (CMS à coller, modifications de méthodes…). La recherche de prix tourne pendant ce temps (2-3 min).</div></div></div>`,
+      SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Puis :</span><button class="dd-btn p" onclick="DD.go6()">Compteurs saisis → sourcing (étape 7)</button>`, false, 6);
+  }
+  // ---------- étape 7 : sourcing ----------
+  function ecranPorte7(fin){
+    const d = fin.detail || {}; const points = d.points || [];
+    const scen = (d.scenarios || []).map(s => `<tr><td style="padding:4px 8px"><b>${esc(s.nom)}</b></td><td style="padding:4px 8px">${s.total_matiere != null ? esc(Number(s.total_matiere).toFixed(2)) + ' €' : '—'}</td><td style="padding:4px 8px">${esc((s.resume || {}).ok)} ok · ${esc((s.resume || {}).warning)} avert. · ${esc((s.resume || {}).erreur)} sans solution · ${esc((s.resume || {}).exclues)} exclues</td><td style="padding:4px 8px;color:var(--text3)">${(s.resume || {}).dispo ? esc((s.resume.dispo.type || '') + ' ' + (s.resume.dispo.days != null ? s.resume.dispo.days + ' j' : '')) : '—'}</td></tr>`).join('');
+    const pcb = d.pcb ? `<div class="dd-ligne">Radar PCB : ${esc(d.pcb.radar || 'inconnu')} · ${esc((d.pcb.offres || []).length)} offre(s) PCB déposée(s)${(d.pcb.offres || []).length ? ' : ' + esc(d.pcb.offres.map(o => o.fournisseur || o.origine || '?').join(', ')) : ''} — <b>choisis l'offre PCB dans Luminovo</b></div>` : '<div class="dd-ligne">Pas de fiche PCB sur ce RfQ (PCB fourni ou fiche absente).</div>';
+    CHOIX = {};
+    const lignes = points.map((p, i) => {
+      const titre = `<b>${esc(p.reperes.join(', '))}</b> ${esc(p.mpn || '')} ${p.fabricant ? '(' + esc(p.fabricant) + ')' : ''} — ${esc(p.proposition)}`;
+      let btns = '';
+      if (p.genre === 'question') { CHOIX['p' + i] = 'question'; btns = `<button class="dd-btn" id="dd-b-q${i}" onclick="DD.choixPoint(${i},'question')">Poser la question ${esc(p.modele)}</button><button class="dd-btn" id="dd-b-n${i}" onclick="DD.choixPoint(${i},'rien')">Ne pas poser</button>`; }
+      else if (p.genre === 'excedent') { CHOIX['p' + i] = 'accepter'; btns = `<button class="dd-btn" id="dd-b-q${i}" onclick="DD.choixPoint(${i},'accepter')">Accepter l'excédent</button><button class="dd-btn" id="dd-b-n${i}" onclick="DD.choixPoint(${i},'exclure')">Exclure du sourcing (dans Luminovo)</button>`; }
+      return `<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">${p.genre === 'attente' ? '⏳ ' : p.genre === 'question' ? '❓ ' : p.genre === 'excedent' ? '📦 ' : 'ℹ '}${titre}</div>${btns ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + btns + '</div>' : ''}</div>`;
+    }).join('');
+    const enCours = !!d.recherche_en_cours;
+    cadre('Étape 7/8 — Sourcing + PCB', enCours ? 'recherche en cours' : (points.length + ' point(s)'),
+      `<div><div class="dd-h">MATIÈRE PAR SCÉNARIO</div><div class="dd-carte" style="margin-top:6px"><table style="border-collapse:collapse;font-size:12px;width:100%">${scen}</table>${pcb}</div></div>
+       <div><div class="dd-h">LIGNES À TRANCHER</div>${lignes || '<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Aucune ligne en défaut.</div></div>'}</div>`,
+      SIDE_REGLE + `<div><div class="dd-h">QUESTIONS CLIENT</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Au go, les questions retenues sont créées sur la carte FabStory (étape DEVIS, modèles M1/M2), notification différée : elles partent avec le devis.</div></div>`,
+      `${enCours ? '<button class="dd-btn" onclick="DD.lancer7()">Relire (recherche en cours)</button>' : ''}<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.go7()">Valider → calcul et devis (étape 8)</button>`, false, 7);
+    DD._points = points;
+    points.forEach((p, i) => { if (CHOIX['p' + i]) DD.choixPoint(i, CHOIX['p' + i]); });
   }
 
   function ecranPorte4Sources(fin){
@@ -4064,7 +4118,21 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     if (d.etape === 5 && d.statut === 'en_cours' && !j.some(x => x.etape === 5 && x.evenement === 'script')) return ecranLancer();
     if (!d.rfq_luminovo) return ecranLancer();
     if (d.statut === 'bloque') return ecranBloque(alerte);
-    if (d.etape > 5) return ecranSuite();
+    if (d.etape === 6) {
+      if (d.statut === 'bloque') return ecranBloque(alerte);
+      const fin6 = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 6);
+      if (d.statut === 'attente_porte' && fin6) return ecranPorte6(fin6);
+      if (d.statut === 'en_cours' && !j.some(x => x.etape === 6 && x.evenement === 'script')) return ecranScenarios();
+      return ecranAttenteN(6, 'Le script creer_scenarios crée les scénarios de sourcing et de fabrication dans Luminovo et lance la recherche de prix.');
+    }
+    if (d.etape === 7) {
+      if (d.statut === 'bloque') return ecranBloque(alerte);
+      const fin7 = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 7);
+      if (d.statut === 'attente_porte' && fin7) return ecranPorte7(fin7);
+      if (d.statut === 'en_cours' && !j.some(x => x.etape === 7 && x.evenement === 'script') && !DD._lance7) { DD._lance7 = d.id; DD.lancer7(); }
+      return ecranAttenteN(7, 'Le script lire_sourcing relance la sélection des offres puis lit les prix, les délais et les lignes sans solution.');
+    }
+    if (d.etape > 7) return ecranSuite();
     const fin = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 5);
     if (d.statut === 'attente_porte' && fin) return ecranPorte(fin);
     return ecranAttente();
@@ -4116,7 +4184,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const d = ETAT.deroule;
     afficher();
     clearTimeout(TIMER);
-    if (d && d.statut === 'en_cours' && (d.etape === 4 || (d.etape === 5 && (ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+    if (d && d.statut === 'en_cours' && (d.etape === 4 || ([5, 6, 7].includes(d.etape) && (ETAT.journal || []).some(x => x.etape === d.etape && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
   }
   window.DD = {
     async ouvrir(relance){
@@ -4128,7 +4196,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         if (relance) ETAT.deroule = null;
         else if (d0 && d0.etape === 5 && d0.statut === 'en_cours' && !(ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')) RFQS = await lireRfqs((ETAT.analyse || {}).client);
         CHOIX = {}; afficher();
-        const d = ETAT.deroule; if (d && d.statut === 'en_cours' && (d.etape === 4 || (d.etape === 5 && (ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+        const d = ETAT.deroule; if (d && d.statut === 'en_cours' && (d.etape === 4 || ([5, 6, 7].includes(d.etape) && (ETAT.journal || []).some(x => x.etape === d.etape && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
     fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
@@ -4159,6 +4227,47 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
     abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
+    ajouterQte(){ const t = $$('dd-scen'); const tr = document.createElement('tr'); tr.innerHTML = `<td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="10" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === 'FR - REFAB STD' ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td>`; t.appendChild(tr); },
+    async creerScenarios(){
+      const demandes = [...document.querySelectorAll('#dd-scen tr')].map(tr => { const q = tr.querySelector('.dd-qte'), m = tr.querySelector('.dd-mod'); return q && m ? { qte: Number(q.value), modele: m.value } : null; }).filter(x => x && x.qte > 0);
+      if (!demandes.length) { alert('Au moins une quantité.'); return; }
+      const corps = { deroule_id: ETAT.deroule.id, demandes, pcb_sides: $$('dd-faces').value, valideur: qui() };
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Lancement du script…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-creer-scenarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+        await new Promise(res => setTimeout(res, 3000)); await rafraichir();
+      } catch (e) { alert('Le script n\'a pas démarré : ' + e.message); ecranScenarios(); }
+    },
+    async go6(){
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui() }) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        DD._lance7 = null; await rafraichir();
+      } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
+    },
+    async lancer7(){
+      try {
+        const r = await fetch(`${base()}/webhook/recette-lire-sourcing`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, valideur: qui() }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+        await new Promise(res => setTimeout(res, 3000)); await rafraichir();
+      } catch (e) { alert('Lecture du sourcing non lancée : ' + e.message); }
+    },
+    choixPoint(i, v){ CHOIX['p' + i] = v; const q = $$('dd-b-q' + i), n = $$('dd-b-n' + i); if (q) q.classList.toggle('on', v === 'question' || v === 'accepter'); if (n) n.classList.toggle('on', v === 'rien' || v === 'exclure'); },
+    async go7(){
+      const pts = DD._points || [];
+      const questions = pts.filter((p, i) => p.genre === 'question' && CHOIX['p' + i] === 'question').map(p => ({ modele: p.modele || 'M2', reperes: p.reperes, mpn: p.mpn, fabricant: p.fabricant }));
+      const exclusions = pts.filter((p, i) => p.genre === 'excedent' && CHOIX['p' + i] === 'exclure').map(p => p.reperes.join(','));
+      if (!confirm(`${questions.length} question(s) client vont être créées dans FabStory (notification différée)${exclusions.length ? ', ' + exclusions.length + ' ligne(s) à exclure du sourcing dans Luminovo' : ''}. Continuer ?`)) return;
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 7, valideur: qui(), questions, exclusions }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (j.faits && j.faits.questions_creees != null) alert(j.faits.questions_creees + ' question(s) créée(s) dans FabStory.');
+        await rafraichir();
+      } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
+    },
     async passerEtape5(){ RFQS = await lireRfqs((ETAT.analyse || {}).client); ecranLancer(); },
     async creer(){
       const a = ETAT.analyse || {}; const f = ($$('dd-zip').files || [])[0];
