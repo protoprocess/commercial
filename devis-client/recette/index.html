@@ -588,8 +588,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.21-recette";
+const APP_VERSION = "12.22-recette";
 const APP_DATE = "24/09/2026";
+/* v12.22-recette (24/09/2026) : spec PCB à 3 sources (documents client / fichiers / standards PP) à l'étape 4, écrite dans Luminovo au go.
 /* v12.21-recette (24/09/2026) : pop-up étape 4 (creer_rfq_pcb l6hg2MK0aeRdj7Rw : RfQ + fiche PCB + dépôt zip + spec lue dans les fichiers).
 /* v12.20-recette (24/09/2026) : pop-up « Déroulé devis — étape 5 (BOM) » branché sur les workflows n8n RECETTE
    importer_bom (N7Qr9MOZSOqA1cjq) et écran (zFTzcLK7o9BfTWoX) et sur la table deroule_devis. Bloc en fin de fichier. */
@@ -3920,7 +3921,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.1', DD_DATE = '24/09/2026'; // v1.1 : étape 4 (créer le RfQ + PCB, dépôt du zip, spec dérivée des fichiers)
+  const DD_VERSION = '1.2', DD_DATE = '24/09/2026'; // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4029,6 +4030,26 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       `<div class="dd-carte"><div class="dd-ligne">L'étape 5 est validée. L'étape ${esc(d.etape)} (scénarios) arrive au lot 2 : pour l'instant, continue dans Luminovo.</div></div>`, SIDE_REGLE, '');
   }
 
+  function ecranPorte4Sources(fin){
+    const d = fin.detail || {}; const spec = d.spec || [];
+    const rows = spec.map(l => `<tr>
+      <td style="padding:4px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(l.param)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${l.valeur == null ? '<span style="color:var(--amber)">non déterminé</span>' : esc(l.valeur)}${l.fichiers ? ' <span style="color:var(--amber)">≠ fichiers : ' + esc(l.fichiers) + '</span>' : ''}</td>
+      <td style="padding:4px 8px;color:var(--text3);border-bottom:1px solid var(--border)">${esc(l.source)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">${l.niveau === 'orange' ? '🟠' : '🟢'}</td></tr>`).join('');
+    const tbl = `<table style="border-collapse:collapse;font-size:12px;width:100%"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Paramètre</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Valeur</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Source</th><th></th></tr>${rows}</table>`;
+    const autres = (d.autres_caracteristiques || []).map(a => `<div class="dd-ligne">${a.importance === 'attention' ? '⚠ ' : '· '}${esc(a.texte)}${a.source ? ' <span style="color:var(--text3)">(' + esc(a.source) + ')</span>' : ''}</div>`).join('');
+    cadre('Étape 4/8 — RfQ + PCB', 'spec à valider',
+      `<div><div class="dd-h">CRÉÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;flex-wrap:wrap;margin-top:6px"><span class="dd-ligne">RfQ chez <b>${esc(d.client_luminovo)}</b></span><span class="dd-ligne">${esc((d.fichiers || []).length)} fichiers déposés</span><span class="dd-ligne">analyse Luminovo : ${esc(d.analyse_luminovo)}</span>${d.verdict_analyse ? '<span class="dd-ligne">verdict du triage : ' + esc(d.verdict_analyse) + '</span>' : ''}</div></div>
+       <div><div class="dd-h">SPEC PCB — ${esc(d.nb_orange || 0)} POINT(S) 🟠 SANS SOURCE CLIENT NI FICHIER</div><div class="dd-carte" style="margin-top:6px">${tbl}
+         <div class="dd-ligne">🟢 = lu dans les documents du client ou dans les fichiers. 🟠 = standard PP appliqué (à confirmer par le client au plus tard à la commande), ou écart entre documents et fichiers.</div></div></div>
+       ${autres ? '<div><div class="dd-h">AUTRES CARACTÉRISTIQUES RELEVÉES DANS LES DOCUMENTS</div><div class="dd-carte" style="margin-top:6px">' + autres + '</div></div>' : ''}`,
+      SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Zip : ${esc(d.zip)}<br>Script : ${esc(fin.script)} ${esc(fin.version)}<br>Fait le ${esc(new Date(fin.le).toLocaleString('fr-FR'))}</div></div>`,
+      `<span class="dd-ligne" style="margin-left:auto">Au go, la spec est écrite dans la fiche PCB Luminovo</span><button class="dd-btn p" onclick="DD.validerSpec()">Valider la spec → BOM (étape 5)</button>`, false, 4);
+    const settings = {};
+    spec.forEach(l => { if (l.luminovo && l.luminovo.groupe && l.luminovo.cle && l.luminovo.valeur !== null && l.luminovo.valeur !== undefined) { settings[l.luminovo.groupe] = settings[l.luminovo.groupe] || {}; settings[l.luminovo.groupe][l.luminovo.cle] = l.luminovo.valeur; } });
+    DD._gerber = { pcb: d.pcb, spec_id: d.spec_id, settings, resume: spec.map(l => ({ param: l.param, valeur: l.valeur, source: l.source, niveau: l.niveau })) };
+  }
   // ---------- pilotage ----------
   function afficher(){
     const d = ETAT.deroule, j = ETAT.journal || [];
@@ -4060,7 +4081,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
        <div class="dd-carte" style="gap:10px">
         <label class="dd-ligne">Client Luminovo<br><input id="dd-client" class="dd-sel" style="width:100%" value="${esc(a.client || '')}"></label>
         <label class="dd-ligne">Nom du RfQ (= nom de l'assemblage)<br><input id="dd-nom" class="dd-sel" style="width:100%" value="${esc(a.ref_projet || '')}"></label>
-        <label class="dd-ligne">N° de devis Odoo (SO…)<br><input id="dd-so" class="dd-sel" style="width:100%" value="${esc((FICHE_LIEN && FICHE_LIEN.odoo_so_name) || '')}" placeholder="SO2609-…"></label>
+        <label class="dd-ligne">N° de devis Odoo (SO…) — facultatif, c'est le n° interne du RfQ<br><input id="dd-so" class="dd-sel" style="width:100%" value="${esc((FICHE_LIEN && FICHE_LIEN.odoo_so_name) || '')}" placeholder="SO2609-…"></label>
         <label class="dd-ligne">Zip des fichiers PCB du client (16 Mo max)<br><input id="dd-zip" type="file" accept=".zip,.rar,.7z" class="dd-sel" style="width:100%"></label>
        </div>`,
       SIDE_REGLE + `<div><div class="dd-h">OU BIEN</div><div class="dd-ligne" style="margin-top:6px">Le RfQ existe déjà dans Luminovo ?</div><button class="dd-btn" style="margin-top:8px" onclick="DD.passerEtape5()">Passer directement à l'étape 5 (BOM)</button></div>`,
@@ -4079,6 +4100,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   function ecranPorte4(fin){
     const d = fin.detail || {}, g = d.gerber || {};
+    if (Array.isArray(d.spec) && d.spec.length) return ecranPorte4Sources(fin);
     const lignes = [['Couches', g.couches], ['Dimensions (mm)', g.largeur_mm && g.hauteur_mm ? g.largeur_mm + ' × ' + g.hauteur_mm : null], ['Épaisseur (mm)', g.epaisseur_mm], ['Cuivre ext. / int. (µm)', g.cuivre_ext_um != null ? g.cuivre_ext_um + ' / ' + g.cuivre_int_um : null], ['Matériau', g.materiau], ['Finition', g.finition], ['Vernis', g.vernis ? g.vernis + ' (' + g.vernis_faces + ')' : null], ['Sérigraphie', g.serigraphie ? g.serigraphie + ' (' + g.serigraphie_faces + ')' : null], ['Via mini (mm) / trous', g.via_min_mm != null ? g.via_min_mm + ' / ' + g.trous : null], ['Vias borgnes / enterrés', g.vias_borgnes != null ? (g.vias_borgnes ? 'oui' : 'non') + ' / ' + (g.vias_enterres ? 'oui' : 'non') : null]];
     const tbl = '<table style="border-collapse:collapse;font-size:12px;width:100%">' + lignes.map(([k, v]) => `<tr><td style="padding:4px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(k)}</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">${v == null || v === '' ? '<span style="color:var(--amber)">non déterminé 🟠</span>' : esc(v)}</td><td style="padding:4px 8px;color:var(--text3);border-bottom:1px solid var(--border)">fichiers (Luminovo)</td></tr>`).join('') + '</table>';
     cadre('Étape 4/8 — RfQ + PCB', 'spec à valider',
