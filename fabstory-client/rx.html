@@ -8,28 +8,77 @@
   :root{
     --bg:#f6f7f9; --surface:#ffffff; --border:#dde3ec;
     --text:#1c2430; --text2:#5b6b80; --text3:#8b98ab;
-    --accent:#F8952D; --accent-fonce:#d97a15;
+    --accent:#F8952D; --accent-fonce:#d97a15; --accent-pale:#fff4e8;
     --info-txt:#1B7A8F; --info-bg:#EAF7FA;
+    --rx:#0f172a;
     --radius:8px; --radius-lg:12px;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);padding:24px 16px}
-  .wrap{max-width:720px;margin:0 auto}
+  .wrap{max-width:760px;margin:0 auto}
   h1{font-size:18px;margin:0 0 4px}
   .sous{color:var(--text2);font-size:13px;margin:0 0 18px}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px}
-  .cliche{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-  .cliche:last-child{border-bottom:none}
-  .nom{font-size:13.5px;word-break:break-word}
-  .taille{color:var(--text3);font-size:12px}
-  a.dl{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;text-decoration:none;border-radius:var(--radius);padding:7px 14px;font-size:13px;font-weight:600;white-space:nowrap}
-  a.dl:hover{background:var(--accent-fonce)}
-  .exp{color:var(--text3);font-size:12px;margin-top:10px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0 16px 12px;margin-bottom:12px}
+
+  /* barre d'outils */
+  .barre{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:2px solid var(--border)}
+  .barre label{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer}
+  .compteur{color:var(--text2);font-size:13px}
+  .barre .pousse{flex-grow:1}
+  input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;margin:0;flex-shrink:0}
+  .aide{color:var(--text2);font-size:12px;padding:8px 4px 2px}
+  .aide code{font-family:Consolas,"SF Mono",monospace;color:var(--text)}
+
+  /* boutons */
+  button{font-family:inherit;cursor:pointer}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:var(--radius);font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none;border:0}
+  .btn-p{background:var(--accent);color:#fff}
+  .btn-p:hover{background:var(--accent-fonce)}
+  .btn-p:disabled{opacity:.45;cursor:not-allowed;background:var(--accent)}
+  .btn-s{background:var(--surface);color:var(--text);border:1px solid #c9d2df}
+  .btn-s:hover{background:#f1f4f8}
+  .btn-zip{height:38px;padding:0 16px}
+  .btn svg{flex-shrink:0}
+
+  /* lignes */
+  .cliche{display:flex;align-items:center;gap:14px;padding:8px 4px;border-bottom:1px solid #eef2f7;border-radius:6px}
+  .cliche:last-of-type{border-bottom:none}
+  .cliche.coche{background:var(--accent-pale)}
+  .vign{width:160px;height:110px;flex-shrink:0;border:0;padding:0;border-radius:6px;background:var(--rx);overflow:hidden;cursor:zoom-in;position:relative}
+  .vign img{width:100%;height:100%;object-fit:cover;display:block}
+  .infos{flex-grow:1;min-width:0}
+  .nom{font-size:14px;word-break:break-word}
+  .nom .num{font-size:12px;font-weight:600;color:var(--text3);margin-right:6px;font-variant-numeric:tabular-nums}
+  .taille{color:var(--text3);font-size:12px;margin-top:2px}
+  .exp{color:var(--text3);font-size:12px;margin-top:12px;padding:0 4px}
   .vide{color:var(--text2);font-size:13.5px}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .pied{color:var(--text3);font-size:11.5px;text-align:center;margin-top:20px}
+  .erreur{color:#a32d2d;font-size:12px;padding:8px 4px 0}
+
+  /* aperçu */
+  .voile{position:fixed;inset:0;background:rgba(17,24,39,.9);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;z-index:10}
+  .voile.ouvert{display:flex}
+  .v-tete,.v-pied{display:flex;align-items:center;gap:12px;width:min(92vw,900px)}
+  .v-titre{color:#fff;font-size:16px;font-weight:700;flex-grow:1}
+  .v-sous{color:#cbd5e1;font-size:12px;margin-top:2px}
+  .v-ico{width:40px;height:40px;border:1px solid #4b5563;border-radius:8px;background:#1f2937;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  .v-ico:hover{background:#374151}
+  .v-nav{width:44px;height:44px;border-radius:22px}
+  .v-corps{display:flex;align-items:center;gap:14px;width:min(92vw,900px)}
+  .v-image{flex-grow:1;min-width:0;height:min(62vh,600px);border-radius:10px;background:var(--rx);border:1px solid #334155;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .v-image img{max-width:100%;max-height:100%;display:block}
+  .v-pied label{display:inline-flex;align-items:center;gap:8px;color:#fff;font-size:14px;cursor:pointer}
+  .v-pied .pousse{flex-grow:1}
+
+  @media (max-width:560px){
+    .vign{width:120px;height:84px}
+    .cliche{flex-wrap:wrap}
+    .cliche .actions{width:100%;display:flex;gap:8px;justify-content:flex-end}
+    .v-nav{width:36px;height:36px}
+  }
 </style>
 </head>
 <body>
@@ -37,17 +86,197 @@
   <h1 id="titre">Clichés RX</h1>
   <p class="sous" id="sous"><span class="spin"></span> Chargement…</p>
   <div class="card" id="liste" style="display:none"></div>
-  <p class="pied">Proto Process · rx v1.0 — 04/09/2026</p>
+  <p class="pied" id="pied"></p>
 </div>
+
+<div class="voile" id="voile" aria-modal="true" role="dialog" aria-label="Aperçu du cliché">
+  <div class="v-tete">
+    <div>
+      <div class="v-titre" id="v-titre"></div>
+      <div class="v-sous" id="v-sous"></div>
+    </div>
+    <div class="pousse" style="flex-grow:1"></div>
+    <button type="button" class="v-ico" id="v-fermer" aria-label="Fermer l'aperçu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="v-corps">
+    <button type="button" class="v-ico v-nav" id="v-prec" aria-label="Cliché précédent">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="v-image"><img id="v-img" alt=""></div>
+    <button type="button" class="v-ico v-nav" id="v-suiv" aria-label="Cliché suivant">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+  <div class="v-pied">
+    <label><input type="checkbox" id="v-coche"> <span>Ajouter à la sélection</span></label>
+    <div class="pousse"></div>
+    <button type="button" class="btn btn-p" id="v-dl">Télécharger ce cliché</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-const APP_VERSION = "1.0";
+const APP_VERSION = "2.0";
+const APP_DATE = "24/09/2026";
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 const params = new URLSearchParams(location.search);
 const JETON = (params.get("jeton") || "").trim();
 const SO = (params.get("so") || "").trim();
+
+document.title = "Clichés RX · Proto Process — v" + APP_VERSION;
+document.getElementById("pied").textContent = "Proto Process · rx v" + APP_VERSION + " — " + APP_DATE;
+
+let CLICHES = [];           // {nom, taille, url, num, fichier}
+let COCHES = new Set();     // index des clichés cochés
+let COURANT = -1;           // index ouvert dans l'aperçu
+let EN_COURS = false;       // assemblage ZIP en cours
+
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 function taille(o){ if(!o) return ""; if(o < 1024) return o + " o"; if(o < 1048576) return Math.round(o/1024) + " Ko"; return (o/1048576).toFixed(1) + " Mo"; }
 function jour(iso){ if(!iso) return ""; try{ return new Date(iso).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"}); }catch(e){ return ""; } }
+function nomFichier(c){ return c.num + "_" + (c.nom || "cliche").replace(/[\\/:*?"<>|]/g, "_"); }
+function nomZip(){ return (SO || "cliches-rx").replace(/[\\/:*?"<>|\s]/g, "_") + ".zip"; }
+
+/* ---------- rendu de la liste ---------- */
+function rendre(expireLe){
+  const liste = document.getElementById("liste");
+  const svgDl = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M4 20h16"/></svg>';
+  const svgOeil = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  liste.innerHTML =
+    '<div class="barre">' +
+      '<label><input type="checkbox" id="tout"> Tout sélectionner</label>' +
+      '<span class="compteur" id="compteur"></span>' +
+      '<span class="pousse"></span>' +
+      '<button type="button" class="btn btn-p btn-zip" id="btn-zip">' + svgDl + '<span id="btn-zip-txt"></span></button>' +
+    '</div>' +
+    '<div class="aide">La sélection est livrée en un fichier <code>' + esc(nomZip()) + '</code>, clichés nommés <code>01_…</code>, <code>02_…</code> dans l\u2019ordre de la liste.</div>' +
+    '<div class="erreur" id="erreur" style="display:none"></div>' +
+    CLICHES.map(function(c, i){
+      return '<div class="cliche" data-i="' + i + '">' +
+        '<input type="checkbox" class="coche-ligne" data-i="' + i + '" aria-label="Sélectionner ce cliché">' +
+        '<button type="button" class="vign ouvrir" data-i="' + i + '" aria-label="Voir le cliché en grand"><img src="' + esc(c.url) + '" alt="" loading="lazy"></button>' +
+        '<div class="infos"><div class="nom"><span class="num">#' + c.num + '</span>' + esc(c.nom) + '</div>' +
+        (c.taille ? '<div class="taille">' + taille(c.taille) + '</div>' : '') + '</div>' +
+        '<div class="actions">' +
+          '<button type="button" class="btn btn-s ouvrir" data-i="' + i + '">' + svgOeil + '<span>Voir</span></button>' +
+          '<button type="button" class="btn btn-p dl-un" data-i="' + i + '">Télécharger</button>' +
+        '</div>' +
+      '</div>';
+    }).join("") +
+    (expireLe ? '<div class="exp">Ces clichés resteront disponibles jusqu\u2019au ' + jour(expireLe) + '.</div>' : '');
+
+  liste.addEventListener("change", function(e){
+    if(e.target.id === "tout"){ toutCocher(e.target.checked); }
+    else if(e.target.classList.contains("coche-ligne")){ cocher(+e.target.dataset.i, e.target.checked); }
+  });
+  liste.addEventListener("click", function(e){
+    const b = e.target.closest("button"); if(!b) return;
+    if(b.classList.contains("ouvrir")) ouvrir(+b.dataset.i);
+    else if(b.classList.contains("dl-un")) telechargerUn(+b.dataset.i);
+    else if(b.id === "btn-zip") telechargerSelection();
+  });
+  majBarre();
+}
+
+function cocher(i, etat){
+  if(etat) COCHES.add(i); else COCHES.delete(i);
+  const ligne = document.querySelector('.cliche[data-i="' + i + '"]');
+  if(ligne){ ligne.classList.toggle("coche", etat); ligne.querySelector(".coche-ligne").checked = etat; }
+  if(COURANT === i) document.getElementById("v-coche").checked = etat;
+  majBarre();
+}
+function toutCocher(etat){ CLICHES.forEach(function(_, i){ cocher(i, etat); }); }
+function majBarre(){
+  const n = COCHES.size, t = CLICHES.length;
+  document.getElementById("compteur").textContent = n + " / " + t + " sélectionné" + (n > 1 ? "s" : "");
+  document.getElementById("tout").checked = (n === t && t > 0);
+  const btn = document.getElementById("btn-zip"), txt = document.getElementById("btn-zip-txt");
+  if(EN_COURS) return;
+  btn.disabled = (n === 0);
+  txt.textContent = n === 0 ? "Télécharger la sélection" : (n === t ? "Tout télécharger (" + n + ")" : "Télécharger la sélection (" + n + ")");
+}
+function erreur(msg){
+  const e = document.getElementById("erreur");
+  e.style.display = msg ? "block" : "none"; e.textContent = msg || "";
+}
+
+/* ---------- téléchargements ---------- */
+async function blobDe(c){
+  const r = await fetch(c.url);
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return await r.blob();
+}
+function sauver(blob, nom){
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = u; a.download = nom; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(u); }, 60000);
+}
+async function telechargerUn(i){
+  const c = CLICHES[i]; if(!c) return;
+  erreur("");
+  try{ sauver(await blobDe(c), nomFichier(c)); }
+  catch(e){ window.open(c.url, "_blank", "noopener"); }
+}
+async function telechargerSelection(){
+  if(EN_COURS || !COCHES.size) return;
+  const idx = Array.from(COCHES).sort(function(a, b){ return a - b; });
+  if(idx.length === 1){ return telechargerUn(idx[0]); }
+  const btn = document.getElementById("btn-zip"), txt = document.getElementById("btn-zip-txt");
+  EN_COURS = true; btn.disabled = true; erreur("");
+  try{
+    if(typeof JSZip === "undefined") throw new Error("JSZip indisponible");
+    const zip = new JSZip();
+    for(let k = 0; k < idx.length; k++){
+      txt.textContent = "Préparation " + (k + 1) + " / " + idx.length + "…";
+      const c = CLICHES[idx[k]];
+      zip.file(nomFichier(c), await blobDe(c));
+    }
+    txt.textContent = "Compression…";
+    const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+    sauver(blob, nomZip());
+  }catch(e){
+    erreur("Le téléchargement groupé a échoué (le lien a peut-être expiré). Rechargez la page et réessayez, ou téléchargez les clichés un par un.");
+  }finally{
+    EN_COURS = false; majBarre();
+  }
+}
+
+/* ---------- aperçu ---------- */
+function ouvrir(i){
+  if(!CLICHES[i]) return;
+  COURANT = i;
+  const c = CLICHES[i];
+  document.getElementById("v-titre").textContent = "#" + c.num + " " + c.nom;
+  document.getElementById("v-sous").textContent = (c.taille ? taille(c.taille) + " · " : "") + "cliché " + (i + 1) + " sur " + CLICHES.length;
+  document.getElementById("v-img").src = c.url;
+  document.getElementById("v-coche").checked = COCHES.has(i);
+  document.getElementById("voile").classList.add("ouvert");
+  document.body.style.overflow = "hidden";
+}
+function fermer(){
+  COURANT = -1;
+  document.getElementById("voile").classList.remove("ouvert");
+  document.getElementById("v-img").src = "";
+  document.body.style.overflow = "";
+}
+function suivant(d){ if(COURANT < 0) return; ouvrir((COURANT + d + CLICHES.length) % CLICHES.length); }
+
+document.getElementById("v-fermer").addEventListener("click", fermer);
+document.getElementById("v-prec").addEventListener("click", function(){ suivant(-1); });
+document.getElementById("v-suiv").addEventListener("click", function(){ suivant(1); });
+document.getElementById("v-coche").addEventListener("change", function(e){ if(COURANT >= 0) cocher(COURANT, e.target.checked); });
+document.getElementById("v-dl").addEventListener("click", function(){ if(COURANT >= 0) telechargerUn(COURANT); });
+document.getElementById("voile").addEventListener("click", function(e){ if(e.target === this) fermer(); });
+document.addEventListener("keydown", function(e){
+  if(COURANT < 0) return;
+  if(e.key === "Escape") fermer();
+  else if(e.key === "ArrowLeft") suivant(-1);
+  else if(e.key === "ArrowRight") suivant(1);
+});
+
+/* ---------- chargement ---------- */
 async function charger(){
   const sous = document.getElementById("sous");
   const liste = document.getElementById("liste");
@@ -56,20 +285,16 @@ async function charger(){
     const r = await fetch(API + "/fabstory-client-rx?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO));
     const j = await r.json();
     if(!j || !j.ok || !j.cliches || !j.cliches.length){
-      sous.innerHTML = '<span class="vide">Aucun clich\u00e9 RX disponible \u2014 le lien a peut-\u00eatre expir\u00e9.</span>';
+      sous.innerHTML = '<span class="vide">Aucun cliché RX disponible \u2014 le lien a peut-être expiré.</span>';
       return;
     }
-    if(j.carte){ document.getElementById("titre").textContent = "Clich\u00e9s RX \u2014 " + j.carte; }
+    if(j.carte){ document.getElementById("titre").textContent = "Clichés RX \u2014 " + j.carte; }
     sous.textContent = SO;
+    CLICHES = j.cliches.map(function(c, i){ return { nom: c.nom, taille: c.taille, url: c.url, num: (i < 9 ? "0" : "") + (i + 1) }; });
     liste.style.display = "block";
-    liste.innerHTML = j.cliches.map(function(c){
-      return '<div class="cliche"><div><div class="nom">' + esc(c.nom) + '</div>' +
-        (c.taille ? '<div class="taille">' + taille(c.taille) + '</div>' : '') + '</div>' +
-        '<a class="dl" href="' + esc(c.url) + '" target="_blank" rel="noopener" download>T\u00e9l\u00e9charger</a></div>';
-    }).join("") +
-    (j.expire_le ? '<div class="exp">Ces clich\u00e9s resteront disponibles jusqu\u2019au ' + jour(j.expire_le) + '.</div>' : '');
+    rendre(j.expire_le);
   }catch(e){
-    sous.textContent = "Chargement impossible. R\u00e9essayez plus tard.";
+    sous.textContent = "Chargement impossible. Réessayez plus tard.";
   }
 }
 charger();
