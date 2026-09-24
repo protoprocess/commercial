@@ -588,8 +588,10 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.19-recette";
+const APP_VERSION = "12.20-recette";
 const APP_DATE = "24/09/2026";
+/* v12.20-recette (24/09/2026) : pop-up « Déroulé devis — étape 5 (BOM) » branché sur les workflows n8n RECETTE
+   importer_bom (N7Qr9MOZSOqA1cjq) et écran (zFTzcLK7o9BfTWoX) et sur la table deroule_devis. Bloc en fin de fichier. */
 /* COPIE DE RECETTE (24/09/2026) — base : devis-client v12.19 (prod). Sert à construire le déroulé devis automatique
    (chantier 169, lot 1). Jamais servie en prod. Chemins en ../../shared/ et ../picto-pp.png.
    ATTENTION : les boutons existants (analyse, carte, devis Odoo) écrivent en RÉEL. */
@@ -3873,5 +3875,222 @@ async function basculerAnalyse(jobId, statut, btn){
 
 </script>
 <script src="../../shared/retour-accueil.js" defer></script>
+<!-- ===== DEROULE DEVIS — ETAPE 5 (RECETTE) — v1.0 — 24/09/2026 — chantier 169, lot 1 ===== -->
+<style>
+#dd-fond{position:fixed;inset:0;z-index:9000;background:rgba(5,6,10,.72);display:none;align-items:center;justify-content:center;padding:24px}
+#dd-fond.show{display:flex}
+#dd-box{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);width:min(96vw,1180px);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;font-size:13px}
+.dd-tete{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border)}
+.dd-tete h2{margin:0;font-size:17px;font-weight:600}
+.dd-tete .sub{font-size:12px;color:var(--text2);margin-top:2px}
+.dd-etapes{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap}
+.dd-etapes span{padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text3)}
+.dd-etapes span.fait{color:var(--green)}
+.dd-etapes span.cour{background:var(--accent);color:#fff;border-color:transparent;font-weight:600}
+.dd-etapes span.bloq{background:var(--red-bg);color:var(--red-badge);border-color:transparent;font-weight:600}
+.dd-corps{display:flex;min-height:0;flex:1}
+.dd-main{flex:1;padding:14px 20px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.dd-side{width:280px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:14px;background:var(--surface2)}
+.dd-h{font-size:11px;letter-spacing:.06em;color:var(--text3)}
+.dd-carte{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.dd-carte.err{border-left:3px solid var(--red-badge)}
+.dd-ligne{font-size:12px;color:var(--text2)}
+.dd-rep{font-family:var(--mono);font-size:12px;font-weight:600}
+.dd-pill{padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:var(--sans)}
+.dd-pill.on{background:var(--accent);color:#fff;border-color:transparent}
+.dd-pied{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--border)}
+.dd-btn{padding:6px 13px;border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:var(--sans);border:.5px solid var(--border);background:transparent;color:var(--text2)}
+.dd-btn.p{background:var(--accent);color:#fff;border:none;font-weight:500;padding:8px 16px;font-size:13px}
+.dd-btn.p:disabled{background:var(--border);color:var(--text3);cursor:default}
+.dd-num{font-weight:700;color:var(--green)}
+.dd-spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:ddspin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes ddspin{to{transform:rotate(360deg)}}
+#dd-lancer{margin-left:auto;background:transparent;border:1px solid #4a3418;color:#eab676;border-radius:20px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:var(--sans)}
+select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-size:12px;max-width:100%}
+</style>
+<div id="dd-fond"><div id="dd-box"></div></div>
+<script>
+(function(){
+  // ---------------------------------------------------------------------------
+  // DEROULE DEVIS — ETAPE 5 (BOM) — v1.0 — 24/09/2026 — RECETTE (chantier 169, lot 1)
+  // Le pop-up est l'ecran de travail : il lance le script importer_bom (n8n), affiche
+  // ce que le script a charge dans Luminovo, et fait trancher l'humain (1 clic par point).
+  // Regles (Olivier 24/09/2026) : Luminovo = BOM client exacte ; rien n'est retire ;
+  // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
+  // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
+  // ---------------------------------------------------------------------------
+  const DD_VERSION = '1.0', DD_DATE = '24/09/2026';
+  const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
+  const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
+  let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
+  const $$ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const base = () => (cfg().base || 'https://protoprocess.app.n8n.cloud').replace(/\/+$/, '');
+  function qui(){
+    let q = null; try { q = localStorage.getItem('pp_personne') || localStorage.getItem('pp_fdv_initiales'); } catch(e){}
+    if (!q) { q = prompt('Qui valide ? (prénom)') || 'inconnu'; try { localStorage.setItem('pp_personne', q); } catch(e){} }
+    return q;
+  }
+  function jobCourant(){ return (FICHE_LIEN && FICHE_LIEN.job_id) || (DATA && DATA.job_id) || null; }
+
+  // ---------- lectures ----------
+  async function lireEtat(){
+    const r = await fetch(`${base()}/webhook/recette-deroule?action=etat&job=${encodeURIComponent(jobCourant())}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+  async function lireRfqs(client){
+    const r = await fetch(`${base()}/webhook/recette-deroule?action=rfqs&client=${encodeURIComponent(client || '')}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(); return j.rfqs || [];
+  }
+
+  // ---------- rendu ----------
+  function etapesHtml(cour, bloque){
+    return '<div class="dd-etapes">' + ETAPES.map((n, i) => {
+      const k = i + 1; const cls = k < cour ? 'fait' : (k === cour ? (bloque ? 'bloq' : 'cour') : '');
+      return `<span class="${cls}">${k < cour ? '✓ ' : ''}${esc(n)}</span>`;
+    }).join('') + '</div>';
+  }
+  function cadre(titre, sub, corps, side, pied, bloque){
+    const a = (ETAT && ETAT.analyse) || {};
+    $$('dd-box').innerHTML =
+      `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
+       <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
+      + etapesHtml(5, bloque)
+      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}</div></div>`
+      + `<div class="dd-pied">${pied}</div>`;
+  }
+  const SIDE_REGLE = `<div><div class="dd-h">RÈGLE</div><div class="dd-ligne" style="line-height:1.5;margin-top:6px">Luminovo reflète la BOM client exacte. Seule la pièce choisie peut différer. Rien n'est retiré : au plus « non câblé », et c'est toi qui décides.</div></div>`;
+
+  function ecranLancer(msg){
+    const a = ETAT.analyse || {};
+    const opts = RFQS.map(r => `<option value="${esc(r.id)}|${esc(r.assembly_id)}">${esc(r.nom)}${r.so ? ' — ' + esc(r.so) : ''} (${r.elements} éléments)</option>`).join('');
+    cadre('Étape 5/8 — Nomenclature (BOM)', 'à lancer',
+      `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT importer_bom</div>
+        <div class="dd-ligne" style="line-height:1.6">1. Prendre la <b>BOM traitée</b> de cette analyse (${a.bom_traitee_disponible ? '<span style="color:var(--green)">disponible</span>' : '<span style="color:var(--red)">absente — relancer l\'analyse d\'abord</span>'}).<br>
+        2. L'importer <b>par fichier</b> dans le RfQ Luminovo choisi (la « BOM originale » est conservée).<br>
+        3. Approuver d'office les pièces sûres, laisser le reste à ta confirmation.<br>
+        4. Te présenter ici ce qu'il a fait. Durée : 4 à 6 minutes.</div></div>
+       <div class="dd-carte"><div class="dd-h">RFQ LUMINOVO CIBLE</div>
+        ${RFQS.length ? `<select class="dd-sel" id="dd-rfq">${opts}</select>` : '<div class="dd-ligne">Aucun RfQ trouvé pour ce client dans Luminovo. Crée-le d\'abord (étape 4).</div>'}
+        <div class="dd-ligne">⚠ Le RfQ doit être <b>sans BOM</b> : l'import ajoute les lignes, il ne remplace pas.</div></div>
+       ${msg ? `<div class="dd-carte err"><div class="dd-ligne" style="color:var(--red)">${esc(msg)}</div></div>` : ''}`,
+      SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Analyse n° ${esc(a.id)}<br>BOM traitée du ${a.bom_traite_le ? esc(new Date(a.bom_traite_le).toLocaleString('fr-FR')) : '—'}</div></div>`,
+      `<span style="margin-left:auto" class="dd-ligne">Script importer_bom v1.0</span><button class="dd-btn p" ${(!RFQS.length || !a.bom_traitee_disponible) ? 'disabled' : ''} onclick="DD.lancer()">Lancer l'import dans Luminovo</button>`);
+  }
+  function ecranAttente(){
+    const d = ETAT.deroule || {};
+    cadre('Étape 5/8 — Nomenclature (BOM)', 'import en cours',
+      `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>Le script importer_bom travaille dans Luminovo (lecture du fichier, association des pièces, enregistrement). Cet écran se met à jour tout seul.</div></div>`,
+      SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')} · ouvert par ${esc(d.ouvert_par || '')}</span>`);
+  }
+  function ecranBloque(alerte){
+    cadre('Étape 5/8 — Nomenclature (BOM)', 'arrêt', 
+      `<div class="dd-carte err"><div style="font-size:14px;font-weight:600;color:var(--red)">BOM inexploitable — rien n'a été chargé</div>
+        <div class="dd-ligne">${esc((alerte && alerte.detail && alerte.detail.motif) || 'motif inconnu')}</div>
+        <div class="dd-ligne">C'est le seul cas d'arrêt : tous les autres écarts sont chargés puis signalés.</div></div>`,
+      SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn" onclick="DD.ouvrir(true)">Relancer après correction</button>`, true);
+  }
+  function ecranPorte(fin){
+    const d = fin.detail || {}, ch = d.charge || {};
+    const groupes = (d.a_confirmer || []).map((g, i) => ({ id: 'c' + i, reperes: g.reperes || [], ligne: g.ligne_bom || '', propose: (g.propose || []).map(p => (p.mpn || '?') + ' / ' + (p.fabricant || '?')).join(' ou ') }));
+    const nc = (d.propositions_non_cable || []).filter(p => !p.deja_non_cable).map((p, i) => ({ id: 'n' + i, reperes: p.reperes, ligne: p.ligne }));
+    const total = groupes.length + nc.length, faits = Object.keys(CHOIX).length;
+    const pill = (id, val, lab) => `<button class="dd-pill ${CHOIX[id] === val ? 'on' : ''}" onclick="DD.choisir('${id}','${val}')">${lab}</button>`;
+    const corps =
+      `<div><div class="dd-h">CHARGÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;align-items:center;flex-wrap:wrap;margin-top:6px">
+        <span><span class="dd-num">${esc(ch.lignes_bom_originale)}</span> <span class="dd-ligne">lignes, BOM originale conservée</span></span>
+        <span><span class="dd-num">${esc(ch.elements)}</span> <span class="dd-ligne">éléments</span></span>
+        <span><span class="dd-num">${esc(ch.approuves)}</span> <span class="dd-ligne">approuvés d'office</span></span>
+        ${d.pcb_bom ? '<span class="dd-ligne">Ligne PCB gardée en « PCB-BOM », non câblé</span>' : ''}</div></div>`
+      + `<div><div class="dd-h">À CONFIRMER — ${total - faits} sur ${total} restant</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">`
+      + (groupes.map(g => `<div class="dd-carte"><div><span class="dd-rep">${esc(g.reperes.join(', '))}</span> &nbsp;<span>pièce proposée : <b>${esc(g.propose)}</b></span></div>
+          <div class="dd-ligne">BOM client : ${esc(g.ligne)} — gardée telle quelle dans la BOM originale.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(g.id,'ok','Confirmer la pièce proposée')}${pill(g.id,'non','Laisser en attente')}<span class="dd-ligne" style="font-size:11px">Proposé : confirmer</span></div></div>`).join(''))
+      + (nc.map(n => `<div class="dd-carte"><div><span class="dd-rep">${esc(n.reperes)}</span> &nbsp;<span>ligne sans pièce</span></div>
+          <div class="dd-ligne">BOM client : ${esc(n.ligne)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(n.id,'nc','Passer en non câblé')}${pill(n.id,'garder','Garder')}<span class="dd-ligne" style="font-size:11px">Proposé : non câblé</span></div></div>`).join(''))
+      + (total ? '' : '<div class="dd-carte"><div class="dd-ligne">Rien à confirmer : toutes les pièces sont approuvées.</div></div>')
+      + `</div></div>`
+      + `<div><div class="dd-h">NOTÉ POUR L'ÉTAPE 7 (QUESTIONS CLIENT, RIEN N'EST ENVOYÉ ICI)</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Les pièces obsolètes et les écarts avec le fichier de pose seront rassemblés ici au lot 2.</div></div></div>`;
+    const side = SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Script : ${esc(fin.script)} ${esc(fin.version)}<br>Fait le ${esc(new Date(fin.le).toLocaleString('fr-FR'))}<br>En attente : ${esc((d.reperes_en_attente || []).join(', ') || '—')}</div></div>
+      <button class="dd-btn" style="color:var(--pp-blue);text-align:left" onclick="alert('À venir : aide de Claude (ex. trouver un équivalent)')">Demander de l'aide à Claude</button>`;
+    const pied = `<button class="dd-btn" onclick="DD.abandonner()">Abandonner…</button><span class="dd-ligne" style="margin-left:auto">${faits === total ? 'Tout est tranché' : faits + '/' + total + ' tranchés'}</span>
+      <button class="dd-btn p" ${faits === total ? '' : 'disabled'} onclick="DD.valider()">Valider l'étape 5 → Scénarios</button>`;
+    cadre('Étape 5/8 — Nomenclature (BOM)', 'à confirmer', corps, side, pied);
+    DD._groupes = groupes; DD._nc = nc;
+  }
+  function ecranSuite(){
+    const d = ETAT.deroule || {};
+    cadre('Étape ' + esc(d.etape) + '/8', 'à venir',
+      `<div class="dd-carte"><div class="dd-ligne">L'étape 5 est validée. L'étape ${esc(d.etape)} (scénarios) arrive au lot 2 : pour l'instant, continue dans Luminovo.</div></div>`, SIDE_REGLE, '');
+  }
+
+  // ---------- pilotage ----------
+  function afficher(){
+    const d = ETAT.deroule, j = ETAT.journal || [];
+    if (!d || !d.rfq_luminovo) return ecranLancer();
+    if (d.statut === 'bloque') return ecranBloque([...j].reverse().find(x => x.evenement === 'alerte'));
+    if (d.etape > 5) return ecranSuite();
+    const fin = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 5);
+    if (d.statut === 'attente_porte' && fin) return ecranPorte(fin);
+    return ecranAttente();
+  }
+  async function rafraichir(){
+    ETAT = await lireEtat();
+    const d = ETAT.deroule;
+    afficher();
+    clearTimeout(TIMER);
+    if (d && d.statut === 'en_cours' && d.etape === 5) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+  }
+  window.DD = {
+    async ouvrir(relance){
+      if (!jobCourant()) { alert('Ouvre d\'abord une fiche (?fiche=…) pour lancer le déroulé.'); return; }
+      $$('dd-fond').classList.add('show'); $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Lecture du dossier…</div>';
+      try {
+        ETAT = await lireEtat();
+        if (!ETAT.deroule || !ETAT.deroule.rfq_luminovo || relance) { RFQS = await lireRfqs((ETAT.analyse || {}).client); ETAT.deroule = relance ? null : ETAT.deroule; }
+        CHOIX = {}; afficher();
+        const d = ETAT.deroule; if (d && d.statut === 'en_cours' && d.etape === 5) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+      } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
+    },
+    fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
+    async lancer(){
+      const sel = $$('dd-rfq'); if (!sel) return;
+      const [rfq, asm] = sel.value.split('|'); const a = ETAT.analyse || {};
+      const corps = { analyse_id: a.id, rfq_id: rfq, assembly_id: asm, dossier: a.ref_projet, client: a.client, so_odoo: (FICHE_LIEN && FICHE_LIEN.odoo_so_name) || null, valideur: qui(), recette: true };
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Lancement du script…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-importer-bom`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-pp-cle': CLE_SCRIPT }, body: JSON.stringify(corps) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        await new Promise(res => setTimeout(res, 3000));
+        await rafraichir();
+      } catch (e) { ecranLancer('Le script n\'a pas démarré : ' + e.message); }
+    },
+    choisir(id, val){ CHOIX[id] = val; const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
+    async valider(){
+      const approuver = [], laisser = [], non_cable = [];
+      (DD._groupes || []).forEach(g => (CHOIX[g.id] === 'ok' ? approuver : laisser).push(...g.reperes));
+      (DD._nc || []).forEach(n => { if (CHOIX[n.id] === 'nc') non_cable.push(n.reperes); });
+      const corps = { deroule_id: ETAT.deroule.id, valideur: qui(), approuver, laisser, non_cable };
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture de tes choix dans Luminovo…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json(); if (!j.ok) throw new Error(j.erreur || 'refus');
+        CHOIX = {}; await rafraichir();
+      } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
+    },
+    abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); }
+  };
+  // bouton dans le bandeau RECETTE + ouverture auto via &deroule=1
+  document.addEventListener('DOMContentLoaded', () => {
+    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis — étape 5 (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); }
+    if (new URLSearchParams(location.search).get('deroule') === '1') setTimeout(() => DD.ouvrir(), 2500);
+  });
+})();
+</script>
+
 </body>
 </html>
