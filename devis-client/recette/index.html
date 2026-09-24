@@ -588,7 +588,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.22-recette";
+const APP_VERSION = "12.23-recette";
 const APP_DATE = "24/09/2026";
 /* v12.22-recette (24/09/2026) : spec PCB à 3 sources (documents client / fichiers / standards PP) à l'étape 4, écrite dans Luminovo au go.
 /* v12.21-recette (24/09/2026) : pop-up étape 4 (creer_rfq_pcb l6hg2MK0aeRdj7Rw : RfQ + fiche PCB + dépôt zip + spec lue dans les fichiers).
@@ -3921,7 +3921,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.2', DD_DATE = '24/09/2026'; // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.2.1', DD_DATE = '24/09/2026'; // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4188,7 +4188,8 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // bouton dans le bandeau RECETTE + ouverture auto via &deroule=1
   document.addEventListener('DOMContentLoaded', () => {
     const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); }
-    if (new URLSearchParams(location.search).get('deroule') === '1') setTimeout(() => DD.ouvrir(), 2500);
+    // ouverture auto : on attend que la fiche soit chargee (jusqu'a 40 s), la page charge d'abord les clients
+    if (new URLSearchParams(location.search).get('deroule') === '1') { let n = 0; const t = setInterval(() => { n++; if (jobCourant()) { clearInterval(t); DD.ouvrir(); } else if (n > 40) { clearInterval(t); } }, 1000); }
   });
 })();
 </script>
