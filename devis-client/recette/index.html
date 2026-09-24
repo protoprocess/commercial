@@ -588,8 +588,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.20-recette";
+const APP_VERSION = "12.21-recette";
 const APP_DATE = "24/09/2026";
+/* v12.21-recette (24/09/2026) : pop-up étape 4 (creer_rfq_pcb l6hg2MK0aeRdj7Rw : RfQ + fiche PCB + dépôt zip + spec lue dans les fichiers).
 /* v12.20-recette (24/09/2026) : pop-up « Déroulé devis — étape 5 (BOM) » branché sur les workflows n8n RECETTE
    importer_bom (N7Qr9MOZSOqA1cjq) et écran (zFTzcLK7o9BfTWoX) et sur la table deroule_devis. Bloc en fin de fichier. */
 /* COPIE DE RECETTE (24/09/2026) — base : devis-client v12.19 (prod). Sert à construire le déroulé devis automatique
@@ -3875,7 +3876,7 @@ async function basculerAnalyse(jobId, statut, btn){
 
 </script>
 <script src="../../shared/retour-accueil.js" defer></script>
-<!-- ===== DEROULE DEVIS — ETAPE 5 (RECETTE) — v1.0 — 24/09/2026 — chantier 169, lot 1 ===== -->
+<!-- ===== DEROULE DEVIS — ETAPES 4 et 5 (RECETTE) — v1.1 — 24/09/2026 — chantier 169, lots 1-2 ===== -->
 <style>
 #dd-fond{position:fixed;inset:0;z-index:9000;background:rgba(5,6,10,.72);display:none;align-items:center;justify-content:center;padding:24px}
 #dd-fond.show{display:flex}
@@ -3919,7 +3920,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.0', DD_DATE = '24/09/2026';
+  const DD_VERSION = '1.1', DD_DATE = '24/09/2026'; // v1.1 : étape 4 (créer le RfQ + PCB, dépôt du zip, spec dérivée des fichiers)
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -3952,12 +3953,12 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       return `<span class="${cls}">${k < cour ? '✓ ' : ''}${esc(n)}</span>`;
     }).join('') + '</div>';
   }
-  function cadre(titre, sub, corps, side, pied, bloque){
+  function cadre(titre, sub, corps, side, pied, bloque, cour){
     const a = (ETAT && ETAT.analyse) || {};
     $$('dd-box').innerHTML =
       `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
        <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
-      + etapesHtml(5, bloque)
+      + etapesHtml(cour || 5, bloque)
       + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
   }
@@ -3965,7 +3966,8 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
 
   function ecranLancer(msg){
     const a = ETAT.analyse || {};
-    const opts = RFQS.map(r => `<option value="${esc(r.id)}|${esc(r.assembly_id)}">${esc(r.nom)}${r.so ? ' — ' + esc(r.so) : ''} (${r.elements} éléments)</option>`).join('');
+    const dRfq = (ETAT.deroule && ETAT.deroule.rfq_luminovo) || '';
+    const opts = RFQS.map(r => `<option value="${esc(r.id)}|${esc(r.assembly_id)}" ${r.id === dRfq ? 'selected' : ''}>${esc(r.nom)}${r.so ? ' — ' + esc(r.so) : ''} (${r.elements} éléments)</option>`).join('');
     cadre('Étape 5/8 — Nomenclature (BOM)', 'à lancer',
       `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT importer_bom</div>
         <div class="dd-ligne" style="line-height:1.6">1. Prendre la <b>BOM traitée</b> de cette analyse (${a.bom_traitee_disponible ? '<span style="color:var(--green)">disponible</span>' : '<span style="color:var(--red)">absente — relancer l\'analyse d\'abord</span>'}).<br>
@@ -3990,7 +3992,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       `<div class="dd-carte err"><div style="font-size:14px;font-weight:600;color:var(--red)">BOM inexploitable — rien n'a été chargé</div>
         <div class="dd-ligne">${esc((alerte && alerte.detail && alerte.detail.motif) || 'motif inconnu')}</div>
         <div class="dd-ligne">C'est le seul cas d'arrêt : tous les autres écarts sont chargés puis signalés.</div></div>`,
-      SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn" onclick="DD.ouvrir(true)">Relancer après correction</button>`, true);
+      SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn" onclick="DD.passerEtape5()">Relancer après correction</button>`, true);
   }
   function ecranPorte(fin){
     const d = fin.detail || {}, ch = d.charge || {};
@@ -4030,19 +4032,69 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // ---------- pilotage ----------
   function afficher(){
     const d = ETAT.deroule, j = ETAT.journal || [];
-    if (!d || !d.rfq_luminovo) return ecranLancer();
-    if (d.statut === 'bloque') return ecranBloque([...j].reverse().find(x => x.evenement === 'alerte'));
+    if (!d) return ecranDepart();
+    const alerte = [...j].reverse().find(x => x.evenement === 'alerte');
+    if (d.etape === 4) {
+      if (d.statut === 'bloque') return ecranBloque4(alerte);
+      const fin4 = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 4);
+      if (d.statut === 'attente_porte' && fin4) return ecranPorte4(fin4);
+      return ecranAttente4();
+    }
+    if (d.etape === 5 && d.statut === 'en_cours' && !j.some(x => x.etape === 5 && x.evenement === 'script')) return ecranLancer();
+    if (!d.rfq_luminovo) return ecranLancer();
+    if (d.statut === 'bloque') return ecranBloque(alerte);
     if (d.etape > 5) return ecranSuite();
     const fin = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 5);
     if (d.statut === 'attente_porte' && fin) return ecranPorte(fin);
     return ecranAttente();
+  }
+  // ---------- étape 4 ----------
+  function ecranDepart(){
+    const a = ETAT.analyse || {};
+    cadre('Étape 4/8 — RfQ + PCB', 'à créer',
+      `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT creer_rfq_pcb</div>
+        <div class="dd-ligne" style="line-height:1.6">1. Créer le <b>RfQ Luminovo</b> chez le client, avec le n° du devis Odoo en n° interne.<br>
+        2. Créer la <b>fiche PCB</b> et y déposer le zip du client (Gerber, perçages, fiche fabricant…).<br>
+        3. Attendre l'analyse Luminovo des fichiers, puis te présenter <b>la spec lue dans les fichiers</b>.<br>
+        Le zip est gardé dans Supabase seulement le temps du devis. Durée : 2 à 5 minutes.</div></div>
+       <div class="dd-carte" style="gap:10px">
+        <label class="dd-ligne">Client Luminovo<br><input id="dd-client" class="dd-sel" style="width:100%" value="${esc(a.client || '')}"></label>
+        <label class="dd-ligne">Nom du RfQ (= nom de l'assemblage)<br><input id="dd-nom" class="dd-sel" style="width:100%" value="${esc(a.ref_projet || '')}"></label>
+        <label class="dd-ligne">N° de devis Odoo (SO…)<br><input id="dd-so" class="dd-sel" style="width:100%" value="${esc((FICHE_LIEN && FICHE_LIEN.odoo_so_name) || '')}" placeholder="SO2609-…"></label>
+        <label class="dd-ligne">Zip des fichiers PCB du client (16 Mo max)<br><input id="dd-zip" type="file" accept=".zip,.rar,.7z" class="dd-sel" style="width:100%"></label>
+       </div>`,
+      SIDE_REGLE + `<div><div class="dd-h">OU BIEN</div><div class="dd-ligne" style="margin-top:6px">Le RfQ existe déjà dans Luminovo ?</div><button class="dd-btn" style="margin-top:8px" onclick="DD.passerEtape5()">Passer directement à l'étape 5 (BOM)</button></div>`,
+      `<span class="dd-ligne" style="margin-left:auto">Script creer_rfq_pcb v1.0</span><button class="dd-btn p" onclick="DD.creer()">Créer le RfQ et déposer les fichiers</button>`, false, 4);
+  }
+  function ecranAttente4(){
+    const d = ETAT.deroule || {};
+    cadre('Étape 4/8 — RfQ + PCB', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>Le script creer_rfq_pcb travaille dans Luminovo (RfQ, fiche PCB, dépôt des fichiers, analyse). Cet écran se met à jour tout seul.</div></div>`,
+      SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')} · ouvert par ${esc(d.ouvert_par || '')}</span>`, false, 4);
+  }
+  function ecranBloque4(alerte){
+    const det = (alerte && alerte.detail) || {};
+    cadre('Étape 4/8 — RfQ + PCB', 'arrêt', `<div class="dd-carte err"><div style="font-size:14px;font-weight:600;color:var(--red)">Arrêt : ${esc(det.motif || 'motif inconnu')}</div>
+        ${(det.candidats || []).length ? '<div class="dd-ligne">Clients Luminovo proches : ' + esc(det.candidats.join(' · ')) + '</div>' : ''}</div>`,
+      SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn" onclick="DD.ouvrir(true)">Corriger et relancer</button>`, true, 4);
+  }
+  function ecranPorte4(fin){
+    const d = fin.detail || {}, g = d.gerber || {};
+    const lignes = [['Couches', g.couches], ['Dimensions (mm)', g.largeur_mm && g.hauteur_mm ? g.largeur_mm + ' × ' + g.hauteur_mm : null], ['Épaisseur (mm)', g.epaisseur_mm], ['Cuivre ext. / int. (µm)', g.cuivre_ext_um != null ? g.cuivre_ext_um + ' / ' + g.cuivre_int_um : null], ['Matériau', g.materiau], ['Finition', g.finition], ['Vernis', g.vernis ? g.vernis + ' (' + g.vernis_faces + ')' : null], ['Sérigraphie', g.serigraphie ? g.serigraphie + ' (' + g.serigraphie_faces + ')' : null], ['Via mini (mm) / trous', g.via_min_mm != null ? g.via_min_mm + ' / ' + g.trous : null], ['Vias borgnes / enterrés', g.vias_borgnes != null ? (g.vias_borgnes ? 'oui' : 'non') + ' / ' + (g.vias_enterres ? 'oui' : 'non') : null]];
+    const tbl = '<table style="border-collapse:collapse;font-size:12px;width:100%">' + lignes.map(([k, v]) => `<tr><td style="padding:4px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(k)}</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">${v == null || v === '' ? '<span style="color:var(--amber)">non déterminé 🟠</span>' : esc(v)}</td><td style="padding:4px 8px;color:var(--text3);border-bottom:1px solid var(--border)">fichiers (Luminovo)</td></tr>`).join('') + '</table>';
+    cadre('Étape 4/8 — RfQ + PCB', 'spec à valider',
+      `<div><div class="dd-h">CRÉÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;flex-wrap:wrap;margin-top:6px"><span class="dd-ligne">RfQ chez <b>${esc(d.client_luminovo)}</b></span><span class="dd-ligne">${esc((d.fichiers || []).length)} fichiers déposés</span><span class="dd-ligne">analyse : ${esc(d.analyse_luminovo)}</span>${(d.alertes || []).length ? '<span class="dd-ligne" style="color:var(--amber)">alertes : ' + esc(d.alertes.join(', ')) + '</span>' : ''}</div></div>
+       <div><div class="dd-h">SPEC PCB LUE DANS LES FICHIERS (1 source sur 3)</div><div class="dd-carte" style="margin-top:6px">${tbl}
+         <div class="dd-ligne">Sources à venir : fiche fabricant (lecture par Claude) et standards PP. Une valeur sans source reste 🟠 et sera demandée au client à la commande.</div></div></div>`,
+      SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Zip : ${esc(d.zip)}<br>Script : ${esc(fin.script)} ${esc(fin.version)}<br>Fait le ${esc(new Date(fin.le).toLocaleString('fr-FR'))}</div></div>`,
+      `<span class="dd-ligne" style="margin-left:auto">Tu valides la spec telle que lue dans les fichiers</span><button class="dd-btn p" onclick="DD.validerSpec()">Valider la spec → BOM (étape 5)</button>`, false, 4);
+    DD._gerber = g;
   }
   async function rafraichir(){
     ETAT = await lireEtat();
     const d = ETAT.deroule;
     afficher();
     clearTimeout(TIMER);
-    if (d && d.statut === 'en_cours' && d.etape === 5) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+    if (d && d.statut === 'en_cours' && (d.etape === 4 || (d.etape === 5 && (ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
   }
   window.DD = {
     async ouvrir(relance){
@@ -4050,9 +4102,11 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       $$('dd-fond').classList.add('show'); $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Lecture du dossier…</div>';
       try {
         ETAT = await lireEtat();
-        if (!ETAT.deroule || !ETAT.deroule.rfq_luminovo || relance) { RFQS = await lireRfqs((ETAT.analyse || {}).client); ETAT.deroule = relance ? null : ETAT.deroule; }
+        const d0 = ETAT.deroule;
+        if (relance) ETAT.deroule = null;
+        else if (d0 && d0.etape === 5 && d0.statut === 'en_cours' && !(ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')) RFQS = await lireRfqs((ETAT.analyse || {}).client);
         CHOIX = {}; afficher();
-        const d = ETAT.deroule; if (d && d.statut === 'en_cours' && d.etape === 5) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+        const d = ETAT.deroule; if (d && d.statut === 'en_cours' && (d.etape === 4 || (d.etape === 5 && (ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
     fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
@@ -4082,11 +4136,36 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         CHOIX = {}; await rafraichir();
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
-    abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); }
+    abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
+    async passerEtape5(){ RFQS = await lireRfqs((ETAT.analyse || {}).client); ecranLancer(); },
+    async creer(){
+      const a = ETAT.analyse || {}; const f = ($$('dd-zip').files || [])[0];
+      if (!f) { alert('Choisis le zip des fichiers PCB.'); return; }
+      const fd = new FormData();
+      fd.append('job', jobCourant()); fd.append('client', $$('dd-client').value.trim()); fd.append('nom_rfq', $$('dd-nom').value.trim()); fd.append('nom_asm', $$('dd-nom').value.trim());
+      fd.append('so_odoo', $$('dd-so').value.trim()); fd.append('valideur', qui()); fd.append('recette', 'true'); fd.append('zip', f, f.name);
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Envoi du zip et lancement du script…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-creer-rfq-pcb`, { method: 'POST', body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+        await new Promise(res => setTimeout(res, 3000));
+        await rafraichir();
+      } catch (e) { alert('Le script n\'a pas démarré : ' + e.message); ecranDepart(); }
+    },
+    async validerSpec(){
+      const corps = { deroule_id: ETAT.deroule.id, etape: 4, valideur: qui(), spec_validee: DD._gerber || null };
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        ETAT = await lireEtat(); RFQS = await lireRfqs((ETAT.analyse || {}).client); afficher();
+      } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
+    }
   };
   // bouton dans le bandeau RECETTE + ouverture auto via &deroule=1
   document.addEventListener('DOMContentLoaded', () => {
-    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis — étape 5 (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); }
+    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); }
     if (new URLSearchParams(location.search).get('deroule') === '1') setTimeout(() => DD.ouvrir(), 2500);
   });
 })();
