@@ -205,13 +205,13 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 </style>
 </head>
 <body>
-<div style="background:#2a1f10;color:#eab676;font-size:12px;padding:6px 18px;border-bottom:.5px solid #4a3418"><b>RECETTE</b> — copie de test de l'appli Commande (pop-up déroulé). Les écritures Odoo sont réelles. La prod est <a href="../" style="color:#F07B1F">ici</a>.</div>
+<div style="background:#2a1f10;color:#eab676;font-size:12px;padding:6px 18px;border-bottom:.5px solid #4a3418"><b>RECETTE</b> — copie de test de l'appli Commande (pop-up déroulé + bouton « Relever les commandes »). Les écritures Odoo sont réelles. La prod est <a href="../" style="color:#F07B1F">ici</a>.</div>
 <header>
   <img src="../../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
        style="object-fit:contain" onerror="this.style.display='none'">
   <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Commande</span></span>
   <span class="ver" id="ver"></span>
-  <span class="hdr-right"><button class="btn-accueil" id="btn-accueil" title="Retour à la liste des commandes entrantes">← Accueil</button></span>
+  <span class="hdr-right"><span class="ver" id="releve-info"></span><button class="btn-accueil" id="btn-relever" title="Va chercher tout de suite dans Gmail les mails étiquetés « ->Commande » (sinon : rattrapage automatique à 5h)">✉ Relever les commandes</button><button class="btn-accueil" id="btn-accueil" title="Retour à la liste des commandes entrantes">← Accueil</button></span>
 </header>
 
 <div class="wrap">
@@ -245,9 +245,10 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.10-recette";
+const APP_VERSION = "8.0-recette";
 const APP_DATE = "24/09/2026";
 /* COPIE DE RECETTE (24/09/2026) — contenu de commande v7.10 (pop-up déroulé v2.0, chantier 174), jamais servie en prod.
+   8.0-recette : + bouton « Relever les commandes » (remplace le réveil n8n 30 min, décision Olivier/Dorian 24/09/2026).
    Chemins partagés en ../../shared/. Les écritures Odoo restent RÉELLES (tests sur vrais dossiers). */
 document.title = "RECETTE — Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
@@ -787,6 +788,42 @@ function accueil() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 el('btn-accueil').addEventListener('click', accueil);
+
+/* ---- 8.0 (24/09/2026) : bouton « Relever les commandes » -----------------
+   Remplace le reveil n8n toutes les 30 min (quota). Un clic lance tout de
+   suite la lecture des mails etiquetes ->Commande (webhook commande-relever,
+   reponse immediate), puis la liste des entrantes est relue a +25 s et +60 s
+   (le temps que Claude lise les bons de commande). Bouton bloque 60 s pour
+   eviter deux lancements simultanes. Filet : passage automatique a 5h lun-ven. */
+const RELEVE_KEY = 'pp_commande_dernier_releve';
+function afficherReleve() {
+  let t = null; try { t = localStorage.getItem(RELEVE_KEY); } catch (e) {}
+  el('releve-info').textContent = t ? 'Dernier relevé : ' + t : '';
+}
+async function relever() {
+  const b = el('btn-relever');
+  if (!code()) { el('acces').classList.add('visible'); return; }
+  b.disabled = true; b.style.opacity = '.5';
+  const lib = b.textContent;
+  b.innerHTML = '<span class="spin"></span>Relevé en cours…';
+  try {
+    await appel('commande-relever', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const h = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    try { localStorage.setItem(RELEVE_KEY, h); } catch (e) {}
+    afficherReleve();
+    el('etat').className = 'etat-msg chargement';
+    el('etat').textContent = 'Relevé lancé : les nouvelles commandes apparaissent dans la liste d\u2019ici 1 minute.';
+    setTimeout(chargerEntrantes, 25000);
+    setTimeout(function () { chargerEntrantes(); if (el('etat').textContent.indexOf('Relevé lancé') === 0) { el('etat').textContent = ''; } }, 60000);
+  } catch (err) {
+    el('etat').className = 'etat-msg err';
+    el('etat').textContent = err.message === 'ACCES' ? 'Code d\u2019accès refusé.' : 'Relevé impossible (' + err.message + ').';
+    if (err.message === 'ACCES') el('acces').classList.add('visible');
+  }
+  setTimeout(function () { b.disabled = false; b.style.opacity = ''; b.textContent = lib; }, 60000);
+}
+el('btn-relever').addEventListener('click', relever);
+afficherReleve();
 
 /* sansConf = true quand confronter() vient de rafraichir DIAG.conf : on ne le
    relit pas une seconde fois. Sinon (apres une action), la confrontation est
