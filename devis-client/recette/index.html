@@ -588,8 +588,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.25-recette";
+const APP_VERSION = "12.26-recette";
 const APP_DATE = "24/09/2026";
+/* v12.26-recette (24/09/2026) : RfQ Luminovo + import BOM lancés en fond dès la création du devis (creer_rfq VQEJDH7HRcg79X1n) ; étape 4 = fichiers PCB ; scénarios auto après la BOM.
 /* v12.25-recette (24/09/2026) : pop-up étapes 6 (scénarios, edOjKVBAObu0uN8t) et 7 (sourcing, questions client FabStory au go).
 /* v12.22-recette (24/09/2026) : spec PCB à 3 sources (documents client / fichiers / standards PP) à l'étape 4, écrite dans Luminovo au go.
 /* v12.21-recette (24/09/2026) : pop-up étape 4 (creer_rfq_pcb l6hg2MK0aeRdj7Rw : RfQ + fiche PCB + dépôt zip + spec lue dans les fichiers).
@@ -1563,6 +1564,8 @@ async function odooCreer(forcer){
     if(j.mode !== 'ajout' && j.devis_id) soMemNoter(midCourant(), j.devis_id);
     // la fiche en memoire porte desormais son devis : le bloc s affichera a jour
     if(j.devis_id && FICHE_LIEN && !FICHE_LIEN.odoo_so_id) FICHE_LIEN.odoo_so_id = j.devis_id;
+    /* RECETTE v12.26 — déroulé : RfQ Luminovo + import BOM en fond dès le devis créé (décision Olivier 24/09) */
+    if(j.mode !== 'ajout' && j.devis_id && window.DD && DD.apresDevis) DD.apresDevis(String(j.devis_id), ref);
     msg.innerHTML = (j.mode === 'ajout'
       ? `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Carte ajoutée au devis n° ${esc(String(j.devis_id))} — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`
       : `<span style="color:var(--green);display:block;margin-top:6px;font-size:13px">Devis n° ${esc(String(j.devis_id))} créé — ${esc(String(j.nb_lignes || 0))} ligne(s), ${j.article_cree ? 'article créé' : 'article réutilisé'}.</span>`)
@@ -3923,7 +3926,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.3', DD_DATE = '24/09/2026'; // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.4', DD_DATE = '24/09/2026'; // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4108,38 +4111,49 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   function afficher(){
     const d = ETAT.deroule, j = ETAT.journal || [];
     if (!d) return ecranDepart();
-    const alerte = [...j].reverse().find(x => x.evenement === 'alerte');
-    if (d.etape === 4) {
-      if (d.statut === 'bloque') return ecranBloque4(alerte);
-      const fin4 = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 4);
-      if (d.statut === 'attente_porte' && fin4) return ecranPorte4(fin4);
+    const finDe = n => [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === n);
+    const alerteDe = n => [...j].reverse().find(x => x.evenement === 'alerte' && x.etape === n);
+    const lance = n => j.some(x => x.etape === n && x.evenement === 'script');
+    if (d.etape <= 4) {
+      if (d.statut === 'bloque') return ecranBloque4(alerteDe(4) || alerteDe(3));
+      if (d.statut === 'attente_porte' && finDe(4)) return ecranPorte4(finDe(4));
+      if (!lance(4)) return ecranDepart();
       return ecranAttente4();
     }
-    if (d.etape === 5 && d.statut === 'en_cours' && !j.some(x => x.etape === 5 && x.evenement === 'script')) return ecranLancer();
-    if (!d.rfq_luminovo) return ecranLancer();
-    if (d.statut === 'bloque') return ecranBloque(alerte);
+    if (d.etape === 5) {
+      // la BOM a été lancée en fond dès l'étape 3 : on suit bom_statut
+      if (d.bom_statut === 'bloque') return ecranBloque(alerteDe(5));
+      if (d.bom_statut === 'attente_porte' && finDe(5)) return ecranPorte(finDe(5));
+      if (d.bom_statut === 'en_cours') return ecranAttenteN(5, 'La BOM se charge dans Luminovo (import du fichier, recherche des pièces) : 3 à 4 minutes. Tu peux fermer et revenir, rien ne se perd.');
+      if (d.bom_statut === 'fait') return ecranAttenteN(6, 'Scénarios en cours…');
+      return ecranLancer();
+    }
     if (d.etape === 6) {
-      if (d.statut === 'bloque') return ecranBloque(alerte);
-      const fin6 = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 6);
-      if (d.statut === 'attente_porte' && fin6) return ecranPorte6(fin6);
-      if (d.statut === 'en_cours' && !j.some(x => x.etape === 6 && x.evenement === 'script')) return ecranScenarios();
+      if (d.statut === 'bloque') return ecranBloque(alerteDe(6));
+      if (d.statut === 'attente_porte' && finDe(6)) return ecranPorte6(finDe(6));
+      if (d.statut === 'en_cours' && !lance(6)) { if (DD._lance6 !== d.id) { DD._lance6 = d.id; DD.creerScenariosAuto(); } return ecranAttenteN(6, 'Création automatique des scénarios (quantités du client, modèles standard)…'); }
       return ecranAttenteN(6, 'Le script creer_scenarios crée les scénarios de sourcing et de fabrication dans Luminovo et lance la recherche de prix.');
     }
     if (d.etape === 7) {
-      if (d.statut === 'bloque') return ecranBloque(alerte);
-      const fin7 = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 7);
-      if (d.statut === 'attente_porte' && fin7) return ecranPorte7(fin7);
-      if (d.statut === 'en_cours' && !j.some(x => x.etape === 7 && x.evenement === 'script') && !DD._lance7) { DD._lance7 = d.id; DD.lancer7(); }
+      if (d.statut === 'bloque') return ecranBloque(alerteDe(7));
+      if (d.statut === 'attente_porte' && finDe(7)) return ecranPorte7(finDe(7));
+      if (d.statut === 'en_cours' && !lance(7) && DD._lance7 !== d.id) { DD._lance7 = d.id; DD.lancer7(); }
       return ecranAttenteN(7, 'Le script lire_sourcing relance la sélection des offres puis lit les prix, les délais et les lignes sans solution.');
     }
-    if (d.etape > 7) return ecranSuite();
-    const fin = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === 5);
-    if (d.statut === 'attente_porte' && fin) return ecranPorte(fin);
-    return ecranAttente();
+    return ecranSuite();
   }
   // ---------- étape 4 ----------
   function ecranDepart(){
-    const a = ETAT.analyse || {};
+    const a = ETAT.analyse || {}; const d = ETAT.deroule || {};
+    if (d.rfq_luminovo) {
+      cadre('Étape 4/8 — PCB', 'fichiers à déposer',
+        `<div class="dd-carte"><div class="dd-h">RFQ DÉJÀ CRÉÉ${d.bom_statut === 'en_cours' ? ' — BOM EN COURS DE CHARGEMENT (fond)' : d.bom_statut === 'attente_porte' ? ' — BOM CHARGÉE, PIÈCES À CONFIRMER ENSUITE' : d.bom_statut === 'bloque' ? ' — IMPORT BOM BLOQUÉ (voir après)' : ''}</div>
+          <div class="dd-ligne" style="line-height:1.6">Le RfQ Luminovo a été créé avec le devis. Dépose le zip des fichiers PCB : la fiche PCB est créée et la spec te sera présentée (20 s).</div></div>
+         <div class="dd-carte" style="gap:10px"><label class="dd-ligne">Zip des fichiers PCB du client (16 Mo max)<br><input id="dd-zip" type="file" accept=".zip,.rar,.7z" class="dd-sel" style="width:100%"></label>
+          <input id="dd-client" type="hidden" value="${esc(d.client || a.client || '')}"><input id="dd-nom" type="hidden" value="${esc(d.dossier || a.ref_projet || '')}"><input id="dd-so" type="hidden" value="${esc(d.so_odoo || '')}"></div>`,
+        SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Script creer_rfq_pcb v1.3</span><button class="dd-btn p" onclick="DD.creer()">Déposer les fichiers PCB</button>`, false, 4);
+      return;
+    }
     cadre('Étape 4/8 — RfQ + PCB', 'à créer',
       `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT creer_rfq_pcb</div>
         <div class="dd-ligne" style="line-height:1.6">1. Créer le <b>RfQ Luminovo</b> chez le client, avec le n° du devis Odoo en n° interne.<br>
@@ -4184,7 +4198,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const d = ETAT.deroule;
     afficher();
     clearTimeout(TIMER);
-    if (d && d.statut === 'en_cours' && (d.etape === 4 || ([5, 6, 7].includes(d.etape) && (ETAT.journal || []).some(x => x.etape === d.etape && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+    if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
   }
   window.DD = {
     async ouvrir(relance){
@@ -4196,7 +4210,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         if (relance) ETAT.deroule = null;
         else if (d0 && d0.etape === 5 && d0.statut === 'en_cours' && !(ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')) RFQS = await lireRfqs((ETAT.analyse || {}).client);
         CHOIX = {}; afficher();
-        const d = ETAT.deroule; if (d && d.statut === 'en_cours' && (d.etape === 4 || ([5, 6, 7].includes(d.etape) && (ETAT.journal || []).some(x => x.etape === d.etape && x.evenement === 'script')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+        const d = ETAT.deroule; if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
     fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
@@ -4227,6 +4241,26 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
     abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
+    async apresDevis(so, ref){
+      // v1.4 : dès que le devis Odoo est créé (étape 3), on crée le RfQ Luminovo et on lance l'import BOM en fond.
+      try {
+        const a = ETAT.analyse || {}; const job = jobCourant(); if (!job) return;
+        const r = await fetch(`${base()}/webhook/recette-creer-rfq`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job, client: a.client || (FICHE_LIEN && FICHE_LIEN.client) || '', nom_rfq: ref || a.ref_projet || '', so_odoo: so || null, valideur: qui() }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+        alert('RfQ Luminovo créé' + (j.import_bom === 'lance' ? ' — la BOM se charge en tâche de fond (3-4 min). Tu peux passer à l\'étape 4 (fichiers PCB).' : ' — pas de BOM traitée sur cette analyse, import non lancé.'));
+      } catch (e) { alert('RfQ non créé : ' + e.message); }
+    },
+    async creerScenariosAuto(){
+      // v1.4 : après le go BOM, scénarios créés SANS écran : quantités de l'analyse, petite qté NOUVELLE FAB, autres REFAB (FR), dessus.
+      const a = ETAT.analyse || {}; let qtes = Array.isArray(a.quantites) ? a.quantites.map(Number).filter(x => x > 0) : []; if (!qtes.length) qtes = [1];
+      qtes = [...new Set(qtes)].sort((x, y) => x - y);
+      const demandes = qtes.map((q, i) => ({ qte: q, modele: i === 0 ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD' }));
+      try {
+        const r = await fetch(`${base()}/webhook/recette-creer-scenarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, demandes, pcb_sides: 'Top', valideur: qui() + ' (auto)' }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+      } catch (e) { console.warn('scenarios auto', e); }
+    },
     ajouterQte(){ const t = $$('dd-scen'); const tr = document.createElement('tr'); tr.innerHTML = `<td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="10" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === 'FR - REFAB STD' ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td>`; t.appendChild(tr); },
     async creerScenarios(){
       const demandes = [...document.querySelectorAll('#dd-scen tr')].map(tr => { const q = tr.querySelector('.dd-qte'), m = tr.querySelector('.dd-mod'); return q && m ? { qte: Number(q.value), modele: m.value } : null; }).filter(x => x && x.qte > 0);
