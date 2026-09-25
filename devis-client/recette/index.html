@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.32.1-recette";
+const APP_VERSION = "12.33-recette";
 const APP_DATE = "25/09/2026";
 /* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
 /* v12.32-recette (25/09/2026) : porte « Devis refab » (bouton du bandeau, workflow ouvrir_refab NHmuVctKidvnRTQk) : carte + devis + quantités → RfQ existant, scénarios/calcul existants réutilisables, puis étapes 7-8.
@@ -4510,6 +4510,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); const b2 = document.createElement('button'); b2.id = 'dd-refab'; b2.textContent = 'Devis refab'; b2.style.marginLeft = '8px'; b2.onclick = () => { DD._deroule = null; DD.refab(); }; b.appendChild(b2); }
     // ouverture auto : on attend que la fiche soit chargee (jusqu'a 40 s), la page charge d'abord les clients
     const pDer = Number(new URLSearchParams(location.search).get('deroule_id')); if (pDer > 0) { DD._deroule = pDer; setTimeout(() => DD.ouvrir(), 800); }
+    else if (new URLSearchParams(location.search).get('refab') === '1') { setTimeout(() => { DD._deroule = null; DD.refab(); }, 800); }
     else if (new URLSearchParams(location.search).get('deroule') === '1') { let n = 0; const t = setInterval(() => { n++; if (jobCourant()) { clearInterval(t); DD.ouvrir(); } else if (n > 40) { clearInterval(t); } }, 1000); }
   });
 })();
