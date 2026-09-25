@@ -1,6 +1,8 @@
 /* =============================================================================
    Proto Process — Déroulé guidé en pop-up (appli Commande)
-   Version 2.0 — 22/09/2026 (chantier 174)
+   Version 2.1 — 25/09/2026 (chantier 174)
+   v2.1 : moins de texte (retour Ariel/Olivier 25/09) — plus de consigne « vérifie… » ni de conseils affichés d'office :
+          le titre + le bloc réel de l'appli suffisent ; conseils et aide derrière un bouton « ? ».
 
    PRINCIPE (validé sur maquette v0.4 le 21/09)
    Au clic « Diagnostiquer », un pop-up centré prend la main. On FAIT chaque
@@ -26,7 +28,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var VERSION = '2.0';
+  var VERSION = '2.1';
   var SB = 'https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1';
   var KEY = 'sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O';
   var appli = (document.currentScript && document.currentScript.getAttribute('data-appli')) || 'commande';
@@ -151,17 +153,17 @@
     var deja = n > 0 && e.done && !valides[n];
     var peut, hint = '';
     if (n === 0) peut = true;
-    else if (e.manuel) { peut = soConfirmee(); hint = peut ? '' : 'Confirme la commande dans Odoo, puis clique \u00ab V\u00e9rifier dans Odoo \u00bb.'; }
-    else { peut = !!e.done; hint = peut ? '' : (e.bloque ? 'Cette \u00e9tape est bloqu\u00e9e : vois l\u2019aide \u00e0 droite.' : 'Termine l\u2019action ci-dessus : le d\u00e9roul\u00e9 le d\u00e9tectera.'); }
-    var travail = (deja ? '<span class="deja">D\u00e9j\u00e0 fait par l\u2019appli : v\u00e9rifie et valide</span>' : '') +
-      '<h2 id="ppd-t">' + esc(titre) + '</h2>' + (t.consigne ? '<p class="consigne">' + esc(t.consigne) + '</p>' : '');
+    else if (e.manuel) { peut = soConfirmee(); hint = peut ? '' : 'confirmer dans Odoo, puis \u00ab V\u00e9rifier dans Odoo \u00bb'; }
+    else { peut = !!e.done; hint = peut ? '' : (e.bloque ? 'bloqu\u00e9e (voir ? Aide)' : 'action ci-dessus \u00e0 terminer'); }
+    var travail = (deja ? '<span class="deja">\u2713 D\u00e9j\u00e0 fait</span>' : '') +
+      '<h2 id="ppd-t">' + esc(titre) + '</h2>';
     if (n === 0) travail += resumeCommande();
     else if (e.manuel) travail += '<div class="carte"><div class="k">Commande dans Odoo</div>' + (soConfirmee() ? '<span class="ok">\u2713 Confirm\u00e9e dans Odoo' + (S.so && S.so.so ? ' (' + esc(S.so.so) + ')' : '') + '</span>' : 'Pas encore confirm\u00e9e <span style="color:#64748b">(d\u00e9tection automatique)</span>') + '</div>' +
       '<div class="hote"></div><div style="margin-top:10px"><button type="button" class="bs" data-a="verif">V\u00e9rifier dans Odoo</button> <span class="att" id="ppd-verif"></span></div>';
     else travail += '<div class="hote"></div>';
-    var cote = '<div class="bloc"><h4>Conseils</h4>' + (t.conseil ? '<div class="rap">' + esc(t.conseil) + '</div>' : '<div class="info">\u2014</div>') + '</div>' + infosCote(n) +
-      '<div class="bloc"><h4>Et si \u00e7a coince ?</h4><p style="margin:0 0 10px;color:#94a3b8">' + esc(t.aide || '') + (n === 6 && S.so && S.so.partner_id ? ' <a href="https://protoprocess-main-16873066.dev.odoo.com/odoo/contacts/' + esc(S.so.partner_id) + '" target="_blank" rel="noopener" style="color:#F07B1F">Fiche de la soci\u00e9t\u00e9 dans Odoo \u2197</a>' : '') + '</p>' +
-      '<button type="button" class="aidebtn" data-a="aide">Demander de l\u2019aide \u00e0 Claude</button><div class="aideb" id="ppd-aide">L\u2019assistant arrive avec la prochaine version de l\u2019accueil (\u00ab Rien de tout \u00e7a \u00bb). En attendant : d\u00e9cris ton blocage avec le bouton <b>Signaler</b> en bas \u00e0 droite, en indiquant \u00ab ' + esc(S.dossier || '') + ', \u00e9tape ' + esc(titre) + ' \u00bb.</div></div>';
+    var cote = infosCote(n) +
+      '<div class="bloc"><button type="button" class="aidebtn" data-a="aide">? Aide</button><div class="aideb" id="ppd-aide">' + (t.consigne ? '<p style="margin:0 0 8px">' + esc(t.consigne) + '</p>' : '') + (t.conseil ? '<p style="margin:0 0 8px">' + esc(t.conseil) + '</p>' : '') + '<p style="margin:0 0 10px;color:#94a3b8">' + esc(t.aide || '') + (n === 6 && S.so && S.so.partner_id ? ' <a href="https://protoprocess-main-16873066.dev.odoo.com/odoo/contacts/' + esc(S.so.partner_id) + '" target="_blank" rel="noopener" style="color:#F07B1F">Fiche de la soci\u00e9t\u00e9 dans Odoo \u2197</a>' : '') + '</p>' +
+      'L\u2019assistant arrive avec la prochaine version de l\u2019accueil (\u00ab Rien de tout \u00e7a \u00bb). En attendant : d\u00e9cris ton blocage avec le bouton <b>Signaler</b> en bas \u00e0 droite, en indiquant \u00ab ' + esc(S.dossier || '') + ', \u00e9tape ' + esc(titre) + ' \u00bb.</div></div>';
     boite.innerHTML = '<div class="tete"><b>Saisir une commande client</b><span class="d">' + esc(d) + '</span><button type="button" class="quit" data-a="quit">Quitter ou abandonner</button></div>' +
       '<div class="pas">' + pas + '</div><div class="corps"><div class="travail">' + travail + '</div><aside class="cote">' + cote + '</aside></div>' +
       '<div class="pied"><span class="etat">\u00c9tape ' + (idx + 1) + ' sur ' + liste.length + (hint ? ' \u2014 ' + esc(hint) : '') + '</span>' +
