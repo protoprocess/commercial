@@ -608,8 +608,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.30-recette";
+const APP_VERSION = "12.31-recette";
 const APP_DATE = "25/09/2026";
+/* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
 /* v12.30-recette (25/09/2026) : étape 8 — adresses livraison/facturation proposées et écrites au go ; fiche de cohérence (PCB, BOM, scénarios, sourcing, exigences, calcul).
 /* v12.28-recette (25/09/2026) : fil rouge « Exigences du dossier » (analyse) sur chaque porte, cases « pris en compte » enregistrées au go.
 /* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
@@ -3949,7 +3950,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.7', DD_DATE = '25/09/2026'; // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.8', DD_DATE = '25/09/2026'; // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -3999,20 +4000,16 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const prises = exigencesPrises(); const restantes = ex.filter(e => !prises.has(e.id)).length;
     return `<div><div class="dd-h">EXIGENCES DU DOSSIER — ${restantes ? restantes + ' à prendre en compte' : 'toutes prises en compte'}</div>
       <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:340px;overflow:auto">${ex.map(e => { const p = prises.has(e.id); return `<label class="dd-ligne" style="display:flex;gap:7px;align-items:flex-start;${p ? 'opacity:.55' : ''}"><input type="checkbox" class="dd-ex" value="${esc(e.id)}" ${p ? 'checked disabled' : ''} style="margin-top:2px"><span><span style="color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em">${esc(ORIGINES[e.origine] || e.origine)}</span> ${esc(e.texte)}${e.source ? ' <span style="color:var(--text3)">(' + esc(e.source) + ')</span>' : ''}</span></label>`; }).join('')}</div>
-      <div class="dd-ligne" style="margin-top:6px">Coche ce que tu as pris en compte à cette étape : c'est enregistré au go. Ce qui reste décoché sera rappelé jusqu'à la fin.</div></div>`;
+</div>`;
   }
-  const SIDE_REGLE = `<div><div class="dd-h">RÈGLE</div><div class="dd-ligne" style="line-height:1.5;margin-top:6px">Luminovo reflète la BOM client exacte. Seule la pièce choisie peut différer. Rien n'est retiré : au plus « non câblé », et c'est toi qui décides.</div></div>`;
+  const SIDE_REGLE = '';
 
   function ecranLancer(msg){
     const a = ETAT.analyse || {};
     const dRfq = (ETAT.deroule && ETAT.deroule.rfq_luminovo) || '';
     const opts = RFQS.map(r => `<option value="${esc(r.id)}|${esc(r.assembly_id)}" ${r.id === dRfq ? 'selected' : ''}>${esc(r.nom)}${r.so ? ' — ' + esc(r.so) : ''} (${r.elements} éléments)</option>`).join('');
     cadre('Étape 5/8 — Nomenclature (BOM)', 'à lancer',
-      `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT importer_bom</div>
-        <div class="dd-ligne" style="line-height:1.6">1. Prendre la <b>BOM traitée</b> de cette analyse (${a.bom_traitee_disponible ? '<span style="color:var(--green)">disponible</span>' : '<span style="color:var(--red)">absente — relancer l\'analyse d\'abord</span>'}).<br>
-        2. L'importer <b>par fichier</b> dans le RfQ Luminovo choisi (la « BOM originale » est conservée).<br>
-        3. Approuver d'office les pièces sûres, laisser le reste à ta confirmation.<br>
-        4. Te présenter ici ce qu'il a fait. Durée : 4 à 6 minutes.</div></div>
+      `
        <div class="dd-carte"><div class="dd-h">RFQ LUMINOVO CIBLE</div>
         ${RFQS.length ? `<select class="dd-sel" id="dd-rfq">${opts}</select>` : '<div class="dd-ligne">Aucun RfQ trouvé pour ce client dans Luminovo. Crée-le d\'abord (étape 4).</div>'}
         <div class="dd-ligne">⚠ Le RfQ doit être <b>sans BOM</b> : l'import ajoute les lignes, il ne remplace pas.</div></div>
@@ -4023,7 +4020,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   function ecranAttente(){
     const d = ETAT.deroule || {};
     cadre('Étape 5/8 — Nomenclature (BOM)', 'import en cours',
-      `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>Le script importer_bom travaille dans Luminovo (lecture du fichier, association des pièces, enregistrement). Cet écran se met à jour tout seul.</div></div>`,
+      `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>Import de la BOM en cours (3-4 min).</div></div>`,
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')} · ouvert par ${esc(d.ouvert_par || '')}</span>`);
   }
   function ecranBloque(alerte){
@@ -4069,7 +4066,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   function ecranAttenteN(n, texte){
     const d = ETAT.deroule || {};
-    cadre('Étape ' + n + '/8', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>${esc(texte)} Cet écran se met à jour tout seul.</div></div>`, SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')}</span>`, false, n);
+    cadre('Étape ' + n + '/8', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>${esc(texte)} </div></div>`, SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')}</span>`, false, n);
   }
   // ---------- étape 6 : scénarios ----------
   const MODELES_FAB = ['FR - NOUVELLE FAB STD', 'FR - REFAB STD', 'FR - CMS LIGHT', 'FR - REFAB CMS LIGHT', 'FR - 100% TRAD', 'FR - REWORK', 'WW - NOUVELLE FAB STD', 'WW - REFAB STD', 'WW - 100% TRAD', 'WW - REWORK'];
@@ -4080,8 +4077,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     qtes = [...new Set(qtes)].sort((x, y) => x - y);
     const lignes = qtes.map((q, i) => `<tr><td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="${q}" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === (i === 0 ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD') ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td></tr>`).join('');
     cadre('Étape 6/8 — Scénarios', 'à créer',
-      `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT creer_scenarios</div>
-        <div class="dd-ligne" style="line-height:1.6">Pour chaque quantité : un scénario de <b>sourcing</b> depuis le modèle « PP Chiffrage » (jamais copié d'un ancien), la <b>recherche de prix</b> lancée, et un scénario de <b>fabrication</b> créé depuis le modèle choisi. Nommage « Qté X - JJMMAA ». Règle : petite quantité en NOUVELLE FAB, grande quantité en REFAB ; CMS LIGHT si 1 à 10 CMS simples ; FR ou WW selon le pays du client.</div></div>
+      `
        <div class="dd-carte"><div class="dd-h">QUANTITÉS ET MODÈLES</div>
         <table id="dd-scen" style="border-collapse:collapse;font-size:12px"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Quantité</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Modèle de fabrication</th><th></th></tr>${lignes}</table>
         <div><button class="dd-btn" onclick="DD.ajouterQte()">+ quantité</button></div>
@@ -4094,7 +4090,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const rows = (d.scenarios || []).map(s => `<div class="dd-ligne">${s.deja ? '⏭ Qté ' + esc(s.qte) + ' : existait déjà' : s.erreur ? '⚠ Qté ' + esc(s.qte) + ' : ' + esc(s.erreur) : '✔ <b>' + esc(s.nom) + '</b> — sourcing + fabrication « ' + esc(s.modele) + ' »'}</div>`).join('');
     cadre('Étape 6/8 — Scénarios', 'compteurs à saisir',
       `<div><div class="dd-h">CRÉÉ DANS LUMINOVO (modèle sourcing : ${esc(d.modele_sourcing || '')}, faces : ${esc(d.pcb_sides || '')})</div><div class="dd-carte" style="margin-top:6px">${rows || '<div class="dd-ligne">rien</div>'}</div></div>
-       <div><div class="dd-h">À FAIRE DANS LUMINOVO</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne" style="line-height:1.6">Ouvre chaque scénario de fabrication et saisis les <b>compteurs manuels</b> (CMS à coller, modifications de méthodes…). La recherche de prix tourne pendant ce temps (2-3 min).</div></div></div>`,
+       <div><div class="dd-h">À FAIRE DANS LUMINOVO</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne"><b>Compteurs manuels</b> à saisir dans Luminovo sur chaque scénario de fabrication.</div></div></div>`,
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Puis :</span><button class="dd-btn p" onclick="DD.go6()">Compteurs saisis → sourcing (étape 7)</button>`, false, 6);
   }
   // ---------- étape 7 : sourcing ----------
@@ -4114,7 +4110,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     cadre('Étape 7/8 — Sourcing + PCB', enCours ? 'recherche en cours' : (points.length + ' point(s)'),
       `<div><div class="dd-h">MATIÈRE PAR SCÉNARIO</div><div class="dd-carte" style="margin-top:6px"><table style="border-collapse:collapse;font-size:12px;width:100%">${scen}</table>${pcb}</div></div>
        <div><div class="dd-h">LIGNES À TRANCHER</div>${lignes || '<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Aucune ligne en défaut.</div></div>'}</div>`,
-      SIDE_REGLE + `<div><div class="dd-h">QUESTIONS CLIENT</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Au go, les questions retenues sont créées sur la carte FabStory (étape DEVIS, modèles M1/M2), notification différée : elles partent avec le devis.</div></div>`,
+      SIDE_REGLE + ``,
       `${enCours ? '<button class="dd-btn" onclick="DD.lancer7()">Relire (recherche en cours)</button>' : ''}<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.go7()">Valider → calcul et devis (étape 8)</button>`, false, 7);
     DD._points = points;
     points.forEach((p, i) => { if (CHOIX['p' + i]) DD.choixPoint(i, CHOIX['p' + i]); });
@@ -4126,16 +4122,16 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       <td style="padding:4px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(l.param)}</td>
       <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${l.valeur == null ? '<span style="color:var(--amber)">non déterminé</span>' : esc(l.valeur)}${l.fichiers ? ' <span style="color:var(--amber)">≠ fichiers : ' + esc(l.fichiers) + '</span>' : ''}</td>
       <td style="padding:4px 8px;color:var(--text3);border-bottom:1px solid var(--border)">${esc(l.source)}</td>
-      <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">${l.niveau === 'orange' ? '🟠' : '🟢'}</td></tr>`).join('');
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">${l.niveau === 'orange' && l.source !== 'standard PP' ? '🟠' : '🟢'}</td></tr>`).join('');
     const tbl = `<table style="border-collapse:collapse;font-size:12px;width:100%"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Paramètre</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Valeur</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Source</th><th></th></tr>${rows}</table>`;
     const autres = (d.autres_caracteristiques || []).map(a => `<div class="dd-ligne">${a.importance === 'attention' ? '⚠ ' : '· '}${esc(a.texte)}${a.source ? ' <span style="color:var(--text3)">(' + esc(a.source) + ')</span>' : ''}</div>`).join('');
     cadre('Étape 4/8 — RfQ + PCB', 'spec à valider',
       `<div><div class="dd-h">CRÉÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;flex-wrap:wrap;margin-top:6px"><span class="dd-ligne">RfQ chez <b>${esc(d.client_luminovo)}</b></span><span class="dd-ligne">${esc(d.nb_fichiers_deposes != null ? d.nb_fichiers_deposes : (d.fichiers || []).length)} fichiers déposés</span><span class="dd-ligne">lecture Luminovo des fichiers : ${esc(d.analyse_luminovo)}</span>${d.verdict_analyse ? '<span class="dd-ligne">verdict du triage : ' + esc(d.verdict_analyse) + '</span>' : ''}</div></div>
-       <div><div class="dd-h">SPEC PCB — ${esc(d.nb_orange || 0)} POINT(S) 🟠 SANS SOURCE CLIENT NI FICHIER</div><div class="dd-carte" style="margin-top:6px">${tbl}
-         <div class="dd-ligne">🟢 = lu dans les documents du client ou dans les fichiers. 🟠 = standard PP appliqué (à confirmer par le client au plus tard à la commande), ou écart entre documents et fichiers.</div></div></div>
+       <div><div class="dd-h">SPEC PCB — ${esc(spec.filter(l => l.niveau === 'orange' && l.source !== 'standard PP').length)} POINT(S) 🟠</div><div class="dd-carte" style="margin-top:6px">${tbl}
+         </div></div>
        ${autres ? '<div><div class="dd-h">AUTRES CARACTÉRISTIQUES RELEVÉES DANS LES DOCUMENTS</div><div class="dd-carte" style="margin-top:6px">' + autres + '</div></div>' : ''}`,
       SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Zip : ${esc(d.zip)}<br>Script : ${esc(fin.script)} ${esc(fin.version)}<br>Fait le ${esc(new Date(fin.le).toLocaleString('fr-FR'))}</div></div>`,
-      `<span class="dd-ligne" style="margin-left:auto">Au go, la spec est écrite dans la fiche PCB Luminovo</span><button class="dd-btn p" onclick="DD.validerSpec()">Valider la spec → BOM (étape 5)</button>`, false, 4);
+      `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.validerSpec()">Valider la spec → BOM (étape 5)</button>`, false, 4);
     const settings = {};
     spec.forEach(l => { if (l.luminovo && l.luminovo.groupe && l.luminovo.cle && l.luminovo.valeur !== null && l.luminovo.valeur !== undefined) { settings[l.luminovo.groupe] = settings[l.luminovo.groupe] || {}; settings[l.luminovo.groupe][l.luminovo.cle] = l.luminovo.valeur; } });
     DD._gerber = { pcb: d.pcb, spec_id: d.spec_id, settings, resume: spec.map(l => ({ param: l.param, valeur: l.valeur, source: l.source, niveau: l.niveau })) };
@@ -4157,21 +4153,21 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       // la BOM a été lancée en fond dès l'étape 3 : on suit bom_statut
       if (d.bom_statut === 'bloque') return ecranBloque(alerteDe(5));
       if (d.bom_statut === 'attente_porte' && finDe(5)) return ecranPorte(finDe(5));
-      if (d.bom_statut === 'en_cours') return ecranAttenteN(5, 'La BOM se charge dans Luminovo (import du fichier, recherche des pièces) : 3 à 4 minutes. Tu peux fermer et revenir, rien ne se perd.');
+      if (d.bom_statut === 'en_cours') return ecranAttenteN(5, 'BOM en cours de chargement dans Luminovo (3-4 min).');
       if (d.bom_statut === 'fait') return ecranAttenteN(6, 'Scénarios en cours…');
       return ecranLancer();
     }
     if (d.etape === 6) {
       if (d.statut === 'bloque') return ecranBloque(alerteDe(6));
       if (d.statut === 'attente_porte' && finDe(6)) return ecranPorte6(finDe(6));
-      if (d.statut === 'en_cours' && !lance(6)) { if (DD._lance6 !== d.id) { DD._lance6 = d.id; DD.creerScenariosAuto(); } return ecranAttenteN(6, 'Création automatique des scénarios (quantités du client, modèles standard)…'); }
-      return ecranAttenteN(6, 'Le script creer_scenarios crée les scénarios de sourcing et de fabrication dans Luminovo et lance la recherche de prix.');
+      if (d.statut === 'en_cours' && !lance(6)) { if (DD._lance6 !== d.id) { DD._lance6 = d.id; DD.creerScenariosAuto(); } return ecranAttenteN(6, 'Scénarios en cours de création.'); }
+      return ecranAttenteN(6, 'Scénarios en cours de création.');
     }
     if (d.etape === 7) {
       if (d.statut === 'bloque') return ecranBloque(alerteDe(7));
       if (d.statut === 'attente_porte' && finDe(7)) return ecranPorte7(finDe(7));
       if (d.statut === 'en_cours' && !lance(7) && DD._lance7 !== d.id) { DD._lance7 = d.id; DD.lancer7(); }
-      return ecranAttenteN(7, 'Le script lire_sourcing relance la sélection des offres puis lit les prix, les délais et les lignes sans solution.');
+      return ecranAttenteN(7, 'Lecture du sourcing en cours.');
     }
     if (d.etape === 8) {
       if (d.statut === 'bloque') return ecranBloque(alerteDe(8));
@@ -4180,7 +4176,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       if (go8 && fin8 && go8.id > fin8.id) return ecranEnvoyer(go8, fin8);
       if (d.statut === 'attente_porte' && fin8) return ecranPorte8(fin8);
       if (d.statut === 'en_cours' && !lance(8) && DD._lance8 !== d.id) { DD._lance8 = d.id; DD.lancer8(); }
-      return ecranAttenteN(8, 'Le script calculer_devis rejoue le calcul Luminovo et lit la trame du devis Odoo.');
+      return ecranAttenteN(8, 'Calcul en cours.');
     }
     return ecranSuite();
   }
@@ -4208,11 +4204,11 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const coh = ficheCoherence(d);
     const cohHtml = coh.map(c => `<div class="dd-ligne">${c.ok ? '🟢' : '🟠'} <b>${esc(c.titre)}</b> — ${esc(c.texte)}</div>`).join('');
     cadre('Étape 8/8 — Devis', 'montants à confirmer',
-      `<div><div class="dd-h">CALCUL LUMINOVO REJOUÉ (plan ${esc((d.plan || {}).name || '')}${(d.plan || {}).cree ? ', créé par le script' : ''})</div><div class="dd-carte" style="margin-top:6px">${tblM}<div class="dd-ligne">Formule du modèle client standard : matière +40 % · fabrication ×1,823 + facteur difficulté + 10 % · NRE atelier ×1,823. Compare avec l'écran Luminovo avant de valider.</div></div></div>
+      `<div><div class="dd-h">CALCUL LUMINOVO REJOUÉ (plan ${esc((d.plan || {}).name || '')}${(d.plan || {}).cree ? ', créé par le script' : ''})</div><div class="dd-carte" style="margin-top:6px">${tblM}</div></div>
        <div><div class="dd-h">FICHE DE COHÉRENCE — ${esc(coh.filter(c => !c.ok).length)} point(s) 🟠</div><div class="dd-carte" style="margin-top:6px">${cohHtml}</div></div>
        <div><div class="dd-h">DEVIS ODOO</div><div class="dd-carte" style="margin-top:6px">${odooHtml}${adHtml}${avert}</div></div>
        <div><div class="dd-h">CE QUI SERA ÉCRIT DANS LA TRAME (modifiable)</div>${lignesHtml || '<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Aucune ligne à remplir.</div></div>'}</div>`,
-      SIDE_REGLE + `<div><div class="dd-h">GARDE-FOUS</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Le script n'écrit que dans un devis <b>brouillon</b>, ligne par ligne, jamais de création de ligne, jamais d'envoi. L'envoi reste ton geste dans Odoo.</div></div>`,
+      SIDE_REGLE + ``,
       `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.go8()">${peutEcrire ? 'Confirmer → remplir le devis Odoo' : 'Confirmer les montants (sans écriture)'}</button>`, false, 8);
     DD._props8 = props; DD._peutEcrire8 = peutEcrire;
   }
@@ -4222,7 +4218,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const goDe = n => [...j].reverse().find(x => x.evenement === 'go' && x.etape === n);
     const out = [];
     const f4 = finDe(4), g4 = goDe(4);
-    if (f4) { const sp = (f4.detail || {}).spec || []; const or = sp.filter(x => x.niveau === 'orange').length; out.push({ ok: or === 0 && !!g4, titre: 'PCB', texte: (g4 ? 'spec validée' : 'spec non validée') + (or ? ', ' + or + ' valeur(s) sans source client ni fichier (standard PP, à confirmer à la commande)' : ', toutes les valeurs ont une source') + ((g4 && g4.detail && g4.detail.spec_ecrite) ? ', écrite dans Luminovo' : '') }); }
+    if (f4) { const sp = (f4.detail || {}).spec || []; const or = sp.filter(x => x.niveau === 'orange' && x.source !== 'standard PP').length; const std = sp.filter(x => x.source === 'standard PP').length; out.push({ ok: or === 0 && !!g4, titre: 'PCB', texte: (g4 ? 'spec validée' : 'spec non validée') + (or ? ', ' + or + ' écart(s) ou valeur(s) absente(s)' : '') + (std ? ', ' + std + ' standard(s) PP appliqué(s)' : '') + ((g4 && g4.detail && g4.detail.spec_ecrite) ? ', écrite dans Luminovo' : '') }); }
     else out.push({ ok: false, titre: 'PCB', texte: 'aucune fiche PCB créée par le déroulé (PCB fourni ou étape sautée)' });
     const f5 = finDe(5), g5 = goDe(5);
     if (f5) { const v = (f5.detail || {}).verification || {}; const att = (g5 && g5.detail && g5.detail.laisses_en_attente || []).length; out.push({ ok: !!g5 && !att, titre: 'BOM', texte: (v.elements != null ? v.elements + ' repères, ' + (v.lignes_bom || v.lignes || '?') + ' lignes, ' + (v.approuves != null ? v.approuves + ' approuvés' : '') : 'importée') + (g5 ? ', choix appliqués' : ', choix non validés') + (att ? ', ' + att + ' pièce(s) laissée(s) en attente' : '') }); }
@@ -4258,11 +4254,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       return;
     }
     cadre('Étape 4/8 — RfQ + PCB', 'à créer',
-      `<div class="dd-carte"><div class="dd-h">CE QUE VA FAIRE LE SCRIPT creer_rfq_pcb</div>
-        <div class="dd-ligne" style="line-height:1.6">1. Créer le <b>RfQ Luminovo</b> chez le client, avec le n° du devis Odoo en n° interne.<br>
-        2. Créer la <b>fiche PCB</b> et y déposer le zip du client (Gerber, perçages, fiche fabricant…).<br>
-        3. Attendre l'analyse Luminovo des fichiers, puis te présenter <b>la spec lue dans les fichiers</b>.<br>
-        Le zip est gardé dans Supabase seulement le temps du devis. Durée : 2 à 5 minutes.</div></div>
+      `
        <div class="dd-carte" style="gap:10px">
         <label class="dd-ligne">Client Luminovo<br><input id="dd-client" class="dd-sel" style="width:100%" value="${esc(a.client || '')}"></label>
         <label class="dd-ligne">Nom du RfQ (= nom de l'assemblage)<br><input id="dd-nom" class="dd-sel" style="width:100%" value="${esc(a.ref_projet || '')}"></label>
@@ -4274,7 +4266,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   function ecranAttente4(){
     const d = ETAT.deroule || {};
-    cadre('Étape 4/8 — RfQ + PCB', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>Le script creer_rfq_pcb travaille dans Luminovo (RfQ, fiche PCB, dépôt des fichiers, analyse). Cet écran se met à jour tout seul.</div></div>`,
+    cadre('Étape 4/8 — RfQ + PCB', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>Fiche PCB en cours.</div></div>`,
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')} · ouvert par ${esc(d.ouvert_par || '')}</span>`, false, 4);
   }
   function ecranBloque4(alerte){
@@ -4291,9 +4283,9 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     cadre('Étape 4/8 — RfQ + PCB', 'spec à valider',
       `<div><div class="dd-h">CRÉÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;flex-wrap:wrap;margin-top:6px"><span class="dd-ligne">RfQ chez <b>${esc(d.client_luminovo)}</b></span><span class="dd-ligne">${esc((d.fichiers || []).length)} fichiers déposés</span><span class="dd-ligne">analyse : ${esc(d.analyse_luminovo)}</span>${(d.alertes || []).length ? '<span class="dd-ligne" style="color:var(--amber)">alertes : ' + esc(d.alertes.join(', ')) + '</span>' : ''}</div></div>
        <div><div class="dd-h">SPEC PCB LUE DANS LES FICHIERS (1 source sur 3)</div><div class="dd-carte" style="margin-top:6px">${tbl}
-         <div class="dd-ligne">Sources à venir : fiche fabricant (lecture par Claude) et standards PP. Une valeur sans source reste 🟠 et sera demandée au client à la commande.</div></div></div>`,
+</div></div>`,
       SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Zip : ${esc(d.zip)}<br>Script : ${esc(fin.script)} ${esc(fin.version)}<br>Fait le ${esc(new Date(fin.le).toLocaleString('fr-FR'))}</div></div>`,
-      `<span class="dd-ligne" style="margin-left:auto">Tu valides la spec telle que lue dans les fichiers</span><button class="dd-btn p" onclick="DD.validerSpec()">Valider la spec → BOM (étape 5)</button>`, false, 4);
+      `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.validerSpec()">Valider la spec → BOM (étape 5)</button>`, false, 4);
     DD._gerber = g;
   }
   async function rafraichir(){
