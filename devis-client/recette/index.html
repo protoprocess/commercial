@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.32-recette";
+const APP_VERSION = "12.32.1-recette";
 const APP_DATE = "25/09/2026";
 /* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
 /* v12.32-recette (25/09/2026) : porte « Devis refab » (bouton du bandeau, workflow ouvrir_refab NHmuVctKidvnRTQk) : carte + devis + quantités → RfQ existant, scénarios/calcul existants réutilisables, puis étapes 7-8.
@@ -4075,7 +4075,9 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   function ecranRefab(ouv){
     const d = ouv.detail || {}; const dr = ETAT.deroule || {}; const qtes = (dr.quantites || d.quantites || []).map(Number);
     const ss = d.sourcing || []; const fab = d.fabrication || []; const plans = d.plans || [];
-    const coches = new Set(); qtes.forEach(q => { const c = ss.filter(s => Number(s.qte) === q); if (c.length) coches.add(c[c.length - 1].id); });
+    // pré-coche : par quantité, le scénario de CHIFFRAGE le plus récent (date JJMMAA dans le nom) ; jamais un scénario « Achats SO… » (appro)
+    const dateNom = n => { const m = String(n || '').match(/(\d{2})(\d{2})(\d{2})(?!\d)/); return m ? Number('20' + m[3] + m[2] + m[1]) : 0; };
+    const coches = new Set(); qtes.forEach(q => { const c = ss.filter(s => Number(s.qte) === q && !/^achats/i.test(s.nom || '')).sort((x, y) => dateNom(y.nom) - dateNom(x.nom)); if (c.length && dateNom(c[0].nom)) coches.add(c[0].id); });
     const fabDe = id => fab.filter(f => f.sourcing === id).map(f => f.nom).join(' · ');
     const lignes = ss.map(s => `<tr><td style="padding:4px 8px"><input type="checkbox" class="dd-rs" value="${esc(s.id)}" ${coches.has(s.id) ? 'checked' : ''}></td><td style="padding:4px 8px">${esc(s.nom)}</td><td style="padding:4px 8px;text-align:right">${esc(s.qte || '?')}</td><td style="padding:4px 8px;color:var(--text3)">${esc(fabDe(s.id) || '— pas de fabrication')}</td></tr>`).join('');
     const recent = plans.filter(p => p.maj && (Date.now() - Date.parse(p.maj)) < 7 * 864e5).sort((a, b) => String(b.maj).localeCompare(String(a.maj)))[0];
