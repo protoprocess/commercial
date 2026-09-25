@@ -210,7 +210,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
        style="object-fit:contain" onerror="this.style.display='none'">
   <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Commande</span></span>
   <span class="ver" id="ver"></span>
-  <span class="hdr-right"><button class="btn-accueil" id="btn-accueil" title="Retour à la liste des commandes entrantes">← Accueil</button></span>
+  <span class="hdr-right"><span class="ver" id="releve-info"></span><button class="btn-accueil" id="btn-relever" title="Va chercher tout de suite dans Gmail les mails étiquetés « ->Commande » (sinon : rattrapage automatique à 5h)">✉ Relever les commandes</button><button class="btn-accueil" id="btn-accueil" title="Retour à la liste des commandes entrantes">← Accueil</button></span>
 </header>
 
 <div class="wrap">
@@ -244,10 +244,11 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "7.11";
+const APP_VERSION = "8.0";
 const APP_DATE = "24/09/2026";
-/* v7.11 (24/09/2026) : retour à la v7.8 en prod — le pop-up déroulé commande (v7.9-7.10) est retiré de la prod
-   et part en recette dans commande/recette/ (règle : recette = copie séparée, jamais d'interrupteur en prod). */
+/* PROD 8.0 — basculee depuis la recette le 25/09/2026 (retour : etiquette avant-bascule-2026-09-25). Contenu de commande v7.10 (pop-up déroulé v2.0, chantier 174), jamais servie en prod.
+   8.0-recette : + bouton « Relever les commandes » (remplace le réveil n8n 30 min, décision Olivier/Dorian 24/09/2026).
+   Chemins partagés en ../../shared/. Les écritures Odoo restent RÉELLES (tests sur vrais dossiers). */
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
 
@@ -787,6 +788,42 @@ function accueil() {
 }
 el('btn-accueil').addEventListener('click', accueil);
 
+/* ---- 8.0 (24/09/2026) : bouton « Relever les commandes » -----------------
+   Remplace le reveil n8n toutes les 30 min (quota). Un clic lance tout de
+   suite la lecture des mails etiquetes ->Commande (webhook commande-relever,
+   reponse immediate), puis la liste des entrantes est relue a +25 s et +60 s
+   (le temps que Claude lise les bons de commande). Bouton bloque 60 s pour
+   eviter deux lancements simultanes. Filet : passage automatique a 5h lun-ven. */
+const RELEVE_KEY = 'pp_commande_dernier_releve';
+function afficherReleve() {
+  let t = null; try { t = localStorage.getItem(RELEVE_KEY); } catch (e) {}
+  el('releve-info').textContent = t ? 'Dernier relevé : ' + t : '';
+}
+async function relever() {
+  const b = el('btn-relever');
+  if (!code()) { el('acces').classList.add('visible'); return; }
+  b.disabled = true; b.style.opacity = '.5';
+  const lib = b.textContent;
+  b.innerHTML = '<span class="spin"></span>Relevé en cours…';
+  try {
+    await appel('commande-relever', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const h = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    try { localStorage.setItem(RELEVE_KEY, h); } catch (e) {}
+    afficherReleve();
+    el('etat').className = 'etat-msg chargement';
+    el('etat').textContent = 'Relevé lancé : les nouvelles commandes apparaissent dans la liste d\u2019ici 1 minute.';
+    setTimeout(chargerEntrantes, 25000);
+    setTimeout(function () { chargerEntrantes(); if (el('etat').textContent.indexOf('Relevé lancé') === 0) { el('etat').textContent = ''; } }, 60000);
+  } catch (err) {
+    el('etat').className = 'etat-msg err';
+    el('etat').textContent = err.message === 'ACCES' ? 'Code d\u2019accès refusé.' : 'Relevé impossible (' + err.message + ').';
+    if (err.message === 'ACCES') el('acces').classList.add('visible');
+  }
+  setTimeout(function () { b.disabled = false; b.style.opacity = ''; b.textContent = lib; }, 60000);
+}
+el('btn-relever').addEventListener('click', relever);
+afficherReleve();
+
 /* sansConf = true quand confronter() vient de rafraichir DIAG.conf : on ne le
    relit pas une seconde fois. Sinon (apres une action), la confrontation est
    relue en parallele des 5 pieces, pour que l etape 6 reflete le devis a jour
@@ -879,6 +916,9 @@ function afficher(rep) {
   /* etape active = premiere non faite, hors libre et manuel, et hors verrou */
   const courante = E.find(e => !e.done && !e.libre && !e.manuel && !e.verrou);
   const nCourante = courante ? courante.n : null;
+  /* v7.10 (22/09/2026, chantier 174) : informe le déroulé en pop-up v2 (shared/deroule.js),
+     actif seulement si on arrive par le nouvel accueil. Sans effet sinon. */
+  try { if (window.ppDeroule) window.ppDeroule.maj({ etapes: E, courante: nCourante, dossier: so.so || (DERNIER && DERNIER.entree && DERNIER.entree.valeur) || '', so: so, ent: (DIAG && DIAG.ent) || ENTRANTE || null, conf: conf }); } catch (errDeroule) {}
   const etat = e => e.done ? 'done' : (e.manuel ? 'info' : (e.libre ? 'active' : (e.n === nCourante ? 'active' : 'wait')));
 
   /* --- corps de chaque etape --- */
@@ -1381,5 +1421,6 @@ async function relier(bouton) {
 </script>
 
 <script src="../shared/retour-accueil.js" defer></script>
+<script src="../shared/deroule.js" data-appli="commande" defer></script>
 </body>
 </html>
