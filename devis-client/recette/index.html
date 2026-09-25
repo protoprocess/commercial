@@ -307,7 +307,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
       const ETAPES = {3:'RfQ',4:'PCB',5:'BOM',6:'scénarios',7:'sourcing',8:'devis'};
       el.innerHTML = '<b>À toi de jouer :</b> ' + rows.map(r => {
         const aToi = r.a_toi; const quoi = r.statut === 'bloque' || r.bom_statut === 'bloque' ? '⛔ bloqué' : aToi ? '● à valider' : '⏳ en cours';
-        const url = r.job_id ? `?fiche=${encodeURIComponent(r.job_id)}&deroule=1` : '#';
+        const url = r.job_id ? `?fiche=${encodeURIComponent(r.job_id)}&deroule=1` : `?deroule_id=${r.id}`;
         return `<a href="${url}" style="color:${aToi ? '#F07B1F' : '#eab676'};text-decoration:none;margin-right:14px">${(r.client || '')} — ${(r.dossier || '')} <span style="opacity:.75">(étape ${r.etape} ${ETAPES[r.etape] || ''}, ${quoi})</span></a>`;
       }).join('');
     }).catch(() => {});
@@ -608,9 +608,10 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.31-recette";
+const APP_VERSION = "12.32-recette";
 const APP_DATE = "25/09/2026";
 /* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
+/* v12.32-recette (25/09/2026) : porte « Devis refab » (bouton du bandeau, workflow ouvrir_refab NHmuVctKidvnRTQk) : carte + devis + quantités → RfQ existant, scénarios/calcul existants réutilisables, puis étapes 7-8.
 /* v12.30-recette (25/09/2026) : étape 8 — adresses livraison/facturation proposées et écrites au go ; fiche de cohérence (PCB, BOM, scénarios, sourcing, exigences, calcul).
 /* v12.28-recette (25/09/2026) : fil rouge « Exigences du dossier » (analyse) sur chaque porte, cases « pris en compte » enregistrées au go.
 /* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
@@ -3950,7 +3951,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.8', DD_DATE = '25/09/2026'; // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.9', DD_DATE = '25/09/2026'; // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -3966,7 +3967,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
 
   // ---------- lectures ----------
   async function lireEtat(){
-    const r = await fetch(`${base()}/webhook/recette-deroule?action=etat&job=${encodeURIComponent(jobCourant())}`);
+    const r = await fetch(`${base()}/webhook/recette-deroule?action=etat&job=${encodeURIComponent(jobCourant() || '-')}${DD._deroule ? '&deroule=' + DD._deroule : ''}`);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }
@@ -4070,12 +4071,28 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   // ---------- étape 6 : scénarios ----------
   const MODELES_FAB = ['FR - NOUVELLE FAB STD', 'FR - REFAB STD', 'FR - CMS LIGHT', 'FR - REFAB CMS LIGHT', 'FR - 100% TRAD', 'FR - REWORK', 'WW - NOUVELLE FAB STD', 'WW - REFAB STD', 'WW - 100% TRAD', 'WW - REWORK'];
+  // ---------- porte « Devis refab » ----------
+  function ecranRefab(ouv){
+    const d = ouv.detail || {}; const dr = ETAT.deroule || {}; const qtes = (dr.quantites || d.quantites || []).map(Number);
+    const ss = d.sourcing || []; const fab = d.fabrication || []; const plans = d.plans || [];
+    const coches = new Set(); qtes.forEach(q => { const c = ss.filter(s => Number(s.qte) === q); if (c.length) coches.add(c[c.length - 1].id); });
+    const fabDe = id => fab.filter(f => f.sourcing === id).map(f => f.nom).join(' · ');
+    const lignes = ss.map(s => `<tr><td style="padding:4px 8px"><input type="checkbox" class="dd-rs" value="${esc(s.id)}" ${coches.has(s.id) ? 'checked' : ''}></td><td style="padding:4px 8px">${esc(s.nom)}</td><td style="padding:4px 8px;text-align:right">${esc(s.qte || '?')}</td><td style="padding:4px 8px;color:var(--text3)">${esc(fabDe(s.id) || '— pas de fabrication')}</td></tr>`).join('');
+    const recent = plans.filter(p => p.maj && (Date.now() - Date.parse(p.maj)) < 7 * 864e5).sort((a, b) => String(b.maj).localeCompare(String(a.maj)))[0];
+    const radios = `<label class="dd-ligne" style="display:block"><input type="radio" name="dd-plan" value="" ${recent ? '' : 'checked'}> Nouveau calcul sur les scénarios cochés</label>` + plans.map(p => `<label class="dd-ligne" style="display:block"><input type="radio" name="dd-plan" value="${esc(p.id)}" ${recent && recent.id === p.id ? 'checked' : ''}> ${esc(p.nom)} <span style="color:var(--text3)">${p.maj ? new Date(p.maj).toLocaleDateString('fr-FR') : ''}</span></label>`).join('');
+    cadre('Devis refab', dr.so_odoo || '',
+      `<div class="dd-carte" style="flex-direction:row;gap:22px;flex-wrap:wrap"><span class="dd-ligne"><b>${esc(d.carte || '')}</b></span><span class="dd-ligne">RfQ ${esc((d.rfq || {}).nom || '')}</span><span class="dd-ligne">qté ${esc(qtes.join(', '))}</span>${d.indice_fabstory ? '<span class="dd-ligne">indice FabStory ' + esc(d.indice_fabstory) + '</span>' : ''}</div>
+       <div><div class="dd-h">SCÉNARIOS DE SOURCING DU RFQ</div><div class="dd-carte" style="margin-top:6px">${ss.length ? '<table style="border-collapse:collapse;font-size:12px;width:100%">' + lignes + '</table>' : '<div class="dd-ligne">aucun</div>'}</div></div>
+       <div><div class="dd-h">CALCUL</div><div class="dd-carte" style="margin-top:6px">${radios}</div></div>`,
+      SIDE_REGLE,
+      `<button class="dd-btn" onclick="DD.refabCreer()">Créer de nouveaux scénarios</button><span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.refabGarder()">Garder les cochés → sourcing</button>`, false, 6);
+  }
   function ecranScenarios(){
-    const a = ETAT.analyse || {};
-    let qtes = Array.isArray(a.quantites) ? a.quantites.map(Number).filter(x => x > 0) : [];
+    const a = ETAT.analyse || {}; const dRef = ETAT.deroule || {}; const refab = dRef.type === 'refab';
+    let qtes = Array.isArray(refab ? dRef.quantites : a.quantites) ? (refab ? dRef.quantites : a.quantites).map(Number).filter(x => x > 0) : [];
     if (!qtes.length) qtes = [1];
     qtes = [...new Set(qtes)].sort((x, y) => x - y);
-    const lignes = qtes.map((q, i) => `<tr><td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="${q}" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === (i === 0 ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD') ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td></tr>`).join('');
+    const lignes = qtes.map((q, i) => `<tr><td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="${q}" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === ((i === 0 && !refab) ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD') ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td></tr>`).join('');
     cadre('Étape 6/8 — Scénarios', 'à créer',
       `
        <div class="dd-carte"><div class="dd-h">QUANTITÉS ET MODÈLES</div>
@@ -4159,6 +4176,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     }
     if (d.etape === 6) {
       if (d.statut === 'bloque') return ecranBloque(alerteDe(6));
+      if (d.type === 'refab' && d.statut === 'attente_porte' && !finDe(6)) { const ouv = [...j].reverse().find(x => x.evenement === 'ouverture' && x.etape === 6); if (ouv) return DD._refabCreer === d.id ? ecranScenarios() : ecranRefab(ouv); }
       if (d.statut === 'attente_porte' && finDe(6)) return ecranPorte6(finDe(6));
       if (d.statut === 'en_cours' && !lance(6)) { if (DD._lance6 !== d.id) { DD._lance6 = d.id; DD.creerScenariosAuto(); } return ecranAttenteN(6, 'Scénarios en cours de création.'); }
       return ecranAttenteN(6, 'Scénarios en cours de création.');
@@ -4194,7 +4212,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       if (p.type === 'note') return `<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Note sous la ligne qté ${esc(p.qte)} <span style="color:var(--text3)">(${esc(p.source)})</span></div><textarea class="dd-sel" id="dd-n${i}" rows="2" style="width:100%;font-family:inherit">${esc(p.texte_propose)}</textarea>${p.texte_actuel && p.texte_actuel !== p.texte_propose ? '<div class="dd-ligne" style="color:var(--text3)">actuel : ' + esc(p.texte_actuel).replace(/\n/g, ' · ') + '</div>' : ''}</div>`;
       return '';
     }).join('');
-    const avert = (d.avertissements || []).map(a => `<div class="dd-ligne" style="color:var(--amber)">⚠ ${esc(a)}</div>`).join('');
+    const avert = (d.avertissements || []).filter(a => !((ETAT.deroule || {}).type === 'refab' && /NRE/.test(a))).map(a => `<div class="dd-ligne" style="color:var(--amber)">⚠ ${esc(a)}</div>`).join('');
     // adresses : livraison = demandeur, facturation = Comptabilité fournisseur (règle du 23/09)
     const ad = d.adresses || {}; const contacts = ad.contacts || [];
     const selAd = (id, act, prop) => { const cur = (prop || act || [])[0]; return `<select id="${id}" class="dd-sel" style="max-width:340px"><option value="">— ne pas changer —</option>${contacts.map(c => `<option value="${c.id}" ${c.id === cur ? 'selected' : ''}>${esc(c.name)}${c.email ? ' · ' + esc(c.email) : ''}</option>`).join('')}</select>`; };
@@ -4217,14 +4235,18 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const finDe = n => [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === n);
     const goDe = n => [...j].reverse().find(x => x.evenement === 'go' && x.etape === n);
     const out = [];
+    const refabD = (ETAT.deroule || {}).type === 'refab';
     const f4 = finDe(4), g4 = goDe(4);
-    if (f4) { const sp = (f4.detail || {}).spec || []; const or = sp.filter(x => x.niveau === 'orange' && x.source !== 'standard PP').length; const std = sp.filter(x => x.source === 'standard PP').length; out.push({ ok: or === 0 && !!g4, titre: 'PCB', texte: (g4 ? 'spec validée' : 'spec non validée') + (or ? ', ' + or + ' écart(s) ou valeur(s) absente(s)' : '') + (std ? ', ' + std + ' standard(s) PP appliqué(s)' : '') + ((g4 && g4.detail && g4.detail.spec_ecrite) ? ', écrite dans Luminovo' : '') }); }
+    if (refabD) out.push({ ok: true, titre: 'PCB / BOM', texte: 'refab : RfQ, BOM et fiche PCB existants' });
+    else if (f4) { const sp = (f4.detail || {}).spec || []; const or = sp.filter(x => x.niveau === 'orange' && x.source !== 'standard PP').length; const std = sp.filter(x => x.source === 'standard PP').length; out.push({ ok: or === 0 && !!g4, titre: 'PCB', texte: (g4 ? 'spec validée' : 'spec non validée') + (or ? ', ' + or + ' écart(s) ou valeur(s) absente(s)' : '') + (std ? ', ' + std + ' standard(s) PP appliqué(s)' : '') + ((g4 && g4.detail && g4.detail.spec_ecrite) ? ', écrite dans Luminovo' : '') }); }
     else out.push({ ok: false, titre: 'PCB', texte: 'aucune fiche PCB créée par le déroulé (PCB fourni ou étape sautée)' });
     const f5 = finDe(5), g5 = goDe(5);
-    if (f5) { const v = (f5.detail || {}).verification || {}; const att = (g5 && g5.detail && g5.detail.laisses_en_attente || []).length; out.push({ ok: !!g5 && !att, titre: 'BOM', texte: (v.elements != null ? v.elements + ' repères, ' + (v.lignes_bom || v.lignes || '?') + ' lignes, ' + (v.approuves != null ? v.approuves + ' approuvés' : '') : 'importée') + (g5 ? ', choix appliqués' : ', choix non validés') + (att ? ', ' + att + ' pièce(s) laissée(s) en attente' : '') }); }
+    if (refabD) {}
+    else if (f5) { const v = (f5.detail || {}).verification || {}; const att = (g5 && g5.detail && g5.detail.laisses_en_attente || []).length; out.push({ ok: !!g5 && !att, titre: 'BOM', texte: (v.elements != null ? v.elements + ' repères, ' + (v.lignes_bom || v.lignes || '?') + ' lignes, ' + (v.approuves != null ? v.approuves + ' approuvés' : '') : 'importée') + (g5 ? ', choix appliqués' : ', choix non validés') + (att ? ', ' + att + ' pièce(s) laissée(s) en attente' : '') }); }
     else out.push({ ok: false, titre: 'BOM', texte: 'pas d\'import BOM par le déroulé' });
     const f6 = finDe(6);
-    if (f6) { const sc = (f6.detail || {}).scenarios || []; const tri = [...sc].sort((x, y) => x.qte - y.qte); const regle = tri.every((s, i) => i === 0 ? /NOUVELLE/i.test(s.modele || '') : /REFAB/i.test(s.modele || '')); out.push({ ok: regle && sc.every(s => !s.erreur), titre: 'Scénarios', texte: sc.map(s => 'qté ' + s.qte + ' → ' + (s.modele || s.erreur || '?')).join(' · ') + (regle ? ' (règle nouveau / refab respectée)' : ' (écart à la règle nouveau / refab)') }); }
+    if (f6) { const sc = (f6.detail || {}).scenarios || []; const tri = [...sc].sort((x, y) => x.qte - y.qte); const regle = tri.every((s, i) => (i === 0 && !refabD) ? /NOUVELLE/i.test(s.modele || '') : /REFAB/i.test(s.modele || '')); out.push({ ok: regle && sc.every(s => !s.erreur), titre: 'Scénarios', texte: sc.map(s => 'qté ' + s.qte + ' → ' + (s.modele || s.erreur || '?')).join(' · ') + (regle ? ' (règle nouveau / refab respectée)' : ' (écart à la règle nouveau / refab)') }); }
+    else if (refabD && goDe(6)) out.push({ ok: true, titre: 'Scénarios', texte: 'scénarios existants retenus' + ((goDe(6).detail || {}).plan_retenu ? ', calcul existant retenu' : '') });
     else out.push({ ok: false, titre: 'Scénarios', texte: 'non créés par le déroulé' });
     const f7 = finDe(7), g7 = goDe(7);
     if (f7) { const p = (f7.detail || {}).points || []; const q = p.filter(x => x.genre === 'question').length; const posees = (g7 && g7.detail && g7.detail.questions_demandees || []).length; const sig = p.filter(x => x.genre === 'signalement').length; out.push({ ok: !!g7 && (q === 0 || posees > 0), titre: 'Sourcing', texte: ((f7.detail || {}).scenarios || []).map(s => s.nom + ' : ' + (s.total_matiere != null ? Number(s.total_matiere).toFixed(2) + ' €' : '?')).join(' · ') + ' · ' + q + ' ligne(s) sans offre → ' + posees + ' question(s) client' + (sig ? ', ' + sig + ' signalement(s) interne(s)' : '') }); }
@@ -4297,7 +4319,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   window.DD = {
     async ouvrir(relance){
-      if (!jobCourant()) { alert('Ouvre d\'abord une fiche (?fiche=…) pour lancer le déroulé.'); return; }
+      if (!jobCourant() && !DD._deroule) { DD.refab(); return; }
       $$('dd-fond').classList.add('show'); $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Lecture du dossier…</div>';
       try {
         ETAT = await lireEtat();
@@ -4336,6 +4358,37 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
     abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
+    refab(){
+      $$('dd-fond').classList.add('show');
+      cadre('Devis refab', 'nouvelle demande',
+        `<div class="dd-carte" style="gap:10px">
+          <label class="dd-ligne">Carte (clé produit)<br><input id="dd-rf-cle" class="dd-sel" style="width:100%" placeholder="CLI238-MAA-0003-04"></label>
+          <label class="dd-ligne">Devis Odoo<br><input id="dd-rf-so" class="dd-sel" style="width:100%" placeholder="SO2609-…"></label>
+          <label class="dd-ligne">Quantités<br><input id="dd-rf-q" class="dd-sel" style="width:100%" placeholder="20, 50"></label></div>`,
+        SIDE_REGLE, `<button class="dd-btn" onclick="DD.fermer()">Fermer</button><span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.refabOuvrir()">Ouvrir</button>`, false, 6);
+    },
+    async refabOuvrir(){
+      const corps = { cle: $$('dd-rf-cle').value.trim(), so: $$('dd-rf-so').value.trim(), quantites: $$('dd-rf-q').value, valideur: qui() };
+      if (!corps.cle || !corps.so || !corps.quantites) { alert('Carte, devis et quantités.'); return; }
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Recherche du RfQ Luminovo…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-ouvrir-refab`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+        DD._deroule = j.deroule_id; await rafraichir();
+      } catch (e) { alert(e.message); DD.refab(); }
+    },
+    refabCreer(){ DD._refabCreer = (ETAT.deroule || {}).id; afficher(); },
+    async refabGarder(){
+      const scen = [...document.querySelectorAll('.dd-rs:checked')].map(x => x.value);
+      if (!scen.length) { alert('Coche au moins un scénario, ou crée-en de nouveaux.'); return; }
+      const pl = (document.querySelector('input[name="dd-plan"]:checked') || {}).value || null;
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui(), scenarios_retenus: scen, plan_retenu: pl }) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        DD._lance7 = null; await rafraichir();
+      } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
+    },
     exigencesCochees(){ return [...document.querySelectorAll('.dd-ex:checked:not(:disabled)')].map(x => x.value); },
     exigencesTextes(){ const ids = new Set(DD.exigencesCochees()); return (((ETAT || {}).analyse || {}).exigences || []).filter(e => ids.has(e.id)).map(e => ({ id: e.id, origine: e.origine, texte: e.texte })); },
     async lancer8(){
@@ -4452,9 +4505,10 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   };
   // bouton dans le bandeau RECETTE + ouverture auto via &deroule=1
   document.addEventListener('DOMContentLoaded', () => {
-    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); }
+    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); const b2 = document.createElement('button'); b2.id = 'dd-refab'; b2.textContent = 'Devis refab'; b2.style.marginLeft = '8px'; b2.onclick = () => { DD._deroule = null; DD.refab(); }; b.appendChild(b2); }
     // ouverture auto : on attend que la fiche soit chargee (jusqu'a 40 s), la page charge d'abord les clients
-    if (new URLSearchParams(location.search).get('deroule') === '1') { let n = 0; const t = setInterval(() => { n++; if (jobCourant()) { clearInterval(t); DD.ouvrir(); } else if (n > 40) { clearInterval(t); } }, 1000); }
+    const pDer = Number(new URLSearchParams(location.search).get('deroule_id')); if (pDer > 0) { DD._deroule = pDer; setTimeout(() => DD.ouvrir(), 800); }
+    else if (new URLSearchParams(location.search).get('deroule') === '1') { let n = 0; const t = setInterval(() => { n++; if (jobCourant()) { clearInterval(t); DD.ouvrir(); } else if (n > 40) { clearInterval(t); } }, 1000); }
   });
 })();
 </script>
