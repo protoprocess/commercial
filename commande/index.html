@@ -244,7 +244,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "8.1";
+const APP_VERSION = "8.2";
 const APP_DATE = "25/09/2026";
 /* PROD 8.0 — basculee depuis la recette le 25/09/2026 (retour : etiquette avant-bascule-2026-09-25). Contenu de commande v7.10 (pop-up déroulé v2.0, chantier 174), jamais servie en prod.
    8.0-recette : + bouton « Relever les commandes » (remplace le réveil n8n 30 min, décision Olivier/Dorian 24/09/2026).
@@ -669,7 +669,13 @@ function htmlEcritures(rep) {
 }
 function brancherEcritures(z, rep, ent, actif) {
   /* v8.1 : le bloc de l etape 6 peut etre deplace dans le pop-up deroule : on cherche toujours depuis le bouton */
-  const zone = () => { const b0 = el('btn-appliquer'); return (b0 && b0.closest('.et')) || z; };
+  /* v8.2 (25/09/2026) : le bloc est retenu PAR REFERENCE au branchement, jamais retrouve par son id.
+     Le pop-up deroule peut laisser une ancienne copie du bloc cachee dans la page (ids en double) :
+     getElementById renvoyait alors l ancienne copie -> cases lues au mauvais endroit, ecritures
+     Odoo differentes de ce qui est affiche. z = le rendu courant, donc le bon bloc. */
+  const btnA = z.querySelector('#btn-appliquer');
+  const bloc = (btnA && btnA.closest('.et')) || z;
+  const zone = () => bloc;
   /* v7.4 : une carte dont l ecriture est decochee se grise en entier, pour que
      le compte du bouton se verifie a l oeil sans relire chaque case. */
   const majCartes = () => {
@@ -680,7 +686,7 @@ function brancherEcritures(z, rep, ent, actif) {
   const majBouton = () => {
     const n = zone().querySelectorAll('[data-action]:checked:not(:disabled)').length;
     majCartes();
-    const b = el('btn-appliquer'); if (!b) return;
+    const b = btnA; if (!b) return;
     b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n || !actif;
   };
   zone().querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
@@ -717,13 +723,13 @@ function brancherEcritures(z, rep, ent, actif) {
   }));
   const ok = zone().querySelector('[data-conf-ok]');
   if (ok) ok.addEventListener('click', () => ok.classList.toggle('ouvert'));
-  const b = el('btn-appliquer');
-  if (b) b.addEventListener('click', () => appliquer(rep, ent));
+  if (btnA) btnA.addEventListener('click', () => appliquer(rep, ent, btnA));
 }
 
 /* Un seul appel groupe : l API pose tout, relit tout, et rend un journal. */
-async function appliquer(rep, ent) {
-  const b0 = el('btn-appliquer'); const z = (b0 && b0.closest('.et')) || el('pieces'); /* v8.1 : bloc eventuellement deplace dans le pop-up */
+async function appliquer(rep, ent, btnA) {
+  /* v8.2 : bouton et bloc transmis par reference (voir brancherEcritures), jamais par id */
+  const b0 = btnA || el('btn-appliquer'); const z = (b0 && b0.closest('.et')) || el('pieces');
   const coche = c => { const x = z.querySelector('[data-action="' + c + '"]'); return !!(x && x.checked && !x.disabled); };
   const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
   const dateChamp = z.querySelector('[data-date]');
@@ -738,7 +744,7 @@ async function appliquer(rep, ent) {
     exigences: coche('note') && A.note ? (A.note.liste || []) : [],
     piece_jointe: coche('pj')
   };
-  const b = el('btn-appliquer'), m = el('diag-msg');
+  const b = b0, m = z.querySelector('#diag-msg') || el('diag-msg');
   b.disabled = true; b.textContent = '\u00c9criture en cours\u2026'; m.textContent = ''; m.style.color = '';
   try {
     const r = await appel('commande-rattacher', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -749,7 +755,7 @@ async function appliquer(rep, ent) {
       MSG_PERSIST = '\u00c9critures appliqu\u00e9es sur ' + (r.so || rep.devis.nom) + ' (' + r.nb_fait + ' relue(s) dans Odoo). Entrante rattach\u00e9e : elle dispara\u00eetra \u00e0 la confirmation du devis.';
       diagnostiquer();
     } else {
-      afficherJournal(r, el('journal'));
+      afficherJournal(r, z.querySelector('#journal') || el('journal'));
       b.disabled = false; b.textContent = 'R\u00e9essayer';
       m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
       if (r.generiques && r.generiques.length) {
