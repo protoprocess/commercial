@@ -588,8 +588,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.27.1-recette";
+const APP_VERSION = "12.28-recette";
 const APP_DATE = "25/09/2026";
+/* v12.28-recette (25/09/2026) : fil rouge « Exigences du dossier » (analyse) sur chaque porte, cases « pris en compte » enregistrées au go.
 /* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
 /* v12.26-recette (24/09/2026) : RfQ Luminovo + import BOM lancés en fond dès la création du devis (creer_rfq VQEJDH7HRcg79X1n) ; étape 4 = fichiers PCB ; scénarios auto après la BOM.
 /* v12.25-recette (24/09/2026) : pop-up étapes 6 (scénarios, edOjKVBAObu0uN8t) et 7 (sourcing, questions client FabStory au go).
@@ -3927,7 +3928,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.5', DD_DATE = '25/09/2026'; // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.6', DD_DATE = '25/09/2026'; // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -3966,8 +3967,18 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
        <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
       + etapesHtml(cour || 5, bloque)
-      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}</div></div>`
+      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}${exigencesPanel()}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
+  }
+  // ---------- fil rouge : exigences du dossier (sorties de l'analyse) ----------
+  const ORIGINES = { pcb: 'PCB', montage: 'câblage', autre: 'exigence', attention: 'attention', question: 'question client', manquant: 'manquant', hors_capacite: 'hors capacité' };
+  function exigencesPrises(){ const s = new Set(); (ETAT.journal || []).forEach(j => { if (j.evenement === 'go' && j.detail && Array.isArray(j.detail.exigences_prises)) j.detail.exigences_prises.forEach(x => s.add(x)); }); return s; }
+  function exigencesPanel(){
+    const ex = ((ETAT || {}).analyse || {}).exigences || []; if (!ex.length) return '';
+    const prises = exigencesPrises(); const restantes = ex.filter(e => !prises.has(e.id)).length;
+    return `<div><div class="dd-h">EXIGENCES DU DOSSIER — ${restantes ? restantes + ' à prendre en compte' : 'toutes prises en compte'}</div>
+      <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:340px;overflow:auto">${ex.map(e => { const p = prises.has(e.id); return `<label class="dd-ligne" style="display:flex;gap:7px;align-items:flex-start;${p ? 'opacity:.55' : ''}"><input type="checkbox" class="dd-ex" value="${esc(e.id)}" ${p ? 'checked disabled' : ''} style="margin-top:2px"><span><span style="color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em">${esc(ORIGINES[e.origine] || e.origine)}</span> ${esc(e.texte)}${e.source ? ' <span style="color:var(--text3)">(' + esc(e.source) + ')</span>' : ''}</span></label>`; }).join('')}</div>
+      <div class="dd-ligne" style="margin-top:6px">Coche ce que tu as pris en compte à cette étape : c'est enregistré au go. Ce qui reste décoché sera rappelé jusqu'à la fin.</div></div>`;
   }
   const SIDE_REGLE = `<div><div class="dd-h">RÈGLE</div><div class="dd-ligne" style="line-height:1.5;margin-top:6px">Luminovo reflète la BOM client exacte. Seule la pièce choisie peut différer. Rien n'est retiré : au plus « non câblé », et c'est toi qui décides.</div></div>`;
 
@@ -4271,7 +4282,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       const approuver = [], laisser = [], non_cable = [];
       (DD._groupes || []).forEach(g => (CHOIX[g.id] === 'ok' ? approuver : laisser).push(...g.reperes));
       (DD._nc || []).forEach(n => { if (CHOIX[n.id] === 'nc') non_cable.push(n.reperes); });
-      const corps = { deroule_id: ETAT.deroule.id, valideur: qui(), approuver, laisser, non_cable };
+      const corps = { deroule_id: ETAT.deroule.id, etape: 5, valideur: qui(), exigences_prises: DD.exigencesCochees(), approuver, laisser, non_cable };
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture de tes choix dans Luminovo…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
@@ -4281,6 +4292,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
     abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
+    exigencesCochees(){ return [...document.querySelectorAll('.dd-ex:checked:not(:disabled)')].map(x => x.value); },
     async lancer8(){
       try {
         const r = await fetch(`${base()}/webhook/recette-calculer-devis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, valideur: qui() }) });
@@ -4297,7 +4309,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       if (!confirm(ecritures.length ? ecritures.length + ' ligne(s) vont être écrites dans le devis Odoo (brouillon). Continuer ?' : 'Confirmer les montants sans rien écrire dans Odoo ?')) return;
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture…</div>';
       try {
-        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 8, valideur: qui(), ecritures, so: (ETAT.deroule || {}).so_odoo || '' }) });
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 8, valideur: qui(), exigences_prises: DD.exigencesCochees(), ecritures, so: (ETAT.deroule || {}).so_odoo || '' }) });
         const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch (e) {}
         if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status + ' ' + t.slice(0, 200)));
         await rafraichir();
@@ -4338,7 +4350,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     async go6(){
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
       try {
-        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui() }) });
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui(), exigences_prises: DD.exigencesCochees() }) });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         DD._lance7 = null; await rafraichir();
       } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
@@ -4358,7 +4370,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       if (!confirm(`${questions.length} question(s) client vont être créées dans FabStory (notification différée)${exclusions.length ? ', ' + exclusions.length + ' ligne(s) à exclure du sourcing dans Luminovo' : ''}. Continuer ?`)) return;
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
       try {
-        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 7, valideur: qui(), questions, exclusions }) });
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 7, valideur: qui(), exigences_prises: DD.exigencesCochees(), questions, exclusions }) });
         const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('HTTP ' + r.status);
         if (j.faits && j.faits.questions_creees != null) alert(j.faits.questions_creees + ' question(s) créée(s) dans FabStory.');
         await rafraichir();
@@ -4381,7 +4393,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Le script n\'a pas démarré : ' + e.message); ecranDepart(); }
     },
     async validerSpec(){
-      const corps = { deroule_id: ETAT.deroule.id, etape: 4, valideur: qui(), spec_validee: DD._gerber || null };
+      const corps = { deroule_id: ETAT.deroule.id, etape: 4, valideur: qui(), exigences_prises: DD.exigencesCochees(), spec_validee: DD._gerber || null };
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
