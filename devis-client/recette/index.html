@@ -294,7 +294,27 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 </style>
 </head>
 <body>
-<div style="background:#2a1f10;color:#eab676;font-size:12px;padding:6px 18px;border-bottom:.5px solid #4a3418;position:relative;z-index:50"><b>RECETTE</b> — copie de test de devis-client (déroulé devis automatique). Les boutons existants écrivent en réel dans Odoo / FabStory. La prod est <a href="../" style="color:#F07B1F">ici</a>.</div>
+<div style="background:#2a1f10;color:#eab676;font-size:12px;padding:6px 18px;border-bottom:.5px solid #4a3418;position:relative;z-index:50"><b>RECETTE</b> — copie de test de devis-client (déroulé devis automatique). Les boutons existants écrivent en réel dans Odoo / FabStory. La prod est <a href="../" style="color:#F07B1F">ici</a>.
+  <span id="dd-atoi" style="display:block;margin-top:4px"></span></div>
+<script>
+/* v12.29-recette — « À toi de jouer » dans le bandeau (le temps des tests ; l'accueil ne le porte plus) : vue v_deroule_a_toi */
+(function(){
+  const SB = "https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1", CLE = "sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O";
+  const el = document.getElementById('dd-atoi'); if (!el) return;
+  function charger(){
+    fetch(`${SB}/v_deroule_a_toi?select=*&order=a_toi.desc,maj_le.desc`, { headers: { apikey: CLE } }).then(r => r.json()).then(rows => {
+      if (!Array.isArray(rows) || !rows.length) { el.innerHTML = ''; return; }
+      const ETAPES = {3:'RfQ',4:'PCB',5:'BOM',6:'scénarios',7:'sourcing',8:'devis'};
+      el.innerHTML = '<b>À toi de jouer :</b> ' + rows.map(r => {
+        const aToi = r.a_toi; const quoi = r.statut === 'bloque' || r.bom_statut === 'bloque' ? '⛔ bloqué' : aToi ? '● à valider' : '⏳ en cours';
+        const url = r.job_id ? `?fiche=${encodeURIComponent(r.job_id)}&deroule=1` : '#';
+        return `<a href="${url}" style="color:${aToi ? '#F07B1F' : '#eab676'};text-decoration:none;margin-right:14px">${(r.client || '')} — ${(r.dossier || '')} <span style="opacity:.75">(étape ${r.etape} ${ETAPES[r.etape] || ''}, ${quoi})</span></a>`;
+      }).join('');
+    }).catch(() => {});
+  }
+  charger(); setInterval(charger, 30000);
+})();
+</script>
 <!-- ===== ACCES PROTO PROCESS ===== -->
 <script>
 (function(){
@@ -588,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.28-recette";
+const APP_VERSION = "12.29-recette";
 const APP_DATE = "25/09/2026";
 /* v12.28-recette (25/09/2026) : fil rouge « Exigences du dossier » (analyse) sur chaque porte, cases « pris en compte » enregistrées au go.
 /* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
