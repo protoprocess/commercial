@@ -588,8 +588,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.26-recette";
-const APP_DATE = "24/09/2026";
+const APP_VERSION = "12.27-recette";
+const APP_DATE = "25/09/2026";
+/* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
 /* v12.26-recette (24/09/2026) : RfQ Luminovo + import BOM lancés en fond dès la création du devis (creer_rfq VQEJDH7HRcg79X1n) ; étape 4 = fichiers PCB ; scénarios auto après la BOM.
 /* v12.25-recette (24/09/2026) : pop-up étapes 6 (scénarios, edOjKVBAObu0uN8t) et 7 (sourcing, questions client FabStory au go).
 /* v12.22-recette (24/09/2026) : spec PCB à 3 sources (documents client / fichiers / standards PP) à l'étape 4, écrite dans Luminovo au go.
@@ -3926,7 +3927,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.4', DD_DATE = '24/09/2026'; // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.5', DD_DATE = '25/09/2026'; // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4140,7 +4141,46 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       if (d.statut === 'en_cours' && !lance(7) && DD._lance7 !== d.id) { DD._lance7 = d.id; DD.lancer7(); }
       return ecranAttenteN(7, 'Le script lire_sourcing relance la sélection des offres puis lit les prix, les délais et les lignes sans solution.');
     }
+    if (d.etape === 8) {
+      if (d.statut === 'bloque') return ecranBloque(alerteDe(8));
+      const go8 = [...j].reverse().find(x => x.evenement === 'go' && x.etape === 8);
+      const fin8 = finDe(8);
+      if (go8 && fin8 && go8.id > fin8.id) return ecranEnvoyer(go8, fin8);
+      if (d.statut === 'attente_porte' && fin8) return ecranPorte8(fin8);
+      if (d.statut === 'en_cours' && !lance(8) && DD._lance8 !== d.id) { DD._lance8 = d.id; DD.lancer8(); }
+      return ecranAttenteN(8, 'Le script calculer_devis rejoue le calcul Luminovo et lit la trame du devis Odoo.');
+    }
     return ecranSuite();
+  }
+  // ---------- étape 8 : devis ----------
+  function ecranPorte8(fin){
+    const d = fin.detail || {}; const m = d.montants || []; const o = d.odoo; const props = d.propositions || [];
+    const eur = v => v == null ? '—' : Number(v).toFixed(2).replace('.', ',') + ' €';
+    const tblM = '<table style="border-collapse:collapse;font-size:12px;width:100%"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Quantité</th><th style="text-align:right;padding:4px 8px;color:var(--text3);font-weight:500">Matière/carte</th><th style="text-align:right;padding:4px 8px;color:var(--text3);font-weight:500">Fab/carte</th><th style="text-align:right;padding:4px 8px;color:var(--text3);font-weight:500">Prix unitaire</th><th style="text-align:right;padding:4px 8px;color:var(--text3);font-weight:500">NRE</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Modèle fab</th></tr>'
+      + m.map(x => `<tr><td style="padding:4px 8px"><b>${esc(x.qte)}</b></td><td style="padding:4px 8px;text-align:right">${eur(x.matiere)}</td><td style="padding:4px 8px;text-align:right">${eur(x.fabrication)}${x.difficulte ? ' <span style="color:var(--amber)">(difficulté ' + eur(x.difficulte) + ')</span>' : ''}</td><td style="padding:4px 8px;text-align:right"><b>${eur(x.prix_unitaire)}</b></td><td style="padding:4px 8px;text-align:right">${x.nre ? eur(x.nre) : '—'}</td><td style="padding:4px 8px;color:var(--text3)">${esc(x.fab_scenario || '')}</td></tr>`).join('') + '</table>';
+    const peutEcrire = o && o.state === 'draft';
+    const odooHtml = o ? `<div class="dd-ligne">Devis <b>${esc(o.name)}</b> — état ${esc(o.state)}${peutEcrire ? '' : ' <span style="color:var(--amber)">(déjà envoyé ou confirmé : rien ne sera écrit)</span>'} · total actuel ${eur(o.total_actuel)}</div>
+       <div class="dd-ligne">Livraison : ${esc((o.livraison || [])[1] || '?')} · Facturation : ${esc((o.facturation || [])[1] || '?')}</div>` : '<div class="dd-ligne" style="color:var(--amber)">Devis Odoo introuvable</div>';
+    const lignesHtml = props.map((p, i) => {
+      if (p.type === 'article' || p.type === 'nre') return `<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">${p.type === 'nre' ? 'NRE' : 'Qté ' + esc(p.qte)} — ${esc(String(p.libelle || '').split('\n')[0])}</div><div class="dd-ligne" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">actuel ${eur(p.prix_actuel)} → <input class="dd-sel" style="width:110px;text-align:right" id="dd-p${i}" value="${Number(p.prix_propose).toFixed(2)}"> € <span style="color:var(--text3)">${esc(p.source)}</span></div></div>`;
+      if (p.type === 'note') return `<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Note sous la ligne qté ${esc(p.qte)} <span style="color:var(--text3)">(${esc(p.source)})</span></div><textarea class="dd-sel" id="dd-n${i}" rows="2" style="width:100%;font-family:inherit">${esc(p.texte_propose)}</textarea>${p.texte_actuel && p.texte_actuel !== p.texte_propose ? '<div class="dd-ligne" style="color:var(--text3)">actuel : ' + esc(p.texte_actuel).replace(/\n/g, ' · ') + '</div>' : ''}</div>`;
+      return '';
+    }).join('');
+    const avert = (d.avertissements || []).map(a => `<div class="dd-ligne" style="color:var(--amber)">⚠ ${esc(a)}</div>`).join('');
+    cadre('Étape 8/8 — Devis', 'montants à confirmer',
+      `<div><div class="dd-h">CALCUL LUMINOVO REJOUÉ (plan ${esc((d.plan || {}).name || '')}${(d.plan || {}).cree ? ', créé par le script' : ''})</div><div class="dd-carte" style="margin-top:6px">${tblM}<div class="dd-ligne">Formule du modèle client standard : matière +40 % · fabrication ×1,823 + facteur difficulté + 10 % · NRE atelier ×1,823. Compare avec l'écran Luminovo avant de valider.</div></div></div>
+       <div><div class="dd-h">DEVIS ODOO</div><div class="dd-carte" style="margin-top:6px">${odooHtml}${avert}</div></div>
+       <div><div class="dd-h">CE QUI SERA ÉCRIT DANS LA TRAME (modifiable)</div>${lignesHtml || '<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Aucune ligne à remplir.</div></div>'}</div>`,
+      SIDE_REGLE + `<div><div class="dd-h">GARDE-FOUS</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Le script n'écrit que dans un devis <b>brouillon</b>, ligne par ligne, jamais de création de ligne, jamais d'envoi. L'envoi reste ton geste dans Odoo.</div></div>`,
+      `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.go8()">${peutEcrire ? 'Confirmer → remplir le devis Odoo' : 'Confirmer les montants (sans écriture)'}</button>`, false, 8);
+    DD._props8 = props; DD._peutEcrire8 = peutEcrire;
+  }
+  function ecranEnvoyer(go8, fin8){
+    const det = go8.detail || {}; const o = (fin8.detail || {}).odoo || {};
+    cadre('Étape 8/8 — Devis', 'à envoyer',
+      `<div class="dd-carte"><div class="dd-ligne" style="line-height:1.7">${det.lignes_ecrites != null ? '<b>' + esc(det.lignes_ecrites) + '</b> ligne(s) écrite(s) dans le devis ' + esc(det.odoo_devis || o.name || '') + '.' : 'Montants confirmés, sans écriture (devis non modifiable).'}${(det.erreurs_odoo || []).length ? '<br><span style="color:var(--red)">Erreurs Odoo : ' + esc(det.erreurs_odoo.join(' · ')) + '</span>' : ''}<br>Reste ton geste : <b>relire et envoyer le devis depuis Odoo</b>. Le déroulé passera à « fait » quand le devis sera constaté envoyé.</div>
+        ${o.name ? '<a class="dd-btn p" style="text-decoration:none;display:inline-block" target="_blank" href="https://proto-process.odoo.com/odoo/sales/' + encodeURIComponent(o.name) + '">Ouvrir le devis dans Odoo</a>' : ''}</div>`,
+      SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Go par ${esc(go8.qui || '')} le ${esc(new Date(go8.le).toLocaleString('fr-FR'))}</span>`, false, 8);
   }
   // ---------- étape 4 ----------
   function ecranDepart(){
@@ -4198,7 +4238,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const d = ETAT.deroule;
     afficher();
     clearTimeout(TIMER);
-    if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+    if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7 || d.etape === 8)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
   }
   window.DD = {
     async ouvrir(relance){
@@ -4210,7 +4250,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         if (relance) ETAT.deroule = null;
         else if (d0 && d0.etape === 5 && d0.statut === 'en_cours' && !(ETAT.journal || []).some(x => x.etape === 5 && x.evenement === 'script')) RFQS = await lireRfqs((ETAT.analyse || {}).client);
         CHOIX = {}; afficher();
-        const d = ETAT.deroule; if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
+        const d = ETAT.deroule; if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7 || d.etape === 8)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
     fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
@@ -4241,6 +4281,28 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
     abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
+    async lancer8(){
+      try {
+        const r = await fetch(`${base()}/webhook/recette-calculer-devis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, valideur: qui() }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
+        await new Promise(res => setTimeout(res, 3000)); await rafraichir();
+      } catch (e) { alert('Calcul non lancé : ' + e.message); }
+    },
+    async go8(){
+      const props = DD._props8 || []; const ecritures = [];
+      if (DD._peutEcrire8) props.forEach((p, i) => {
+        if (p.type === 'article' || p.type === 'nre') { const v = Number(String(($$('dd-p' + i) || {}).value || '').replace(',', '.')); if (isFinite(v) && v > 0) ecritures.push({ ligne_id: p.ligne_id, price_unit: Math.round(v * 100) / 100 }); }
+        if (p.type === 'note') { const t = String(($$('dd-n' + i) || {}).value || '').trim(); if (t) ecritures.push({ ligne_id: p.ligne_id, name: t }); }
+      });
+      if (!confirm(ecritures.length ? ecritures.length + ' ligne(s) vont être écrites dans le devis Odoo (brouillon). Continuer ?' : 'Confirmer les montants sans rien écrire dans Odoo ?')) return;
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture…</div>';
+      try {
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 8, valideur: qui(), ecritures, so: (ETAT.deroule || {}).so_odoo || '' }) });
+        const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch (e) {}
+        if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status + ' ' + t.slice(0, 200)));
+        await rafraichir();
+      } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
+    },
     async apresDevis(so, ref){
       // v1.4 : dès que le devis Odoo est créé (étape 3), on crée le RfQ Luminovo et on lance l'import BOM en fond.
       try {
