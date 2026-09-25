@@ -611,6 +611,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 const APP_VERSION = "12.33-recette";
 const APP_DATE = "25/09/2026";
 /* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
+/* v12.33-recette (25/09/2026) : refab — devis Odoo créé automatiquement s il manque (sans NRE) ; ?refab=1 ouvre la porte refab.
 /* v12.32-recette (25/09/2026) : porte « Devis refab » (bouton du bandeau, workflow ouvrir_refab NHmuVctKidvnRTQk) : carte + devis + quantités → RfQ existant, scénarios/calcul existants réutilisables, puis étapes 7-8.
 /* v12.30-recette (25/09/2026) : étape 8 — adresses livraison/facturation proposées et écrites au go ; fiche de cohérence (PCB, BOM, scénarios, sourcing, exigences, calcul).
 /* v12.28-recette (25/09/2026) : fil rouge « Exigences du dossier » (analyse) sur chaque porte, cases « pris en compte » enregistrées au go.
@@ -3951,7 +3952,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.9', DD_DATE = '25/09/2026'; // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.10', DD_DATE = '25/09/2026'; // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4365,14 +4366,14 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       cadre('Devis refab', 'nouvelle demande',
         `<div class="dd-carte" style="gap:10px">
           <label class="dd-ligne">Carte (clé produit)<br><input id="dd-rf-cle" class="dd-sel" style="width:100%" placeholder="CLI238-MAA-0003-04"></label>
-          <label class="dd-ligne">Devis Odoo<br><input id="dd-rf-so" class="dd-sel" style="width:100%" placeholder="SO2609-…"></label>
+          <label class="dd-ligne">Devis Odoo <span style="color:var(--text3)">(vide = créé automatiquement)</span><br><input id="dd-rf-so" class="dd-sel" style="width:100%" placeholder="SO2609-…"></label>
           <label class="dd-ligne">Quantités<br><input id="dd-rf-q" class="dd-sel" style="width:100%" placeholder="20, 50"></label></div>`,
         SIDE_REGLE, `<button class="dd-btn" onclick="DD.fermer()">Fermer</button><span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.refabOuvrir()">Ouvrir</button>`, false, 6);
     },
     async refabOuvrir(){
       const corps = { cle: $$('dd-rf-cle').value.trim(), so: $$('dd-rf-so').value.trim(), quantites: $$('dd-rf-q').value, valideur: qui() };
-      if (!corps.cle || !corps.so || !corps.quantites) { alert('Carte, devis et quantités.'); return; }
-      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Recherche du RfQ Luminovo…</div>';
+      if (!corps.cle || !corps.quantites) { alert('Carte et quantités.'); return; }
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>' + (corps.so ? 'Recherche du RfQ Luminovo…' : 'Création du devis Odoo et recherche du RfQ Luminovo…') + '</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-ouvrir-refab`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
         const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
@@ -4510,7 +4511,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); const b2 = document.createElement('button'); b2.id = 'dd-refab'; b2.textContent = 'Devis refab'; b2.style.marginLeft = '8px'; b2.onclick = () => { DD._deroule = null; DD.refab(); }; b.appendChild(b2); }
     // ouverture auto : on attend que la fiche soit chargee (jusqu'a 40 s), la page charge d'abord les clients
     const pDer = Number(new URLSearchParams(location.search).get('deroule_id')); if (pDer > 0) { DD._deroule = pDer; setTimeout(() => DD.ouvrir(), 800); }
-    else if (new URLSearchParams(location.search).get('refab') === '1') { setTimeout(() => { DD._deroule = null; DD.refab(); }, 800); }
+    else if (new URLSearchParams(location.search).get('refab') === '1') { setTimeout(() => { DD._deroule = null; DD.refab(); }, 600); }
     else if (new URLSearchParams(location.search).get('deroule') === '1') { let n = 0; const t = setInterval(() => { n++; if (jobCourant()) { clearInterval(t); DD.ouvrir(); } else if (n > 40) { clearInterval(t); } }, 1000); }
   });
 })();
