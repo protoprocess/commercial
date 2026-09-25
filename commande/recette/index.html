@@ -205,7 +205,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 </style>
 </head>
 <body>
-<div style="background:#2a1f10;color:#eab676;font-size:12px;padding:6px 18px;border-bottom:.5px solid #4a3418"><b>RECETTE</b> — copie de test de l'appli Commande (pop-up déroulé + bouton « Relever les commandes »). Les écritures Odoo sont réelles. La prod est <a href="../" style="color:#F07B1F">ici</a>.</div>
+<div style="background:#2a1f10;color:#eab676;font-size:12px;padding:6px 18px;border-bottom:.5px solid #4a3418"><b>RECETTE</b> — copie de test de l'appli Commande (v8.2 : étape 6 dans le pop-up, écritures lues sur le bloc affiché). Les écritures Odoo sont réelles. La prod est <a href="../" style="color:#F07B1F">ici</a>.</div>
 <header>
   <img src="../../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
        style="object-fit:contain" onerror="this.style.display='none'">
@@ -245,9 +245,9 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "8.0-recette";
-const APP_DATE = "24/09/2026";
-/* COPIE DE RECETTE (24/09/2026) — contenu de commande v7.10 (pop-up déroulé v2.0, chantier 174), jamais servie en prod.
+const APP_VERSION = "8.2-recette";
+const APP_DATE = "25/09/2026";
+/* PROD 8.0 — basculee depuis la recette le 25/09/2026 (retour : etiquette avant-bascule-2026-09-25). Contenu de commande v7.10 (pop-up déroulé v2.0, chantier 174), jamais servie en prod.
    8.0-recette : + bouton « Relever les commandes » (remplace le réveil n8n 30 min, décision Olivier/Dorian 24/09/2026).
    Chemins partagés en ../../shared/. Les écritures Odoo restent RÉELLES (tests sur vrais dossiers). */
 document.title = "RECETTE — Commande v" + APP_VERSION;
@@ -669,60 +669,68 @@ function htmlEcritures(rep) {
   return h;
 }
 function brancherEcritures(z, rep, ent, actif) {
+  /* v8.1 : le bloc de l etape 6 peut etre deplace dans le pop-up deroule : on cherche toujours depuis le bouton */
+  /* v8.2 (25/09/2026) : le bloc est retenu PAR REFERENCE au branchement, jamais retrouve par son id.
+     Le pop-up deroule peut laisser une ancienne copie du bloc cachee dans la page (ids en double) :
+     getElementById renvoyait alors l ancienne copie -> cases lues au mauvais endroit, ecritures
+     Odoo differentes de ce qui est affiche. z = le rendu courant, donc le bon bloc. */
+  const btnA = z.querySelector('#btn-appliquer');
+  const bloc = (btnA && btnA.closest('.et')) || z;
+  const zone = () => bloc;
   /* v7.4 : une carte dont l ecriture est decochee se grise en entier, pour que
      le compte du bouton se verifie a l oeil sans relire chaque case. */
   const majCartes = () => {
-    z.querySelectorAll('[data-action]').forEach(c => {
+    zone().querySelectorAll('[data-action]').forEach(c => {
       const w = c.closest('.ecw'); if (w) w.classList.toggle('decoche', !c.checked || c.disabled);
     });
   };
   const majBouton = () => {
-    const n = z.querySelectorAll('[data-action]:checked:not(:disabled)').length;
+    const n = zone().querySelectorAll('[data-action]:checked:not(:disabled)').length;
     majCartes();
-    const b = el('btn-appliquer'); if (!b) return;
+    const b = btnA; if (!b) return;
     b.textContent = 'Appliquer dans Odoo' + (n ? ' (' + n + ')' : ''); b.disabled = !n || !actif;
   };
-  z.querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
+  zone().querySelectorAll('[data-action]').forEach(c => c.addEventListener('change', majBouton));
   majBouton();
   /* changer : deplie / replie le detail */
   const bascule = (cls, lien) => {
-    const rows = Array.from(z.querySelectorAll('.' + cls)).filter(r => !r.dataset.soc || r.classList.contains('visible'));
+    const rows = Array.from(zone().querySelectorAll('.' + cls)).filter(r => !r.dataset.soc || r.classList.contains('visible'));
     const ouvert = rows.some(r => r.classList.contains('visible'));
     rows.forEach(r => r.classList.toggle('visible', !ouvert));
     const boite = rows.length ? rows[0].closest('.subs') : null;
     if (boite) boite.classList.toggle('visible', !ouvert);
-    if (!ouvert) { const p = z.querySelector('[data-plus-soc]'); if (p && cls === 'sub-abo') p.classList.add('visible'); }
+    if (!ouvert) { const p = zone().querySelector('[data-plus-soc]'); if (p && cls === 'sub-abo') p.classList.add('visible'); }
     lien.textContent = ouvert ? 'changer \u25be' : 'replier \u25b4';
   };
-  z.querySelectorAll('[data-changer]').forEach(l => l.addEventListener('click', function () { bascule(this.dataset.changer === 'liv' ? 'sub-liv' : 'sub-abo', this); }));
-  const vs = z.querySelector('[data-voir-societe]');
-  if (vs) vs.addEventListener('click', function () { z.querySelectorAll('.soc-cache').forEach(x => x.classList.add('visible')); const p = z.querySelector('[data-plus-soc]'); if (p) p.classList.remove('visible'); });
+  zone().querySelectorAll('[data-changer]').forEach(l => l.addEventListener('click', function () { bascule(this.dataset.changer === 'liv' ? 'sub-liv' : 'sub-abo', this); }));
+  const vs = zone().querySelector('[data-voir-societe]');
+  if (vs) vs.addEventListener('click', function () { zone().querySelectorAll('.soc-cache').forEach(x => x.classList.add('visible')); const p = zone().querySelector('[data-plus-soc]'); if (p) p.classList.remove('visible'); });
   /* resumes vivants */
   const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
-  z.querySelectorAll('[data-livraison]').forEach(r => r.addEventListener('change', () => {
-    const c = z.querySelector('[data-livraison]:checked'); const row = c ? c.closest('.dl') : null; const s = z.querySelector('[data-resume="livraison"]');
+  zone().querySelectorAll('[data-livraison]').forEach(r => r.addEventListener('change', () => {
+    const c = zone().querySelector('[data-livraison]:checked'); const row = c ? c.closest('.dl') : null; const s = zone().querySelector('[data-resume="livraison"]');
     if (s && row) s.innerHTML = ech(row.querySelector('.lib').textContent) + ' \u2014 ' + ech(row.querySelector('.val').textContent);
-    const cb = z.querySelector('[data-action="livraison"]'); if (cb && c) { cb.checked = true; majBouton(); }
+    const cb = zone().querySelector('[data-action="livraison"]'); if (cb && c) { cb.checked = true; majBouton(); }
   }));
-  z.querySelectorAll('[data-abonne]').forEach(c => c.addEventListener('change', () => {
-    const noms = Array.from(z.querySelectorAll('[data-abonne]:checked')).map(x => ech(x.closest('.dl').querySelector('.lib').textContent.trim()));
-    const s = z.querySelector('[data-resume="abonnes"]');
+  zone().querySelectorAll('[data-abonne]').forEach(c => c.addEventListener('change', () => {
+    const noms = Array.from(zone().querySelectorAll('[data-abonne]:checked')).map(x => ech(x.closest('.dl').querySelector('.lib').textContent.trim()));
+    const s = zone().querySelector('[data-resume="abonnes"]');
     if (s) s.innerHTML = (noms.length ? noms.join(' \u00b7 ') : '<span style="color:var(--text3)">aucun contact coch\u00e9</span>') + ' \u00b7 ' + (A.abonnes && A.abonnes.commercial ? ech(A.abonnes.commercial.nom) : '\u00c9quipe Commerciale') + ' <span style="color:var(--text3)">toujours</span>';
   }));
   /* constats : vu */
-  z.querySelectorAll('[data-vu]').forEach(c => c.addEventListener('change', function () {
+  zone().querySelectorAll('[data-vu]').forEach(c => c.addEventListener('change', function () {
     if (DIAG) { DIAG.vus = DIAG.vus || {}; if (this.checked) DIAG.vus[this.dataset.vu] = true; else delete DIAG.vus[this.dataset.vu]; }
     this.closest('.cst').classList.toggle('vu', this.checked);
   }));
-  const ok = z.querySelector('[data-conf-ok]');
+  const ok = zone().querySelector('[data-conf-ok]');
   if (ok) ok.addEventListener('click', () => ok.classList.toggle('ouvert'));
-  const b = el('btn-appliquer');
-  if (b) b.addEventListener('click', () => appliquer(rep, ent));
+  if (btnA) btnA.addEventListener('click', () => appliquer(rep, ent, btnA));
 }
 
 /* Un seul appel groupe : l API pose tout, relit tout, et rend un journal. */
-async function appliquer(rep, ent) {
-  const z = el('pieces');
+async function appliquer(rep, ent, btnA) {
+  /* v8.2 : bouton et bloc transmis par reference (voir brancherEcritures), jamais par id */
+  const b0 = btnA || el('btn-appliquer'); const z = (b0 && b0.closest('.et')) || el('pieces');
   const coche = c => { const x = z.querySelector('[data-action="' + c + '"]'); return !!(x && x.checked && !x.disabled); };
   const A = {}; (rep.actions || []).forEach(a => { A[a.cle] = a; });
   const dateChamp = z.querySelector('[data-date]');
@@ -737,7 +745,7 @@ async function appliquer(rep, ent) {
     exigences: coche('note') && A.note ? (A.note.liste || []) : [],
     piece_jointe: coche('pj')
   };
-  const b = el('btn-appliquer'), m = el('diag-msg');
+  const b = b0, m = z.querySelector('#diag-msg') || el('diag-msg');
   b.disabled = true; b.textContent = '\u00c9criture en cours\u2026'; m.textContent = ''; m.style.color = '';
   try {
     const r = await appel('commande-rattacher', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -748,7 +756,7 @@ async function appliquer(rep, ent) {
       MSG_PERSIST = '\u00c9critures appliqu\u00e9es sur ' + (r.so || rep.devis.nom) + ' (' + r.nb_fait + ' relue(s) dans Odoo). Entrante rattach\u00e9e : elle dispara\u00eetra \u00e0 la confirmation du devis.';
       diagnostiquer();
     } else {
-      afficherJournal(r, el('journal'));
+      afficherJournal(r, z.querySelector('#journal') || el('journal'));
       b.disabled = false; b.textContent = 'R\u00e9essayer';
       m.textContent = r.motif || 'Refus\u00e9.'; m.style.color = 'var(--red)';
       if (r.generiques && r.generiques.length) {
@@ -917,9 +925,6 @@ function afficher(rep) {
   /* etape active = premiere non faite, hors libre et manuel, et hors verrou */
   const courante = E.find(e => !e.done && !e.libre && !e.manuel && !e.verrou);
   const nCourante = courante ? courante.n : null;
-  /* v7.10 (22/09/2026, chantier 174) : informe le déroulé en pop-up v2 (shared/deroule.js),
-     actif seulement si on arrive par le nouvel accueil. Sans effet sinon. */
-  try { if (window.ppDeroule) window.ppDeroule.maj({ etapes: E, courante: nCourante, dossier: so.so || (DERNIER && DERNIER.entree && DERNIER.entree.valeur) || '', so: so, ent: (DIAG && DIAG.ent) || ENTRANTE || null, conf: conf }); } catch (errDeroule) {}
   const etat = e => e.done ? 'done' : (e.manuel ? 'info' : (e.libre ? 'active' : (e.n === nCourante ? 'active' : 'wait')));
 
   /* --- corps de chaque etape --- */
@@ -1206,6 +1211,9 @@ function afficher(rep) {
   appliquerMode(fr, E, nCourante);
   el('rapport').classList.add('visible');
   if (DIAG && DIAG.conf) el('rapport').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  /* v8.1 (25/09/2026) : le pop-up déroulé (shared/deroule.js) est informé APRÈS le rendu et les branchements,
+     jamais avant : sinon il déplaçait dans le pop-up une photo périmée du bloc (boutons morts, RTSYS 25/09). */
+  try { if (window.ppDeroule) window.ppDeroule.maj({ etapes: E, courante: nCourante, dossier: so.so || (DERNIER && DERNIER.entree && DERNIER.entree.valeur) || '', so: so, ent: (DIAG && DIAG.ent) || ENTRANTE || null, conf: conf }); } catch (errDeroule) {}
 }
 
 /* ---- DEROULE (v7.0, 08/09/2026) -------------------------------------------
