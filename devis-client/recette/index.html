@@ -608,8 +608,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.29-recette";
+const APP_VERSION = "12.30-recette";
 const APP_DATE = "25/09/2026";
+/* v12.30-recette (25/09/2026) : étape 8 — adresses livraison/facturation proposées et écrites au go ; fiche de cohérence (PCB, BOM, scénarios, sourcing, exigences, calcul).
 /* v12.28-recette (25/09/2026) : fil rouge « Exigences du dossier » (analyse) sur chaque porte, cases « pris en compte » enregistrées au go.
 /* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
 /* v12.26-recette (24/09/2026) : RfQ Luminovo + import BOM lancés en fond dès la création du devis (creer_rfq VQEJDH7HRcg79X1n) ; étape 4 = fichiers PCB ; scénarios auto après la BOM.
@@ -3948,7 +3949,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.6', DD_DATE = '25/09/2026'; // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.7', DD_DATE = '25/09/2026'; // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4198,13 +4199,44 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       return '';
     }).join('');
     const avert = (d.avertissements || []).map(a => `<div class="dd-ligne" style="color:var(--amber)">⚠ ${esc(a)}</div>`).join('');
+    // adresses : livraison = demandeur, facturation = Comptabilité fournisseur (règle du 23/09)
+    const ad = d.adresses || {}; const contacts = ad.contacts || [];
+    const selAd = (id, act, prop) => { const cur = (prop || act || [])[0]; return `<select id="${id}" class="dd-sel" style="max-width:340px"><option value="">— ne pas changer —</option>${contacts.map(c => `<option value="${c.id}" ${c.id === cur ? 'selected' : ''}>${esc(c.name)}${c.email ? ' · ' + esc(c.email) : ''}</option>`).join('')}</select>`; };
+    const adHtml = o ? `<div class="dd-ligne">Livraison : ${selAd('dd-ad-liv', ad.livraison && ad.livraison.actuel, ad.livraison && ad.livraison.propose)} <span style="color:var(--text3)">${esc((ad.livraison || {}).source || '')}</span></div>
+      <div class="dd-ligne">Facturation : ${selAd('dd-ad-fac', ad.facturation && ad.facturation.actuel, ad.facturation && ad.facturation.propose)} <span style="color:var(--text3)">${esc((ad.facturation || {}).source || '')}</span></div>` : '';
+    DD._adActuel = { liv: (ad.livraison && ad.livraison.actuel || [])[0] || null, fac: (ad.facturation && ad.facturation.actuel || [])[0] || null };
+    const coh = ficheCoherence(d);
+    const cohHtml = coh.map(c => `<div class="dd-ligne">${c.ok ? '🟢' : '🟠'} <b>${esc(c.titre)}</b> — ${esc(c.texte)}</div>`).join('');
     cadre('Étape 8/8 — Devis', 'montants à confirmer',
       `<div><div class="dd-h">CALCUL LUMINOVO REJOUÉ (plan ${esc((d.plan || {}).name || '')}${(d.plan || {}).cree ? ', créé par le script' : ''})</div><div class="dd-carte" style="margin-top:6px">${tblM}<div class="dd-ligne">Formule du modèle client standard : matière +40 % · fabrication ×1,823 + facteur difficulté + 10 % · NRE atelier ×1,823. Compare avec l'écran Luminovo avant de valider.</div></div></div>
-       <div><div class="dd-h">DEVIS ODOO</div><div class="dd-carte" style="margin-top:6px">${odooHtml}${avert}</div></div>
+       <div><div class="dd-h">FICHE DE COHÉRENCE — ${esc(coh.filter(c => !c.ok).length)} point(s) 🟠</div><div class="dd-carte" style="margin-top:6px">${cohHtml}</div></div>
+       <div><div class="dd-h">DEVIS ODOO</div><div class="dd-carte" style="margin-top:6px">${odooHtml}${adHtml}${avert}</div></div>
        <div><div class="dd-h">CE QUI SERA ÉCRIT DANS LA TRAME (modifiable)</div>${lignesHtml || '<div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Aucune ligne à remplir.</div></div>'}</div>`,
       SIDE_REGLE + `<div><div class="dd-h">GARDE-FOUS</div><div class="dd-ligne" style="line-height:1.6;margin-top:6px">Le script n'écrit que dans un devis <b>brouillon</b>, ligne par ligne, jamais de création de ligne, jamais d'envoi. L'envoi reste ton geste dans Odoo.</div></div>`,
       `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.go8()">${peutEcrire ? 'Confirmer → remplir le devis Odoo' : 'Confirmer les montants (sans écriture)'}</button>`, false, 8);
     DD._props8 = props; DD._peutEcrire8 = peutEcrire;
+  }
+  function ficheCoherence(d8){
+    const j = ETAT.journal || []; const a = ETAT.analyse || {};
+    const finDe = n => [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === n);
+    const goDe = n => [...j].reverse().find(x => x.evenement === 'go' && x.etape === n);
+    const out = [];
+    const f4 = finDe(4), g4 = goDe(4);
+    if (f4) { const sp = (f4.detail || {}).spec || []; const or = sp.filter(x => x.niveau === 'orange').length; out.push({ ok: or === 0 && !!g4, titre: 'PCB', texte: (g4 ? 'spec validée' : 'spec non validée') + (or ? ', ' + or + ' valeur(s) sans source client ni fichier (standard PP, à confirmer à la commande)' : ', toutes les valeurs ont une source') + ((g4 && g4.detail && g4.detail.spec_ecrite) ? ', écrite dans Luminovo' : '') }); }
+    else out.push({ ok: false, titre: 'PCB', texte: 'aucune fiche PCB créée par le déroulé (PCB fourni ou étape sautée)' });
+    const f5 = finDe(5), g5 = goDe(5);
+    if (f5) { const v = (f5.detail || {}).verification || {}; const att = (g5 && g5.detail && g5.detail.laisses_en_attente || []).length; out.push({ ok: !!g5 && !att, titre: 'BOM', texte: (v.elements != null ? v.elements + ' repères, ' + (v.lignes_bom || v.lignes || '?') + ' lignes, ' + (v.approuves != null ? v.approuves + ' approuvés' : '') : 'importée') + (g5 ? ', choix appliqués' : ', choix non validés') + (att ? ', ' + att + ' pièce(s) laissée(s) en attente' : '') }); }
+    else out.push({ ok: false, titre: 'BOM', texte: 'pas d\'import BOM par le déroulé' });
+    const f6 = finDe(6);
+    if (f6) { const sc = (f6.detail || {}).scenarios || []; const tri = [...sc].sort((x, y) => x.qte - y.qte); const regle = tri.every((s, i) => i === 0 ? /NOUVELLE/i.test(s.modele || '') : /REFAB/i.test(s.modele || '')); out.push({ ok: regle && sc.every(s => !s.erreur), titre: 'Scénarios', texte: sc.map(s => 'qté ' + s.qte + ' → ' + (s.modele || s.erreur || '?')).join(' · ') + (regle ? ' (règle nouveau / refab respectée)' : ' (écart à la règle nouveau / refab)') }); }
+    else out.push({ ok: false, titre: 'Scénarios', texte: 'non créés par le déroulé' });
+    const f7 = finDe(7), g7 = goDe(7);
+    if (f7) { const p = (f7.detail || {}).points || []; const q = p.filter(x => x.genre === 'question').length; const posees = (g7 && g7.detail && g7.detail.questions_demandees || []).length; const sig = p.filter(x => x.genre === 'signalement').length; out.push({ ok: !!g7 && (q === 0 || posees > 0), titre: 'Sourcing', texte: ((f7.detail || {}).scenarios || []).map(s => s.nom + ' : ' + (s.total_matiere != null ? Number(s.total_matiere).toFixed(2) + ' €' : '?')).join(' · ') + ' · ' + q + ' ligne(s) sans offre → ' + posees + ' question(s) client' + (sig ? ', ' + sig + ' signalement(s) interne(s)' : '') }); }
+    else out.push({ ok: false, titre: 'Sourcing', texte: 'non lu par le déroulé' });
+    const ex = a.exigences || []; const prises = exigencesPrises(); const rest = ex.filter(e => !prises.has(e.id));
+    out.push({ ok: rest.length === 0, titre: 'Exigences du dossier', texte: ex.length ? (rest.length ? rest.length + ' sur ' + ex.length + ' jamais prise(s) en compte : ' + rest.slice(0, 3).map(e => e.texte).join(' · ') + (rest.length > 3 ? '…' : '') : 'toutes prises en compte') : 'aucune relevée par l\'analyse' });
+    const m = (d8 || {}).montants || []; out.push({ ok: m.length > 0 && m.every(x => x.prix_unitaire > 0), titre: 'Calcul', texte: m.length ? m.map(x => 'qté ' + x.qte + ' : ' + Number(x.prix_unitaire).toFixed(2) + ' €' + (x.difficulte ? ' (difficulté ' + Number(x.difficulte).toFixed(2) + ')' : '')).join(' · ') : 'aucun montant' });
+    return out;
   }
   function ecranEnvoyer(go8, fin8){
     const det = go8.detail || {}; const o = (fin8.detail || {}).odoo || {};
@@ -4302,7 +4334,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       const approuver = [], laisser = [], non_cable = [];
       (DD._groupes || []).forEach(g => (CHOIX[g.id] === 'ok' ? approuver : laisser).push(...g.reperes));
       (DD._nc || []).forEach(n => { if (CHOIX[n.id] === 'nc') non_cable.push(n.reperes); });
-      const corps = { deroule_id: ETAT.deroule.id, etape: 5, valideur: qui(), exigences_prises: DD.exigencesCochees(), approuver, laisser, non_cable };
+      const corps = { deroule_id: ETAT.deroule.id, etape: 5, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes(), approuver, laisser, non_cable };
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture de tes choix dans Luminovo…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
@@ -4313,6 +4345,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     },
     abandonner(){ alert('À venir : abandon avec raison (lot 2). Pour l\'instant, ferme simplement le pop-up.'); },
     exigencesCochees(){ return [...document.querySelectorAll('.dd-ex:checked:not(:disabled)')].map(x => x.value); },
+    exigencesTextes(){ const ids = new Set(DD.exigencesCochees()); return (((ETAT || {}).analyse || {}).exigences || []).filter(e => ids.has(e.id)).map(e => ({ id: e.id, origine: e.origine, texte: e.texte })); },
     async lancer8(){
       try {
         const r = await fetch(`${base()}/webhook/recette-calculer-devis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, valideur: qui() }) });
@@ -4326,10 +4359,13 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         if (p.type === 'article' || p.type === 'nre') { const v = Number(String(($$('dd-p' + i) || {}).value || '').replace(',', '.')); if (isFinite(v) && v > 0) ecritures.push({ ligne_id: p.ligne_id, price_unit: Math.round(v * 100) / 100 }); }
         if (p.type === 'note') { const t = String(($$('dd-n' + i) || {}).value || '').trim(); if (t) ecritures.push({ ligne_id: p.ligne_id, name: t }); }
       });
-      if (!confirm(ecritures.length ? ecritures.length + ' ligne(s) vont être écrites dans le devis Odoo (brouillon). Continuer ?' : 'Confirmer les montants sans rien écrire dans Odoo ?')) return;
+      const liv = Number((($$('dd-ad-liv') || {}).value) || 0) || null, fac = Number((($$('dd-ad-fac') || {}).value) || 0) || null;
+      const adresses = DD._peutEcrire8 ? { partner_shipping_id: liv && liv !== (DD._adActuel || {}).liv ? liv : null, partner_invoice_id: fac && fac !== (DD._adActuel || {}).fac ? fac : null } : null;
+      const nbAd = adresses ? [adresses.partner_shipping_id, adresses.partner_invoice_id].filter(Boolean).length : 0;
+      if (!confirm(ecritures.length || nbAd ? ecritures.length + ' ligne(s)' + (nbAd ? ' et ' + nbAd + ' adresse(s)' : '') + ' vont être écrites dans le devis Odoo (brouillon). Continuer ?' : 'Confirmer les montants sans rien écrire dans Odoo ?')) return;
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture…</div>';
       try {
-        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 8, valideur: qui(), exigences_prises: DD.exigencesCochees(), ecritures, so: (ETAT.deroule || {}).so_odoo || '' }) });
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 8, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes(), adresses, ecritures, so: (ETAT.deroule || {}).so_odoo || '' }) });
         const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch (e) {}
         if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status + ' ' + t.slice(0, 200)));
         await rafraichir();
