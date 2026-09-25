@@ -588,7 +588,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "12.27-recette";
+const APP_VERSION = "12.27.1-recette";
 const APP_DATE = "25/09/2026";
 /* v12.27-recette (25/09/2026) : étape 8 (calculer_devis LQoNueV9ynuTQbvz : calcul rejoué, trame Odoo proposée, écrite au go si brouillon).
 /* v12.26-recette (24/09/2026) : RfQ Luminovo + import BOM lancés en fond dès la création du devis (creer_rfq VQEJDH7HRcg79X1n) ; étape 4 = fichiers PCB ; scénarios auto après la BOM.
@@ -4179,7 +4179,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const det = go8.detail || {}; const o = (fin8.detail || {}).odoo || {};
     cadre('Étape 8/8 — Devis', 'à envoyer',
       `<div class="dd-carte"><div class="dd-ligne" style="line-height:1.7">${det.lignes_ecrites != null ? '<b>' + esc(det.lignes_ecrites) + '</b> ligne(s) écrite(s) dans le devis ' + esc(det.odoo_devis || o.name || '') + '.' : 'Montants confirmés, sans écriture (devis non modifiable).'}${(det.erreurs_odoo || []).length ? '<br><span style="color:var(--red)">Erreurs Odoo : ' + esc(det.erreurs_odoo.join(' · ')) + '</span>' : ''}<br>Reste ton geste : <b>relire et envoyer le devis depuis Odoo</b>. Le déroulé passera à « fait » quand le devis sera constaté envoyé.</div>
-        ${o.name ? '<a class="dd-btn p" style="text-decoration:none;display:inline-block" target="_blank" href="https://proto-process.odoo.com/odoo/sales/' + encodeURIComponent(o.name) + '">Ouvrir le devis dans Odoo</a>' : ''}</div>`,
+        ${o.name ? '<a class="dd-btn p" style="text-decoration:none;display:inline-block" target="_blank" href="' + ODOO_URL + '/odoo/sales/' + encodeURIComponent(o.name) + '">Ouvrir le devis dans Odoo</a>' : ''}</div>`,
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Go par ${esc(go8.qui || '')} le ${esc(new Date(go8.le).toLocaleString('fr-FR'))}</span>`, false, 8);
   }
   // ---------- étape 4 ----------
