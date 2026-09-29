@@ -503,8 +503,13 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.0';
+const APP_VERSION = '5.1';
 const APP_DATE = '29/09/2026';
+/* 5.1 (29/09/2026, chantier « Questions client : modèles précis et déroulé ») : l'écran 1 de la saisie
+   n'affiche plus la liste de tous les modèles mais un DÉROULÉ de 2 ou 3 questions (sujet → problème →
+   pourquoi) qui mène au bon modèle pb_soluce (M7-M15 créés le 29/09). M1/M2 ne sont plus proposés ici
+   (encore utilisés par les portes automatiques). Libellés des nouvelles variables ajoutés. Écrans 2 et 3 inchangés
+   (champs * obligatoires, aperçu modifiable). */
 /* 5.0 (29/09/2026, decisions Olivier) : notifications internes simplifiees.
    - plus de « Qui est concerne ? » ni de pastilles de poles a l ecran (les poles restent
      poses automatiquement en base, sans affichage, pour ne rien casser en aval) ;
@@ -1949,7 +1954,14 @@ const VAR_LABELS = {
   POINT_A_VERIFIER: ['Point à vérifier', ''],
   BOITIER_RECU:  ['Boîtier reçu', ''],
   TECHNO_BOM:    ['Techno du composant en BOM', 'ex. traversant (THT) ou CMS'],
-  PRECISION:     ['Précision PP', 'Une phrase de plus dans le message — vide : rien n’apparaît.']
+  PRECISION:     ['Précision PP', 'Une phrase de plus dans le message — vide : rien n’apparaît.'],
+  MOQ:           ['Minimum de commande (pièces)', 'ex. 500'],
+  REF_A:         ['Première référence', 'Telle qu’elle figure sur le plan de montage.'],
+  REF_B:         ['Seconde référence', ''],
+  INFO_A:        ['Ce que dit la nomenclature (1)', 'ex. la remarque indique un connecteur M12 coudé'],
+  INFO_B:        ['Ce que dit la nomenclature (2)', 'ex. la référence fabricant correspond à un connecteur droit'],
+  DESCRIPTION:   ['Description dans la BOM', 'ex. condensateur 100 nF 0603'],
+  REF_PRECEDENTE:['Référence de la version précédente', 'Si connue — le client pourra la reprendre d’un clic.']
 };
 const VARS_LONGUES = ['LISTE','POINT_A_VERIFIER'];
 const DESCRIPTIONS_SITU = {
@@ -1999,7 +2011,7 @@ function varsDuModele(m){
 function expediteurPour(ini){ return INITIALES_COMMERCIAL.includes(ini) ? 'commercial@' : 'production@'; }
 
 function assistantReset(){
-  assistant = { produit: P ? P.id : null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true };
+  assistant = { produit: P ? P.id : null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true, pile:['r'] };
   saisie = { type:'note', etape:null, portee:null, repond_a:null, concernes:null };
   modeleChoisi = null; choixEdit = []; piecesSaisie = [];
 }
@@ -2078,42 +2090,64 @@ FS.remoulerOuvrir = async function(id){
 FS.assistantEcran = function(n){ if(n < 3) assistant.texteEdite = null; assistant.ecran = n; rendreSaisie(); };
 
 /* --------------------------------------------------------------- écran 1 -- */
+/* v5.1 : DÉROULÉ guidé (chantier « Questions client : modèles précis et déroulé », 29/09/2026).
+   Chaque noeud = une question ; une option mène à un autre noeud ou à un code modèle (feuille).
+   QL / NOTE = chemins locaux inchangés. */
+const DEROULE = {
+  r: { q:'Sur quoi porte la question ?', o:[
+    ['composant','Un composant','Rupture, référence, nomenclature'],
+    ['montage','Le montage','Sens, boîtier, empreinte'],
+    ['pcb','Le PCB','Spécifications, usinage'],
+    ['QL','Autre question au client','Texte libre + choix de réponses à composer'],
+    ['NOTE','Simple note interne','Information ou point à traiter — rien ne part au client'] ] },
+  composant: { q:'Quel est le problème ?', o:[
+    ['indispo','Il est indisponible','Impossible à acheter en l’état'],
+    ['M13','Pas de référence dans la BOM','Repère sans référence fabricant'],
+    ['M12','La nomenclature se contredit','Remarque et référence ne disent pas la même chose'],
+    ['M3','Plusieurs passifs indisponibles','Demander l’autorisation générique de substitution'] ] },
+  indispo: { q:'Pourquoi est-il indisponible ?', o:[
+    ['M7','Obsolète','Fin de vie fabricant, il ne reviendra pas'],
+    ['M8','Rupture, date de retour annoncée','Il reviendra à une date connue'],
+    ['M9','Rupture sans date de retour','Aucune visibilité'],
+    ['M10','Minimum de commande trop élevé','MOQ disproportionné par rapport au besoin'] ] },
+  montage: { q:'Quel est le problème ?', o:[
+    ['M5A','Sens de montage','Une orientation est proposée en photo'],
+    ['M5B','Boîtier différent, montage possible','Photo à joindre'],
+    ['M15','Boîtier incompatible, montage impossible','Photo à joindre'],
+    ['M6','Traversant à la place d’un CMS (ou l’inverse)','La techno ne correspond pas à l’empreinte'],
+    ['M11','Double empreinte','Deux références sur le même emplacement'],
+    ['M14','Élément représenté hors carte','Dessiné à côté, sans câblage indiqué'],
+    ['M5','Autre point à vérifier avant câblage','Réponse libre du client'] ] },
+  pcb: { q:'Quel est le problème ?', o:[
+    ['M4','Spécifications PCB non précisées','Faire valider le standard PP'],
+    ['QL','Autre point PCB','Trous, contour, usinage… en question libre'] ] }
+};
 function htmlEcranSituations(){
-  let h = '<h2 style="margin-bottom:2px"><i class="ti ti-pencil-plus"></i> Que se passe-t-il sur cette carte ?</h2>' +
-    '<p class="hint" style="margin:0 0 4px">Choisissez la situation — étape et concernés se déduisent, tout reste corrigible à l’aperçu. ' +
-    'Contexte : <strong>' + ctxDeduit() + '</strong> (statut Odoo).</p>';
+  const pile = (assistant.pile && assistant.pile.length) ? assistant.pile : (assistant.pile = ['r']);
+  const noeud = DEROULE[pile[pile.length - 1]] || DEROULE.r;
+  const etape = pile.length;
+  let h = '<h2 style="margin-bottom:2px"><i class="ti ti-pencil-plus"></i> ' + etape + '. ' + esc(noeud.q) + '</h2>' +
+    '<p class="hint" style="margin:0 0 4px">Contexte : <strong>' + ctxDeduit() + '</strong> (statut Odoo) — le bon modèle se déduit de vos réponses, tout reste modifiable à l’aperçu.</p>';
   if(!MODELES){
     h += '<p class="hint"><span class="spin"></span> Chargement de la bibliothèque…</p>';
   } else {
-    const parDomaine = {};
-    MODELES.forEach(m => { (parDomaine[m.domaine] = parDomaine[m.domaine] || []).push(m); });
-    const ordre = ['appro','devis','production','logistique'].concat(
-      Object.keys(parDomaine).filter(d => !['appro','devis','production','logistique'].includes(d)));
-    ordre.forEach(d => {
-      const liste = parDomaine[d];
-      if(!liste || !liste.length) return;
-      h += '<div class="groupe-titre">' + esc(DOMAINES_LIBELLES[d] || d) + '</div><div class="situations">' +
-        liste.map(m =>
-          '<button class="situation" onclick="FS.choisirSituation(\'' + esc(m.code) + '\')">' +
-          '<span class="st">' + esc(m.titre) + '</span>' +
-          '<span class="sd">' + esc(DESCRIPTIONS_SITU[m.code] || (m.texte_client||'').split('\n')[0].slice(0,110)) + '</span>' +
-          '<span class="chips-situ"><span class="chip-situ mod">' + esc(m.code) + '</span>' +
-          '<span class="chip-situ">' + esc(etapePourModele(m)) + '</span>' +
-          '<span class="chip-situ info">' + esc(poleDefaut(etapePourModele(m)).toLowerCase()) + '</span></span>' +
-          '</button>').join('') + '</div>';
-    });
+    const actifs = {}; MODELES.forEach(m => { actifs[m.code] = m; });
+    h += '<div class="situations">' + noeud.o.map(o => {
+      const k = o[0], estNoeud = !!DEROULE[k], estLocal = (k === 'QL' || k === 'NOTE');
+      if(!estNoeud && !estLocal && !actifs[k]) return '';            /* modèle désactivé : l’option disparaît */
+      const action = estNoeud ? 'FS.derouleVers(\'' + k + '\')' : 'FS.choisirSituation(\'' + k + '\')';
+      return '<button class="situation' + (estLocal ? ' libre' : '') + '" onclick="' + action + '">' +
+        '<span class="st">' + esc(o[1]) + (estNoeud ? ' <i class="ti ti-chevron-right"></i>' : '') + '</span>' +
+        '<span class="sd">' + esc(o[2]) + '</span></button>';
+    }).join('') + '</div>';
   }
-  h += '<div class="groupe-titre">Hors bibliothèque</div><div class="situations">' +
-    '<button class="situation libre" onclick="FS.choisirSituation(\'QL\')">' +
-    '<span class="st">Question libre au client</span>' +
-    '<span class="sd">Question non couverte par un modèle — texte libre + choix de réponses à composer, transformable en modèle.</span></button>' +
-    '<button class="situation libre" onclick="FS.choisirSituation(\'NOTE\')">' +
-    '<span class="st">Simple note / point à traiter</span>' +
-    '<span class="sd">Une note interne, une info à tracer, un point à traiter — champ libre direct, sans assistant.</span></button>' +
-    '</div>' +
-    '<div style="margin-top:12px"><button class="btn-lien" onclick="FS.assistantAbandonner()">Fermer</button></div>';
+  h += '<div style="margin-top:12px;display:flex;gap:8px">' +
+    (pile.length > 1 ? '<button class="btn-lien" onclick="FS.derouleRetour()"><i class="ti ti-arrow-left"></i> Question précédente</button>' : '') +
+    '<button class="btn-lien" onclick="FS.assistantAbandonner()">Fermer</button></div>';
   return h;
 }
+FS.derouleVers = function(k){ (assistant.pile = assistant.pile || ['r']).push(k); rendreSaisie(); };
+FS.derouleRetour = function(){ if(assistant.pile && assistant.pile.length > 1){ assistant.pile.pop(); rendreSaisie(); } };
 FS.choisirSituation = function(code){
   assistant.code = code; assistant.vals = {}; assistant.portee = true; assistant.texteEdite = null;
   if(remoulage && remoulage.prefill){
@@ -2484,7 +2518,7 @@ function rendreChoixApercu(){
       '<a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
   } else {
     zc.innerHTML = choixEdit.map((c, i) =>
-      '<div class="ce-item"><span class="ce-num">' + (i+1) + '</span><div><div class="ce-lib">' + esc(c.libelle) +
+      '<div class="ce-item"><span class="ce-num">' + (i+1) + '</span><div><div class="ce-lib">' + esc(nettoyerAuto(remplirVars(c.libelle))) +
       (c.commentaire_obligatoire ? ' <span class="mini">(commentaire obligatoire)</span>' : '') + '</div>' +
       (c.aide ? '<div class="ce-aide">' + esc(nettoyerAuto(remplirVars(c.aide))) + '</div>' : '') + '</div>' +
       '<button class="ce-x" type="button" title="Retirer" onclick="FS.retirerChoix(' + i + ')">✕</button></div>'
@@ -2868,7 +2902,7 @@ async function envoyerNote(){
   let enveloppe = null;
   if(estQuestionClient){
     const choixResolus = choixEdit.map(c => ({
-      ordre: c.ordre, libelle: c.libelle,
+      ordre: c.ordre, libelle: nettoyerAuto(remplirVars(c.libelle)),   /* v5.1 : libellé aussi résolu (M11 « Implanter {REF_A} ») */
       aide: c.aide ? nettoyerAuto(remplirVars(c.aide)) : null,
       commentaire_obligatoire: !!c.commentaire_obligatoire
     }));
