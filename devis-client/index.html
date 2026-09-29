@@ -608,7 +608,8 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.0";
+const APP_VERSION = "13.1";
+/* v13.1 (29/09/2026) : porte « Devis refab » RETIRÉE (bouton + ouverture ?refab=1) — décision Olivier : « pas la solution, tout court », à rediscuter. Le code DD.refab reste présent mais n'est plus appelable ; workflow ouvrir_refab dépublié. */
 /* v13.0 (29/09/2026) : BASCULE EN PROD de la recette 12.33 (déroulé devis automatique : RfQ + import BOM en fond, pop-up étapes 4 à 8, porte Devis refab). Go Olivier 29/09. Retour arrière : étiquette Git avant-bascule-devis-2026-09-29 (prod 12.19). Les webhooks n8n gardent leur nom « recette-… » (workflows « RECETTE — Déroulé devis »), à renommer plus tard. */
 const APP_DATE = "29/09/2026";
 /* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
@@ -4509,10 +4510,9 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   };
   // bouton dans le bandeau RECETTE + ouverture auto via &deroule=1
   document.addEventListener('DOMContentLoaded', () => {
-    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); const b2 = document.createElement('button'); b2.id = 'dd-refab'; b2.textContent = 'Devis refab'; b2.style.marginLeft = '8px'; b2.onclick = () => { DD._deroule = null; DD.refab(); }; b.appendChild(b2); }
+    const b = document.querySelector('body > div'); if (b && !$$('dd-lancer')) { b.style.display = 'flex'; b.style.alignItems = 'center'; const btn = document.createElement('button'); btn.id = 'dd-lancer'; btn.textContent = 'Déroulé devis (v' + DD_VERSION + ')'; btn.onclick = () => DD.ouvrir(); b.appendChild(btn); }
     // ouverture auto : on attend que la fiche soit chargee (jusqu'a 40 s), la page charge d'abord les clients
     const pDer = Number(new URLSearchParams(location.search).get('deroule_id')); if (pDer > 0) { DD._deroule = pDer; setTimeout(() => DD.ouvrir(), 800); }
-    else if (new URLSearchParams(location.search).get('refab') === '1') { setTimeout(() => { DD._deroule = null; DD.refab(); }, 600); }
     else if (new URLSearchParams(location.search).get('deroule') === '1') { let n = 0; const t = setInterval(() => { n++; if (jobCourant()) { clearInterval(t); DD.ouvrir(); } else if (n > 40) { clearInterval(t); } }, 1000); }
   });
 })();
