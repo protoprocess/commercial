@@ -503,8 +503,12 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.1';
+const APP_VERSION = '5.2';
 const APP_DATE = '29/09/2026';
+/* 5.2 (29/09/2026, même chantier) : OUVERTURE PRÉREMPLIE depuis une autre appli (option A validée par
+   Olivier : FabStory est le chef des échanges client). Lien ?produit=ID&question=indispo&REF=MPN&REP=repères
+   &depuis=Achats PP : la saisie s'ouvre directement sur « Pourquoi est-il indisponible ? », MPN et repère
+   préremplis. question= accepte un noeud du déroulé (composant, indispo, montage, pcb) ou un code modèle. */
 /* 5.1 (29/09/2026, chantier « Questions client : modèles précis et déroulé ») : l'écran 1 de la saisie
    n'affiche plus la liste de tous les modèles mais un DÉROULÉ de 2 ou 3 questions (sujet → problème →
    pourquoi) qui mène au bon modèle pb_soluce (M7-M15 créés le 29/09). M1/M2 ne sont plus proposés ici
@@ -1945,6 +1949,7 @@ let assistant = { produit:null, ecran:0, code:null, vals:{}, specsLignes:null, p
    le parcours assistant est reutilise, l'enregistrement met a jour la question
    (texte_reformule : le brut d'origine reste en trace) au lieu d'en creer une. */
 let remoulage = null;
+let prefillLien = null;   /* v5.2 : valeurs reçues par le lien (REF, REP…) et appli d'origine */
 const AUTO_VARS = ['DATE','LIEN','DATASHEET','PJ'];   /* v4.28 : {PJ} = « Voir photo jointe. » posé automatiquement si une pièce est déposée, sinon le segment [ {PJ}] saute */
 const VAR_LABELS = {
   REF:           ['Référence concernée', 'Servira aussi de MPN sur la fiche.'],
@@ -2011,6 +2016,7 @@ function varsDuModele(m){
 function expediteurPour(ini){ return INITIALES_COMMERCIAL.includes(ini) ? 'commercial@' : 'production@'; }
 
 function assistantReset(){
+  prefillLien = null;   /* v5.2 */
   assistant = { produit: P ? P.id : null, ecran:0, code:null, vals:{}, specsLignes:null, portee:true, pile:['r'] };
   saisie = { type:'note', etape:null, portee:null, repond_a:null, concernes:null };
   modeleChoisi = null; choixEdit = []; piecesSaisie = [];
@@ -2127,7 +2133,10 @@ function htmlEcranSituations(){
   const noeud = DEROULE[pile[pile.length - 1]] || DEROULE.r;
   const etape = pile.length;
   let h = '<h2 style="margin-bottom:2px"><i class="ti ti-pencil-plus"></i> ' + etape + '. ' + esc(noeud.q) + '</h2>' +
-    '<p class="hint" style="margin:0 0 4px">Contexte : <strong>' + ctxDeduit() + '</strong> (statut Odoo) — le bon modèle se déduit de vos réponses, tout reste modifiable à l’aperçu.</p>';
+    '<p class="hint" style="margin:0 0 4px">Contexte : <strong>' + ctxDeduit() + '</strong> (statut Odoo) — le bon modèle se déduit de vos réponses, tout reste modifiable à l’aperçu.</p>' +
+    (prefillLien ? '<p class="hint" style="margin:0 0 4px;color:var(--text2)"><i class="ti ti-link"></i> Ouvert depuis <strong>' + esc(prefillLien.depuis || 'une autre appli') + '</strong>' +
+      (prefillLien.vals.REF ? ' — MPN <strong>' + esc(prefillLien.vals.REF) + '</strong>' : '') +
+      (prefillLien.vals.REP ? ', repère <strong>' + esc(prefillLien.vals.REP) + '</strong>' : '') + ' (prérempli)</p>' : '');
   if(!MODELES){
     h += '<p class="hint"><span class="spin"></span> Chargement de la bibliothèque…</p>';
   } else {
@@ -2154,6 +2163,9 @@ FS.choisirSituation = function(code){
     Object.keys(remoulage.prefill).forEach(k => {
       if(remoulage.prefill[k]) assistant.vals[k] = remoulage.prefill[k];
     });
+  }
+  if(prefillLien && prefillLien.vals){   /* v5.2 : valeurs reçues par le lien */
+    Object.keys(prefillLien.vals).forEach(k => { if(prefillLien.vals[k] && !assistant.vals[k]) assistant.vals[k] = prefillLien.vals[k]; });
   }
   piecesSaisie = [];
   const m = modeleCourant();
@@ -3063,8 +3075,22 @@ FS.poserIndice = async function(){
 /* ================================================================ BOOT ==== */
 (async function(){
   await chargerCartes();
-  const pid = parseInt(new URLSearchParams(location.search).get('produit'), 10);
-  if(pid > 0) ouvrirFiche(pid);
+  const qs = new URLSearchParams(location.search);
+  const pid = parseInt(qs.get('produit'), 10);
+  if(pid > 0){
+    await ouvrirFiche(pid);
+    /* v5.2 : ouverture préremplie (?question=indispo&REF=…&REP=…&depuis=…) */
+    const q = (qs.get('question') || '').trim();
+    if(q && P && P.id === pid){
+      const vals = {};
+      ['REF','REP','DATE','MOQ','PROPOSITION','LIEN','DESCRIPTION'].forEach(k => { const v = (qs.get(k) || '').trim(); if(v) vals[k] = v; });
+      prefillLien = { depuis: (qs.get('depuis') || '').trim(), vals };
+      const chemins = { composant:['r','composant'], indispo:['r','composant','indispo'], montage:['r','montage'], pcb:['r','pcb'] };
+      await FS.assistantOuvrir();
+      if(chemins[q]){ assistant.pile = chemins[q].slice(); rendreSaisie(); }
+      else if(/^M[0-9]/.test(q)){ FS.choisirSituation(q); }
+    }
+  }
 })();
 
 /* ===== v4.30 (16/09/2026) : bouton « Rédiger pro » =====================
