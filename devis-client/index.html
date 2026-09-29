@@ -608,7 +608,11 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.3";
+const APP_VERSION = "13.4";
+/* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
+   sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
+   lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
+   Si la carte FabStory n'est pas connue, repli sur l'ancien comportement. */
 /* v13.1 (29/09/2026) : porte « Devis refab » RETIRÉE (bouton + ouverture ?refab=1) — décision Olivier : « pas la solution, tout court », à rediscuter. Le code DD.refab reste présent mais n'est plus appelable ; workflow ouvrir_refab dépublié. */
 /* v13.0 (29/09/2026) : BASCULE EN PROD de la recette 12.33 (déroulé devis automatique : RfQ + import BOM en fond, pop-up étapes 4 à 8, porte Devis refab). Go Olivier 29/09. Retour arrière : étiquette Git avant-bascule-devis-2026-09-29 (prod 12.19). Les webhooks n8n gardent leur nom « recette-… » (workflows « RECETTE — Déroulé devis »), à renommer plus tard. */
 const APP_DATE = "29/09/2026";
@@ -4521,14 +4525,25 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     choixPoint(i, v){ CHOIX['p' + i] = v; const q = $$('dd-b-q' + i), n = $$('dd-b-n' + i); if (q) q.classList.toggle('on', v === 'question' || v === 'accepter'); if (n) n.classList.toggle('on', v === 'rien' || v === 'exclure'); },
     async go7(){
       const pts = DD._points || [];
-      const questions = pts.filter((p, i) => p.genre === 'question' && CHOIX['p' + i] === 'question').map(p => ({ modele: p.modele || 'M2', reperes: p.reperes, mpn: p.mpn, fabricant: p.fabricant }));
+      const choisies = pts.filter((p, i) => p.genre === 'question' && CHOIX['p' + i] === 'question');
+      /* v13.4 : questions préparées dans FabStory (écran lot) quand la carte est connue */
+      const pidFab = (ETAT.deroule && ETAT.deroule.produit_id) || (typeof FICHE_LIEN !== 'undefined' && FICHE_LIEN && FICHE_LIEN.produit_id) || null;
+      const parFabStory = !!(pidFab && choisies.length);
+      const questions = parFabStory ? [] : choisies.map(p => ({ modele: p.modele || 'M2', reperes: p.reperes, mpn: p.mpn, fabricant: p.fabricant }));
       const exclusions = pts.filter((p, i) => p.genre === 'excedent' && CHOIX['p' + i] === 'exclure').map(p => p.reperes.join(','));
-      if (!confirm(`${questions.length} question(s) client vont être créées dans FabStory (notification différée)${exclusions.length ? ', ' + exclusions.length + ' ligne(s) à exclure du sourcing dans Luminovo' : ''}. Continuer ?`)) return;
+      if (!confirm((parFabStory ? `FabStory va s'ouvrir avec ${choisies.length} question(s) client à confirmer (un bloc par composant, envoi groupé)` : `${questions.length} question(s) client vont être créées dans FabStory (notification différée)`) + `${exclusions.length ? ', ' + exclusions.length + ' ligne(s) à exclure du sourcing dans Luminovo' : ''}. Continuer ?`)) return;
+      let ongletLot = null;
+      if (parFabStory) {
+        const lot = { depuis: 'Déroulé devis', lignes: choisies.map(p => ({ code: p.modele && p.modele !== 'M2' && p.modele !== 'M1' ? p.modele : 'M9', REF: p.mpn || '', REP: (p.reperes || []).join(', '), DATE: p.date || '', raison: p.raison || '' })) };
+        const code = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(lot)))));
+        ongletLot = window.open('https://protoprocess.github.io/commercial/fabstory/?produit=' + encodeURIComponent(pidFab) + '#lot=' + code, '_blank');
+      }
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 7, valideur: qui(), exigences_prises: DD.exigencesCochees(), questions, exclusions }) });
         const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('HTTP ' + r.status);
-        if (j.faits && j.faits.questions_creees != null) alert(j.faits.questions_creees + ' question(s) créée(s) dans FabStory.');
+        if (!parFabStory && j.faits && j.faits.questions_creees != null) alert(j.faits.questions_creees + ' question(s) créée(s) dans FabStory.');
+        if (parFabStory && !ongletLot) alert('Le navigateur a bloqué l’onglet FabStory : autorise les fenêtres pour cette page, puis ouvre la carte dans FabStory.');
         await rafraichir();
       } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
     },
