@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.1";
+const APP_VERSION = "13.2";
 /* v13.1 (29/09/2026) : porte « Devis refab » RETIRÉE (bouton + ouverture ?refab=1) — décision Olivier : « pas la solution, tout court », à rediscuter. Le code DD.refab reste présent mais n'est plus appelable ; workflow ouvrir_refab dépublié. */
 /* v13.0 (29/09/2026) : BASCULE EN PROD de la recette 12.33 (déroulé devis automatique : RfQ + import BOM en fond, pop-up étapes 4 à 8, porte Devis refab). Go Olivier 29/09. Retour arrière : étiquette Git avant-bascule-devis-2026-09-29 (prod 12.19). Les webhooks n8n gardent leur nom « recette-… » (workflows « RECETTE — Déroulé devis »), à renommer plus tard. */
 const APP_DATE = "29/09/2026";
@@ -3954,7 +3954,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.10', DD_DATE = '25/09/2026'; // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.11', DD_DATE = '29/09/2026'; // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4073,6 +4073,46 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     cadre('Étape ' + n + '/8', 'en cours', `<div class="dd-carte"><div class="dd-ligne"><span class="dd-spin"></span>${esc(texte)} </div></div>`, SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Déroulé n° ${esc(d.id || '')}</span>`, false, n);
   }
   // ---------- étape 6 : scénarios ----------
+  /* ---------- v13.2 (29/09/2026) : le dossier guide le scénario de fabrication ----------
+     propositionFab() lit analyse.bom_fab (comptages CMS / THT / press-fit calculés par n8n depuis la BOM traitée) et les
+     exigences de l analyse, et rend : modèle proposé + raison, faces, et la liste des points où « le basique ne suffit pas »,
+     chacun avec le geste attendu. Rien n est calculé dans Luminovo ici : on affiche, l humain ajuste le scénario. */
+  const SEUIL_CMS_LIGHT = 10;
+  function propositionFab(){
+    const a = ETAT.analyse || {}; const f = a.bom_fab || {}; const ex = a.exigences || [];
+    const n = k => Number(f[k] || 0);
+    const hors = t => (t || '').toLowerCase();
+    const pts = []; let modele = 'FR - NOUVELLE FAB STD', raison = 'carte CMS standard', faces = 'Top', comparer = false;
+    const exi = ex.filter(e => ['montage', 'autre', 'pcb', 'attention'].includes(e.origine));
+    const cherche = re => exi.filter(e => re.test(hors(e.texte)));
+    if (n('pressfit') || cherche(/press/).length) {
+      const deux = cherche(/deux faces|2 faces|both/).length > 0;
+      pts.push({ id: 'fab-pressfit', titre: 'Composants press-fit' + (f.pressfit_reperes ? ' (' + f.pressfit_reperes + ', ' + n('pressfit_placements') + ' pcs' + (deux ? ', 2 faces' : '') + ')' : ''), geste: 'Ajouter l\'activité press-fit au scénario, ou faire une demande de prix fournisseur si on sous-traite.' });
+      if (deux) faces = 'Both';
+    }
+    if (n('tht') && f.cuivre_alerte) pts.push({ id: 'fab-tht-cuivre', titre: 'Traversants (' + n('tht_placements') + ' pcs) sur cuivre épais ' + (f.cuivre || ''), geste: 'Brasage plus long et plus chaud : ajuster l\'activité THT (temps majoré).' });
+    else if (n('tht')) pts.push({ id: 'fab-tht', titre: 'Composants traversants (' + n('tht') + ' lignes, ' + n('tht_placements') + ' pcs)', geste: 'Vérifier que l\'activité THT est dans le scénario.' });
+    if (f.delicats) pts.push({ id: 'fab-delicats', titre: 'Boîtiers délicats : ' + f.delicats, geste: 'Prévoir le contrôle RX / renforcé.' });
+    if (n('inconnu')) pts.push({ id: 'fab-inconnu', titre: n('inconnu') + ' ligne(s) au montage indéterminé (' + String(f.inconnu_reperes || '').slice(0, 80) + ')', geste: 'Les compteurs CMS / THT ci-dessous ne les comptent pas : vérifier la BOM.' });
+    if (f.consignation && /fourni|consign|client/.test(hors(f.consignation)) && !/aucun|non|sans/.test(hors(f.consignation))) pts.push({ id: 'fab-kit', titre: 'Fournitures client : ' + f.consignation, geste: 'Pas de matière au devis pour ces lignes ; prévoir la réception du kit.' });
+    cherche(/variante/).forEach((e, i) => pts.push({ id: 'fab-variante-' + i, titre: 'Variantes d\'assemblage : ' + e.texte.slice(0, 120), geste: 'Un scénario par variante si des prix séparés sont attendus.' }));
+    cherche(/vernis|tropical|conformal|marquage|essai|rapport|certificat|test/).forEach((e, i) => pts.push({ id: 'fab-exig-' + i, titre: e.texte.slice(0, 140), geste: 'Prévoir l\'activité correspondante (vernis, contrôle, documentation…).' }));
+    if (n('cms') === 0 && (n('tht') || n('pressfit'))) { modele = 'FR - 100% TRAD'; raison = 'aucun composant CMS'; pts.unshift({ id: 'fab-trad', titre: 'Aucun composant CMS : carte 100 % traversant / press-fit', geste: 'Modèle « 100% TRAD » proposé — pas de four CMS, tout à la main.' }); }
+    else if (n('cms') > 0 && n('cms') <= SEUIL_CMS_LIGHT && !f.delicats) { modele = 'FR - CMS LIGHT'; raison = n('cms') + ' composants CMS simples (≤ ' + SEUIL_CMS_LIGHT + ')'; }
+    else if (n('cms') > SEUIL_CMS_LIGHT && n('cms') <= SEUIL_CMS_LIGHT + 5 && !f.delicats) { comparer = true; raison = n('cms') + ' composants CMS : zone de doute, comparer STD et CMS LIGHT'; }
+    if (comparer) pts.push({ id: 'fab-comparer', titre: n('cms') + ' composants CMS : entre CMS LIGHT et standard', geste: 'Créer les deux scénarios (STD et CMS LIGHT) et garder le plus juste à l\'étape 8.' });
+    return { modele, raison, faces, comparer, points: pts, compteurs: { cms: n('cms'), cms_placements: n('cms_placements'), tht: n('tht'), tht_placements: n('tht_placements'), pressfit: n('pressfit'), pressfit_placements: n('pressfit_placements') } };
+  }
+  function blocFab(p, avecCase){
+    if (!p) return '';
+    const c = p.compteurs;
+    const compt = `<div class="dd-ligne" style="color:var(--text3)">Lu dans la BOM traitée : <b>${c.cms}</b> lignes CMS (${c.cms_placements} pcs) · <b>${c.tht}</b> traversants (${c.tht_placements} pcs) · <b>${c.pressfit}</b> press-fit (${c.pressfit_placements} pcs) — modèle proposé : <b>${esc(p.modele)}</b> (${esc(p.raison)})</div>`;
+    if (!p.points.length) return `<div><div class="dd-h">SCÉNARIO DE FABRICATION</div><div class="dd-carte" style="margin-top:6px">${compt}<div class="dd-ligne">Rien de particulier relevé : le modèle standard convient a priori.</div></div></div>`;
+    const prises = exigencesPrises();
+    const lignes = p.points.map(x => `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><div class="dd-ligne"><span style="color:var(--amber)">⚠</span> <b>${esc(x.titre)}</b></div><div class="dd-ligne" style="padding-left:18px;color:var(--text2)">→ ${esc(x.geste)}</div></div>`).join('');
+    const kase = avecCase ? `<label class="dd-ligne" style="display:flex;gap:8px;align-items:center;margin-top:8px;cursor:pointer"><input type="checkbox" class="dd-ex" value="fab-pris" ${prises.has('fab-pris') ? 'checked' : ''}> J\'ai pris ces points en compte dans le scénario Luminovo</label>` : '';
+    return `<div><div class="dd-h" style="color:var(--amber)">⚠ CE DOSSIER N\'EST PAS UN BASIQUE — ${p.points.length} POINT(S) POUR LE SCÉNARIO</div><div class="dd-carte" style="margin-top:6px">${compt}${lignes}${kase}</div></div>`;
+  }
   const MODELES_FAB = ['FR - NOUVELLE FAB STD', 'FR - REFAB STD', 'FR - CMS LIGHT', 'FR - REFAB CMS LIGHT', 'FR - 100% TRAD', 'FR - REWORK', 'WW - NOUVELLE FAB STD', 'WW - REFAB STD', 'WW - 100% TRAD', 'WW - REWORK'];
   // ---------- porte « Devis refab » ----------
   function ecranRefab(ouv){
@@ -4097,13 +4137,15 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     let qtes = Array.isArray(refab ? dRef.quantites : a.quantites) ? (refab ? dRef.quantites : a.quantites).map(Number).filter(x => x > 0) : [];
     if (!qtes.length) qtes = [1];
     qtes = [...new Set(qtes)].sort((x, y) => x - y);
-    const lignes = qtes.map((q, i) => `<tr><td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="${q}" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === ((i === 0 && !refab) ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD') ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td></tr>`).join('');
+    const prop = refab ? null : propositionFab(); const modeleProp = prop ? prop.modele : 'FR - NOUVELLE FAB STD';
+    const lignes = qtes.map((q, i) => `<tr><td style="padding:4px 8px"><input class="dd-sel dd-qte" type="number" min="1" value="${q}" style="width:80px"></td><td style="padding:4px 8px"><select class="dd-sel dd-mod">${MODELES_FAB.map(m => `<option ${m === ((i === 0 && !refab) ? modeleProp : (modeleProp === 'FR - 100% TRAD' ? 'FR - 100% TRAD' : 'FR - REFAB STD')) ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td><td style="padding:4px 8px"><button class="dd-btn" onclick="this.closest('tr').remove()">retirer</button></td></tr>`).join('');
     cadre('Étape 6/8 — Scénarios', 'à créer',
       `
        <div class="dd-carte"><div class="dd-h">QUANTITÉS ET MODÈLES</div>
         <table id="dd-scen" style="border-collapse:collapse;font-size:12px"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Quantité</th><th style="text-align:left;padding:4px 8px;color:var(--text3);font-weight:500">Modèle de fabrication</th><th></th></tr>${lignes}</table>
         <div><button class="dd-btn" onclick="DD.ajouterQte()">+ quantité</button></div>
-        <label class="dd-ligne">Faces à équiper : <select id="dd-faces" class="dd-sel"><option value="Top">dessus seulement</option><option value="Both">les deux faces</option></select></label></div>`,
+        <label class="dd-ligne">Faces à équiper : <select id="dd-faces" class="dd-sel"><option value="Top" ${prop && prop.faces === 'Both' ? '' : 'selected'}>dessus seulement</option><option value="Both" ${prop && prop.faces === 'Both' ? 'selected' : ''}>les deux faces</option></select></label></div>
+       ${blocFab(prop, false)}`,
       SIDE_REGLE + `<div><div class="dd-h">LU SUR LE DOSSIER</div><div class="dd-ligne" style="margin-top:6px">Quantités demandées par le client : ${esc(qtes.join(', '))} (analyse)</div></div>`,
       `<span class="dd-ligne" style="margin-left:auto">Script creer_scenarios v1.0</span><button class="dd-btn p" onclick="DD.creerScenarios()">Créer les scénarios</button>`, false, 6);
   }
@@ -4112,7 +4154,8 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const rows = (d.scenarios || []).map(s => `<div class="dd-ligne">${s.deja ? '⏭ Qté ' + esc(s.qte) + ' : existait déjà' : s.erreur ? '⚠ Qté ' + esc(s.qte) + ' : ' + esc(s.erreur) : '✔ <b>' + esc(s.nom) + '</b> — sourcing + fabrication « ' + esc(s.modele) + ' »'}</div>`).join('');
     cadre('Étape 6/8 — Scénarios', 'compteurs à saisir',
       `<div><div class="dd-h">CRÉÉ DANS LUMINOVO (modèle sourcing : ${esc(d.modele_sourcing || '')}, faces : ${esc(d.pcb_sides || '')})</div><div class="dd-carte" style="margin-top:6px">${rows || '<div class="dd-ligne">rien</div>'}</div></div>
-       <div><div class="dd-h">À FAIRE DANS LUMINOVO</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne"><b>Compteurs manuels</b> à saisir dans Luminovo sur chaque scénario de fabrication.</div></div></div>`,
+       ${blocFab((ETAT.deroule || {}).type === 'refab' ? null : propositionFab(), true)}
+       <div><div class="dd-h">À FAIRE DANS LUMINOVO</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne"><b>Compteurs manuels</b> à saisir dans Luminovo sur chaque scénario de fabrication (CMS, THT, press-fit — valeurs lues ci-dessus).</div></div></div>`,
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Puis :</span><button class="dd-btn p" onclick="DD.go6()">Compteurs saisis → sourcing (étape 7)</button>`, false, 6);
   }
   // ---------- étape 7 : sourcing ----------
@@ -4435,9 +4478,10 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       // v1.4 : après le go BOM, scénarios créés SANS écran : quantités de l'analyse, petite qté NOUVELLE FAB, autres REFAB (FR), dessus.
       const a = ETAT.analyse || {}; let qtes = Array.isArray(a.quantites) ? a.quantites.map(Number).filter(x => x > 0) : []; if (!qtes.length) qtes = [1];
       qtes = [...new Set(qtes)].sort((x, y) => x - y);
-      const demandes = qtes.map((q, i) => ({ qte: q, modele: i === 0 ? 'FR - NOUVELLE FAB STD' : 'FR - REFAB STD' }));
+      const prop = propositionFab();   /* v13.2 : le modèle et les faces viennent du dossier, plus d un défaut aveugle */
+      const demandes = qtes.map((q, i) => ({ qte: q, modele: i === 0 ? prop.modele : (prop.modele === 'FR - 100% TRAD' ? 'FR - 100% TRAD' : 'FR - REFAB STD') }));
       try {
-        const r = await fetch(`${base()}/webhook/recette-creer-scenarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, demandes, pcb_sides: 'Top', valideur: qui() + ' (auto)' }) });
+        const r = await fetch(`${base()}/webhook/recette-creer-scenarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, demandes, pcb_sides: prop.faces, valideur: qui() + ' (auto)' }) });
         const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
       } catch (e) { console.warn('scenarios auto', e); }
     },
@@ -4456,7 +4500,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     async go6(){
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
       try {
-        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui(), exigences_prises: DD.exigencesCochees() }) });
+        const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes().concat((propositionFab().points || []).map(p => ({ id: p.id, origine: 'fabrication', texte: p.titre + ' → ' + p.geste }))) }) });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         DD._lance7 = null; await rafraichir();
       } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
