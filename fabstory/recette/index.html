@@ -2518,7 +2518,7 @@ function rendreChoixApercu(){
       '<a href="#" onclick="FS.ajouterChoix();return false">Ajouter un choix</a></p>';
   } else {
     zc.innerHTML = choixEdit.map((c, i) =>
-      '<div class="ce-item"><span class="ce-num">' + (i+1) + '</span><div><div class="ce-lib">' + esc(c.libelle) +
+      '<div class="ce-item"><span class="ce-num">' + (i+1) + '</span><div><div class="ce-lib">' + esc(nettoyerAuto(remplirVars(c.libelle))) +
       (c.commentaire_obligatoire ? ' <span class="mini">(commentaire obligatoire)</span>' : '') + '</div>' +
       (c.aide ? '<div class="ce-aide">' + esc(nettoyerAuto(remplirVars(c.aide))) + '</div>' : '') + '</div>' +
       '<button class="ce-x" type="button" title="Retirer" onclick="FS.retirerChoix(' + i + ')">✕</button></div>'
@@ -2902,7 +2902,7 @@ async function envoyerNote(){
   let enveloppe = null;
   if(estQuestionClient){
     const choixResolus = choixEdit.map(c => ({
-      ordre: c.ordre, libelle: c.libelle,
+      ordre: c.ordre, libelle: nettoyerAuto(remplirVars(c.libelle)),   /* v5.1 : libellé aussi résolu (M11 « Implanter {REF_A} ») */
       aide: c.aide ? nettoyerAuto(remplirVars(c.aide)) : null,
       commentaire_obligatoire: !!c.commentaire_obligatoire
     }));
