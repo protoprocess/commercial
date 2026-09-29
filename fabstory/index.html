@@ -503,8 +503,17 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '4.33';
-const APP_DATE = '22/09/2026';
+const APP_VERSION = '5.0';
+const APP_DATE = '29/09/2026';
+/* 5.0 (29/09/2026, decisions Olivier) : notifications internes simplifiees.
+   - plus de « Qui est concerne ? » ni de pastilles de poles a l ecran (les poles restent
+     poses automatiquement en base, sans affichage, pour ne rien casser en aval) ;
+   - plus de bandeau d envoi groupe ni de badge « non transmis » (et un appel n8n de moins
+     a l ouverture de la liste) ; plus de filtres etape / concerne ; volet sans « Metier » ;
+   - bouton « Enregistrer et prevenir » : rien ne part sans ce geste. Auteur commercial
+     (AC, OC, DG, MM) -> l atelier (production@) ; auteur atelier -> le responsable du SO
+     lu dans le Planning, colonne N (workflow PP — FabStory : prevenir v1.0, recette validee le 29/09 sur EDF). */
+const URL_PREVENIR = 'https://protoprocess.app.n8n.cloud/webhook/fabstory-prevenir';
 const BASE = 'https://protoprocess.app.n8n.cloud/webhook';
 const CLE_QUI = 'pp_fdv_initiales';
 const EQUIPE = ['OC','AC','MM','DG','SG','FR','JM','BL','MD','SS','VF','AP'];
@@ -566,6 +575,12 @@ function poleDefaut(c){
 }
 function concernesEffectifs(){ return saisie.concernes || [poleDefaut(saisie.etape)]; }
 function rendreConcernes(){
+  /* 5.0 : la zone « Qui est concerne ? » n existe plus ; on garde la mise a jour du libelle d etape */
+  const et0 = document.getElementById('etape-choisie');
+  if(et0){
+    const l0 = (FICHE.etapes || []).find(x => x.code === saisie.etape);
+    et0.textContent = l0 ? ' \u2014 ' + l0.libelle : '';
+  }
   const z = document.getElementById('zone-concernes'); if(!z) return;
   const on = concernesEffectifs();
   z.innerHTML = CONCERNES_LISTE.map(c =>
@@ -634,11 +649,7 @@ async function chargerCartes(){
     PRODUITS = (j && j.produits) || [];
     rendreCartes('');
     /* Le badge est un confort : s il echoue, la liste reste utilisable. */
-    try{
-      const a = await getJson(BASE + '/fabstory-attente');
-      ATTENTE = (a && a.attente) || {};
-      rendreCartes(filtreTxt);
-    }catch(err){ /* silencieux */ }
+    /* 5.0 : badge « non transmis » retire (et un appel n8n de moins). */
     chargerFournitures();   /* v4.32 : confort, jamais bloquant */
   }catch(e){
     z.innerHTML = '<div class="card"><h2><i class="ti ti-cpu"></i> Quelle carte ?</h2>' +
@@ -700,7 +711,7 @@ async function ouvrirFiche(id){
   }
 }
 function retourCartes(){
-  const n = nbEnAttente();
+  const n = 0;   /* 5.0 : plus d avertissement « non transmis » */
   if(n && !confirm(n + (n > 1 ? ' entr\u00e9es enregistr\u00e9es n\u2019ont pas \u00e9t\u00e9 transmises'
                              : ' entr\u00e9e enregistr\u00e9e n\u2019a pas \u00e9t\u00e9 transmise') +
       ' aux concern\u00e9s.\n\nQuitter la carte quand m\u00eame ?')){
@@ -939,7 +950,6 @@ function compEntree(e){
 function detEntree(e){
   const m = [];
   if(e.etape_libelle) m.push(e.etape_libelle);
-  if(e.poles && e.poles.length) m.push('\u2192 ' + e.poles.join(', '));
   if(e.so_canonique) m.push(e.so_canonique);
   let h = m.length ? '<div class="tl-src">' + esc(m.join(' \u00b7 ')) + '</div>' : '';
   if(e.lien) h += '<div class="tl-src"><a href="' + esc(e.lien) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(e.lien) + '</a></div>';
@@ -1014,6 +1024,7 @@ FS.acquitterBandeau = async function(){
   }catch(e){ alert('\u00c9chec du masquage : ' + e.message); }
 };
 function htmlBandeauNotifier(){
+  return '';   /* 5.0 : plus de bandeau d envoi groupe */
   const n = nbEnAttente();
   if(!n) return '';
   return '<div class="bandeau-notif">' +
@@ -1118,14 +1129,6 @@ function rendreFiche(){
     '<div class="filtres">' +
     [['tous','Tous'],['attente','En attente'],['client','Visible client'],['interne','Interne']].map(f =>
       '<button class="filtre' + (filtre===f[0]?' on':'') + '" onclick="FS.filtrer(\'' + f[0] + '\')">' + f[1] + '</button>').join('') +
-    '<select onchange="FS.filtrerMetier(this.value)" style="width:auto;padding:5px 9px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2)">' +
-    '<option value="">Toutes les \u00e9tapes</option>' +
-    LISTE_SAISIE.map(x => '<option value="' + x[0] + '"' + (filtreMetier===x[0]?' selected':'') + '>' + esc(x[1]) + '</option>').join('') +
-    '</select>' +
-    '<select onchange="FS.filtrerConcerne(this.value)" style="width:auto;padding:5px 9px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2)">' +
-    '<option value="">Tous les concern\u00e9s</option>' +
-    CONCERNES_LISTE.map(c => '<option value="' + c[0] + '"' + (filtreConcerne===c[0]?' selected':'') + '>' + c[1] + '</option>').join('') +
-    '</select>' +
     '<button class="filtre" onclick="FS.photosCarte()" title="Prendre ou reprendre les photos dessus / dessous de la carte (tablette ou t\u00e9l\u00e9phone), pour le rapport de fabrication.">Photos carte</button>' +
     '<button class="filtre filtre-rf" style="margin-left:auto" onclick="FS.rapportFab()" title="Valide et fige le rapport de fabrication du lot en cours (n\u00b0 de s\u00e9rie par BL Odoo, commentaires du tableau de conformit\u00e9). Une fois fig\u00e9, le client voit cette version.">Modifier Rapport de fab</button>' +
     '<button class="filtre filtre-vc" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, imprimable / t\u00e9l\u00e9chargeable depuis cette page.">Imprimer rapport de fab (depuis vue client)</button>' +
@@ -1701,11 +1704,7 @@ function ouvrirVolet(id){
       '<button class="btn-s" onclick="FS.voletVisibilite(' + (e.visible_client ? 'false' : 'true') + ')">' +
       (e.visible_client ? SVG_OEIL_BARRE + ' Rendre interne' : SVG_OEIL + ' Rendre visible du client') + '</button></details>';
 
-    h += '<details class="v-sec"><summary><i class="ti ti-category"></i> M\u00e9tier et destinataires</summary>' +
-      '<label class="lbl">M\u00e9tier concern\u00e9</label><div class="pastilles">' + chipsMetier + '</div>' +
-      '<label class="lbl">Aussi visible pour</label><div class="pastilles">' + chipsPoles + '</div>' +
-      '<div id="v-rng-msg" style="min-height:16px"></div>' +
-      '<button class="btn-s" onclick="FS.voletRanger()">Enregistrer le classement</button></details>';
+    /* 5.0 : section « Metier et destinataires » retiree (decision Olivier 29/09). */
 
     {
       /* retour Olivier : au moins 2 degres de portee, surtout pour un composant.
@@ -2245,9 +2244,7 @@ function htmlEcranCompleter(){
     '<div id="zone-pieces"></div></details>';
 
   /* concernés + initiales */
-  h += '<label class="lbl">Qui est concerné ? <span class="mini" style="font-weight:400">(recevra la notification — au moins 1)</span></label>' +
-    '<div class="pastilles" id="zone-concernes"></div>' +
-    '<div style="margin-top:8px"><label class="lbl" for="note-initiales" style="margin-top:0">Vos initiales <span style="color:var(--accent-fonce)">*</span></label>' +
+  h += '<div style="margin-top:8px"><label class="lbl" for="note-initiales" style="margin-top:0">Vos initiales <span style="color:var(--accent-fonce)">*</span></label>' +
     '<select id="note-initiales" style="max-width:150px;font-family:var(--mono)"><option value="">—</option>' +
     EQUIPE.map(x => '<option value="' + x + '"' + (qui()===x?' selected':'') + '>' + x + '</option>').join('') + '</select>' +
     (saisie.type !== 'note' && saisie.type !== 'question_interne'
@@ -2258,7 +2255,7 @@ function htmlEcranCompleter(){
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
     '<button class="btn-s" onclick="FS.assistantEcran(1)"><i class="ti ti-arrow-left"></i> Retour</button>' +
     (assistant.code === 'NOTE'
-      ? '<button class="btn" id="note-go">Enregistrer la note</button>'
+      ? '<button class="btn" id="note-go">Enregistrer la note</button>' + htmlBoutonPrevenir()
       : '<button class="btn" onclick="FS.assistantApercu()">Aperçu <i class="ti ti-arrow-right"></i></button>') +
     '<button class="btn-lien" onclick="FS.assistantAbandonner()">Abandonner</button></div>';
   return h;
@@ -2467,16 +2464,16 @@ function htmlEcranApercu(){
     '<span class="m">auteur <b>' + esc(ini) + '</b></span>' +
     '<span class="m exp">expéditeur <b>' + expediteurPour(ini) + '</b></span>' +
     '</div>' +
-    '<label class="lbl" style="margin-top:10px">Qui est concerné ?</label><div class="pastilles" id="zone-concernes"></div>';
+    '';
 
   h += '<div id="note-msg" style="min-height:18px;margin-top:8px"></div>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
     '<button class="btn-s" onclick="FS.assistantEcran(2)"><i class="ti ti-arrow-left"></i> Retour</button>' +
-    '<button class="btn" id="note-go">Enregistrer la question</button>' +
+    '<button class="btn" id="note-go">Enregistrer la question</button>' + htmlBoutonPrevenir() +
     '<button class="btn-s" id="btn-promouvoir" style="display:none" onclick="FS.enregistrerModele()">' +
     '<i class="ti ti-bookmark-plus"></i> Enregistrer comme modèle</button>' +
     '<button class="btn-lien" onclick="FS.assistantAbandonner()">Abandonner</button></div>' +
-    '<p class="mini" style="margin:7px 0 0">Rien ne part au client maintenant : l’envoi reste le geste « Transmettre » du bandeau, une fois vos notes enregistrées.</p>';
+    '<p class="mini" style="margin:7px 0 0">Rien ne part au client maintenant : l’envoi au client reste le geste « Préparer le mail client ».</p>';
   return h;
 }
 function rendreChoixApercu(){
@@ -2522,7 +2519,8 @@ function brancherSaisie(){
       rendreAmorces();
       majVisibilite();
       const go = el('note-go');
-      if(go) go.onclick = envoyerNote;
+      if(go) go.onclick = () => { prevenirApres = false; envoyerNote(); };
+      cablerPrevenir();
     }
     const np = el('note-piece');
     if(np) np.onchange = deposerPiece;
@@ -2578,7 +2576,8 @@ function brancherSaisie(){
       rendreSaisie();
     };
     const go = el('note-go');
-    if(go) go.onclick = envoyerNote;
+    if(go) go.onclick = () => { prevenirApres = false; envoyerNote(); };
+    cablerPrevenir();
   }
 }
 function majVisibilite(){
@@ -2817,6 +2816,39 @@ FS.enregistrerModele = async function(){
   }
 };
 
+/* ==================================================== PREVENIR (5.0) ==== */
+let prevenirApres = false;
+function versAtelier(ini){ return INITIALES_COMMERCIAL.includes(String(ini || '').toUpperCase()); }
+function libellePrevenir(){
+  const ini = (el('note-initiales') && el('note-initiales').value) || qui();
+  if(!ini) return 'Enregistrer et pr\u00e9venir';
+  return versAtelier(ini) ? 'Enregistrer et pr\u00e9venir l\u2019atelier' : 'Enregistrer et pr\u00e9venir le commercial du SO';
+}
+function htmlBoutonPrevenir(){
+  return '<button class="btn-s" id="note-go-prev" title="Enregistre, puis envoie un mail court : auteur commercial \u2192 l\u2019atelier ; auteur atelier \u2192 le responsable du SO (Planning, colonne N). Sinon rien ne part.">' +
+    '<i class="ti ti-mail"></i> <span id="note-go-prev-lib">' + libellePrevenir() + '</span></button>';
+}
+function cablerPrevenir(){
+  const b = el('note-go-prev');
+  if(b) b.onclick = () => { prevenirApres = true; envoyerNote(); };
+  const ini = el('note-initiales');
+  if(ini) ini.addEventListener('change', () => { const l = el('note-go-prev-lib'); if(l) l.textContent = libellePrevenir(); });
+}
+async function prevenir(x){
+  try{
+    const r = await postJson(URL_PREVENIR, {
+      produit_id: P.id, auteur: x.auteur, so: soCourant() || '',
+      texte: x.texte, repere: x.repere || '', mpn: x.mpn || '',
+      carte: P.libelle_carte || P.ref_carte || P.cle_produit || '',
+      client: P.nom_client || P.code_client || '',
+      lien_carte: location.origin + location.pathname + '?produit=' + encodeURIComponent(P.id)
+    });
+    alert('\u2709 Pr\u00e9venu : ' + ((r && r.nom) || '?') + (r && r.to ? ' (' + r.to + (r.cc ? ', copie ' + r.cc : '') + ')' : ''));
+  }catch(e){
+    alert('Note enregistr\u00e9e, mais le mail n\u2019est pas parti : ' + e.message);
+  }
+}
+
 async function envoyerNote(){
   const estNote = (assistant.code === 'NOTE');
   if(estNote) { const ta = el('as-var-TEXTE'); if(ta) assistant.vals.TEXTE = ta.value.trim(); }
@@ -2828,8 +2860,7 @@ async function envoyerNote(){
   if(iniSel && iniSel.value) setQui(iniSel.value.trim().toUpperCase());
   const auteur = qui() || auteurOuStop();
   if(!auteur) return;
-  const cs = concernesEffectifs();
-  if(!cs.length){ msg.innerHTML = '<span class="err-msg">Choisir au moins un concerné (destinataire de la notification).</span>'; return; }
+  const cs = concernesEffectifs();   /* 5.0 : pose automatique, plus affichee ni demandee */
   const estQuestionClient = (saisie.type === 'question_client');
   /* v4.0 : la PHOTOCOPIE devient une enveloppe { choix, portee } — la question
      envoyee est autonome (texte + choix + case, figes ensemble). Les aides des
@@ -2893,8 +2924,11 @@ async function envoyerNote(){
     } else {
       await postJson(BASE + '/fabstory-note', corps);
     }
+    const aPrevenir = prevenirApres;
+    prevenirApres = false;
     assistantReset();
     await recharger(false);
+    if(aPrevenir) await prevenir({ auteur, texte, repere: corps.repere, mpn: corps.mpn });
   }catch(e){
     msg.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
     if(btn) btn.disabled = false;
