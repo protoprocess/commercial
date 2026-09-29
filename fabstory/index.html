@@ -503,8 +503,15 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.2';
+const APP_VERSION = '5.3';
 const APP_DATE = '29/09/2026';
+/* 5.3 (29/09/2026, même chantier) : (1) ÉCRAN LOT — plusieurs questions d'un coup : lien ?produit=ID#lot=<JSON base64>
+   (déroulé devis étape 7) ; un bloc par composant (raison préremplie en gris, modifiable, case inclure), une question
+   par composant (réponses exploitables par les achats), notification différée = un seul envoi groupé ; question déjà
+   ouverte = décochée ; question déjà répondue sur la carte = « Reprendre cette réponse » (pas de nouvelle question).
+   (2) DÉDUCTION du « Pourquoi ? » à l'ouverture préremplie (Achats PP) : fabstory-ref-info (Mouser/DigiKey) —
+   arrivage annoncé → « Rupture, date annoncée » (date remplie) ; stock nul sans arrivage → « Rupture sans date ».
+   Proposition seulement, jamais choisie à la place de l'utilisateur. */
 /* 5.2 (29/09/2026, même chantier) : OUVERTURE PRÉREMPLIE depuis une autre appli (option A validée par
    Olivier : FabStory est le chef des échanges client). Lien ?produit=ID&question=indispo&REF=MPN&REP=repères
    &depuis=Achats PP : la saisie s'ouvre directement sur « Pourquoi est-il indisponible ? », MPN et repère
@@ -1949,7 +1956,8 @@ let assistant = { produit:null, ecran:0, code:null, vals:{}, specsLignes:null, p
    le parcours assistant est reutilise, l'enregistrement met a jour la question
    (texte_reformule : le brut d'origine reste en trace) au lieu d'en creer une. */
 let remoulage = null;
-let prefillLien = null;   /* v5.2 : valeurs reçues par le lien (REF, REP…) et appli d'origine */
+let prefillLien = null;
+let lotEnCours = null;    /* v5.3 : lot de questions reçu par le lien (#lot=) */   /* v5.2 : valeurs reçues par le lien (REF, REP…) et appli d'origine */
 const AUTO_VARS = ['DATE','LIEN','DATASHEET','PJ'];   /* v4.28 : {PJ} = « Voir photo jointe. » posé automatiquement si une pièce est déposée, sinon le segment [ {PJ}] saute */
 const VAR_LABELS = {
   REF:           ['Référence concernée', 'Servira aussi de MPN sur la fiche.'],
@@ -2033,6 +2041,7 @@ function htmlSaisie(){
      (assistant.code && assistant.code !== 'NOTE' && assistant.code !== 'QL' && modeleChoisi === null)){
     assistantReset();
   }
+  if(lotEnCours) return '<div class="card" id="carte-saisie">' + htmlLot() + '</div>';   /* v5.3 */
   let corps;
   if(assistant.ecran === 0) corps = htmlSaisieFermee();
   else {
@@ -2136,7 +2145,8 @@ function htmlEcranSituations(){
     '<p class="hint" style="margin:0 0 4px">Contexte : <strong>' + ctxDeduit() + '</strong> (statut Odoo) — le bon modèle se déduit de vos réponses, tout reste modifiable à l’aperçu.</p>' +
     (prefillLien ? '<p class="hint" style="margin:0 0 4px;color:var(--text2)"><i class="ti ti-link"></i> Ouvert depuis <strong>' + esc(prefillLien.depuis || 'une autre appli') + '</strong>' +
       (prefillLien.vals.REF ? ' — MPN <strong>' + esc(prefillLien.vals.REF) + '</strong>' : '') +
-      (prefillLien.vals.REP ? ', repère <strong>' + esc(prefillLien.vals.REP) + '</strong>' : '') + ' (prérempli)</p>' : '');
+      (prefillLien.vals.REP ? ', repère <strong>' + esc(prefillLien.vals.REP) + '</strong>' : '') + ' (prérempli)</p>' : '') +
+    ((prefillLien && prefillLien.deduit && pile[pile.length - 1] === 'indispo') ? '<p class="hint" style="margin:0 0 4px;color:var(--text3)"><i class="ti ti-bulb"></i> Déduit des distributeurs : ' + esc(prefillLien.deduit.texte) + ' — à confirmer.</p>' : '');
   if(!MODELES){
     h += '<p class="hint"><span class="spin"></span> Chargement de la bibliothèque…</p>';
   } else {
@@ -2145,8 +2155,9 @@ function htmlEcranSituations(){
       const k = o[0], estNoeud = !!DEROULE[k], estLocal = (k === 'QL' || k === 'NOTE');
       if(!estNoeud && !estLocal && !actifs[k]) return '';            /* modèle désactivé : l’option disparaît */
       const action = estNoeud ? 'FS.derouleVers(\'' + k + '\')' : 'FS.choisirSituation(\'' + k + '\')';
-      return '<button class="situation' + (estLocal ? ' libre' : '') + '" onclick="' + action + '">' +
-        '<span class="st">' + esc(o[1]) + (estNoeud ? ' <i class="ti ti-chevron-right"></i>' : '') + '</span>' +
+      const deduit = !!(prefillLien && prefillLien.deduit && prefillLien.deduit.code === k);
+      return '<button class="situation' + (estLocal ? ' libre' : '') + '"' + (deduit ? ' style="outline:2px solid var(--accent)"' : '') + ' onclick="' + action + '">' +
+        '<span class="st">' + esc(o[1]) + (estNoeud ? ' <i class="ti ti-chevron-right"></i>' : '') + (deduit ? ' <span class="mini" style="color:var(--accent)">(déduit)</span>' : '') + '</span>' +
         '<span class="sd">' + esc(o[2]) + '</span></button>';
     }).join('') + '</div>';
   }
@@ -3072,6 +3083,127 @@ FS.poserIndice = async function(){
   }
 };
 
+/* ============================================= v5.3 : DÉDUCTION + LOT ==== */
+function dateFr(iso){ const d = new Date(iso); if(isNaN(d)) return ''; const p = n => String(n).padStart(2,'0'); return p(d.getDate()) + '/' + p(d.getMonth()+1) + '/' + d.getFullYear(); }
+async function infoDistributeurs(mpn){
+  /* fabstory-ref-info : offres Mouser/DigiKey (stock, délai, arrivages). Proposition seulement. */
+  const r = await getJson(BASE + '/fabstory-ref-info?mpn=' + encodeURIComponent(mpn));
+  const offres = (r && r.offres) || [];
+  if(!offres.length) return null;
+  const stock = offres.reduce((a, o) => a + (Number(o.stock) || 0), 0);
+  const arr = offres.flatMap(o => (o.arrivages || []).map(a => ({ date: a.date || a.Date, qte: a.quantite || a.Quantity, dist: o.distributeur }))).filter(a => a.date).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if(stock > 0) return null;                       /* en stock : rien à déduire */
+  if(arr.length) return { code:'M8', vals:{ DATE: dateFr(arr[0].date) }, texte: 'stock nul, arrivage annoncé le ' + dateFr(arr[0].date) + ' chez ' + arr[0].dist };
+  return { code:'M9', vals:{}, texte: 'stock nul chez ' + offres.map(o => o.distributeur).join(' et ') + ', aucun arrivage annoncé' };
+}
+async function deduirePourquoi(mpn){
+  try{
+    const d = await infoDistributeurs(mpn);
+    if(!d || !prefillLien) return;
+    prefillLien.deduit = d;
+    Object.keys(d.vals).forEach(k => { if(!prefillLien.vals[k]) prefillLien.vals[k] = d.vals[k]; });
+    if(assistant.ecran === 1) rendreSaisie();
+  }catch(e){ /* distributeurs indisponibles : on pose la question sans proposition */ }
+}
+const LOT_RAISONS = [['M7','Obsolète'],['M8','Rupture, date annoncée'],['M9','Rupture sans date'],['M10','Minimum de commande trop élevé']];
+function normMpn(x){ return String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function ouvrirLot(lot){
+  const entrees = (FICHE && FICHE.entrees) || [];
+  const reponses = {}; entrees.forEach(e => { if(e.repond_a) (reponses[e.repond_a] = reponses[e.repond_a] || []).push(e); });
+  lotEnCours = {
+    depuis: lot.depuis || 'une autre appli',
+    lignes: (lot.lignes || []).map(l => {
+      const code = (LOT_RAISONS.some(r => r[0] === l.code)) ? l.code : 'M9';
+      const vals = { REF: l.REF || '', REP: l.REP || '' };
+      ['DATE','MOQ','PROPOSITION','LIEN'].forEach(k => { if(l[k]) vals[k] = String(l[k]); });
+      const qs = entrees.filter(e => e.type === 'question_client' && e.mpn && normMpn(e.mpn) === normMpn(vals.REF));
+      const ouverte = qs.find(e => e.etat === 'en_attente');
+      const repondue = qs.map(e => ({ q: e, r: (reponses[e.id] || []).slice(-1)[0] })).filter(x => x.r).slice(-1)[0];
+      return { code, vals, raison: l.raison || '', touche: false, inclure: !ouverte && !repondue, etat: null,
+               ouverte: ouverte ? { le: (ouverte.cree_le || '').slice(0,10) } : null,
+               repondue: repondue ? { le: (repondue.r.cree_le || '').slice(0,10), texte: String(repondue.r.texte_reformule || repondue.r.texte_brut || '').slice(0,160) } : null,
+               reprise: false };
+    })
+  };
+  rendreSaisie();
+  const c = el('carte-saisie'); if(c) c.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function htmlLot(){
+  const L = lotEnCours.lignes;
+  const n = L.filter(l => l.inclure && !l.etat).length;
+  let h = '<h2 style="margin-bottom:2px"><i class="ti ti-list-check"></i> Questions client en lot — ' + L.length + ' composant(s)</h2>' +
+    '<p class="hint" style="margin:0 0 8px">Préparé par <strong>' + esc(lotEnCours.depuis) + '</strong>. Une question par composant ; le client reçoit un seul envoi groupé. Raisons préremplies en gris : à confirmer ou corriger.</p>';
+  L.forEach((l, i) => {
+    const pre = l.touche ? '' : 'color:var(--text3);';
+    const etat = l.etat ? '<div class="mini" style="margin-top:6px;color:' + (l.etat.ok ? 'var(--green)' : 'var(--red)') + '">' + esc(l.etat.msg) + '</div>' : '';
+    h += '<div style="border:.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:8px;' + ((l.inclure && !l.reprise) ? '' : 'opacity:.55') + '">' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><strong>' + esc(l.vals.REF || '(sans MPN)') + '</strong> <span class="mini">rep. ' + esc(l.vals.REP || '—') + '</span></div>' +
+      (l.etat ? '' : '<label class="mini"><input type="checkbox" ' + (l.inclure ? 'checked' : '') + ' onchange="FS.lotInclure(' + i + ',this.checked)"> inclure</label>') + '</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap"><span class="mini" style="min-width:110px">Pourquoi ?</span>' +
+      '<select style="width:auto;' + pre + '" onchange="FS.lotRaison(' + i + ',this.value)"' + (l.etat ? ' disabled' : '') + '>' + LOT_RAISONS.map(r => '<option value="' + r[0] + '"' + (r[0] === l.code ? ' selected' : '') + '>' + r[1] + '</option>').join('') + '</select>' +
+      (l.raison ? '<span class="mini" style="color:var(--text3)">déduit — ' + esc(l.raison) + '</span>' : '') + '</div>' +
+      (l.code === 'M8' ? champLot(i, 'DATE', 'Date annoncée', 'jj/mm/aaaa') : '') +
+      (l.code === 'M10' ? champLot(i, 'MOQ', 'Minimum de commande', 'pièces') : '') +
+      champLot(i, 'PROPOSITION', 'Équivalent PP', 'facultatif') +
+      (l.ouverte ? '<div class="mini" style="margin-top:6px;color:var(--amber)">Une question est déjà ouverte sur ce MPN (' + esc(l.ouverte.le) + ') : décochée, le filet bloquerait un doublon.</div>' : '') +
+      (l.repondue && !l.etat ? '<div class="hint" style="margin-top:6px;background:var(--info-bg);color:var(--info-txt);border-radius:8px;padding:6px 9px">Le client a déjà répondu le ' + esc(l.repondue.le) + ' : « ' + esc(l.repondue.texte) + ' »' +
+        '<div style="margin-top:5px;display:flex;gap:8px"><button class="btn-s" onclick="FS.lotReprise(' + i + ',true)"' + (l.reprise ? ' disabled' : '') + '>Reprendre cette réponse</button><button class="btn-s" onclick="FS.lotReprise(' + i + ',false)">Reposer la question</button></div></div>' : '') +
+      etat + '</div>';
+  });
+  const fini = L.every(l => l.etat || !l.inclure || l.reprise);
+  h += '<div style="display:flex;gap:8px;align-items:center;margin-top:12px">' +
+    (fini && L.some(l => l.etat) ? '' : '<button class="btn-p" id="lot-go" onclick="FS.lotCreer()"' + (n ? '' : ' disabled') + '>Créer les questions (' + n + ')</button>') +
+    '<button class="btn-lien" onclick="FS.lotFermer()">' + (L.some(l => l.etat) ? 'Terminer' : 'Fermer sans rien créer') + '</button>' +
+    '<span class="mini" id="lot-msg" style="margin-left:auto"></span></div>';
+  return h;
+}
+function champLot(i, k, lib, ph){
+  const l = lotEnCours.lignes[i];
+  return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="mini" style="min-width:110px">' + lib + '</span>' +
+    '<input type="text" style="width:auto;' + (l.touche ? '' : 'color:var(--text3);') + '" placeholder="' + ph + '" value="' + esc(l.vals[k] || '') + '"' + (l.etat ? ' disabled' : '') + ' oninput="FS.lotVal(' + i + ',\'' + k + '\',this.value)"></div>';
+}
+FS.lotInclure = function(i, v){ lotEnCours.lignes[i].inclure = v; rendreSaisie(); };
+FS.lotRaison = function(i, v){ const l = lotEnCours.lignes[i]; l.code = v; l.touche = true; rendreSaisie(); };
+FS.lotVal = function(i, k, v){ const l = lotEnCours.lignes[i]; l.vals[k] = v; l.touche = true; };
+FS.lotReprise = function(i, oui){ const l = lotEnCours.lignes[i]; l.reprise = oui; l.inclure = !oui; rendreSaisie(); };
+FS.lotFermer = async function(){
+  const cree = lotEnCours && lotEnCours.lignes.some(l => l.etat && l.etat.ok);
+  lotEnCours = null; history.replaceState(null, '', location.pathname + location.search);
+  assistantReset(); rendreSaisie(); if(cree) await recharger(false);
+};
+FS.lotCreer = async function(){
+  const auteur = qui() || auteurOuStop(); if(!auteur) return;
+  if(!MODELES){ try{ await chargerModeles(); }catch(e){ alert('Bibliothèque de modèles indisponible.'); return; } }
+  const btn = el('lot-go'); if(btn) btn.disabled = true;
+  const L = lotEnCours.lignes; const lot = lotEnCours;
+  for(let i = 0; i < L.length; i++){
+    const l = L[i]; if(!l.inclure || l.reprise || l.etat) continue;
+    const m = (MODELES || []).find(x => x.code === l.code);
+    if(!m){ l.etat = { ok:false, msg:'Modèle ' + l.code + ' indisponible.' }; continue; }
+    /* même mécanique que la saisie unitaire : situation → variables → choix conditionnels → texte */
+    lotEnCours = null;                       /* le temps de préparer l'état de saisie */
+    FS.choisirSituation(l.code);
+    assistant.vals = Object.assign({}, l.vals);
+    synchroniserChoixConditionnels();
+    assistant.texteEdite = null;
+    const texte = texteFinal();
+    const choixResolus = choixEdit.map(c => ({ ordre: c.ordre, libelle: nettoyerAuto(remplirVars(c.libelle)), aide: c.aide ? nettoyerAuto(remplirVars(c.aide)) : null, commentaire_obligatoire: !!c.commentaire_obligatoire }));
+    const vars = {}; Object.keys(assistant.vals).forEach(k => { const v = String(assistant.vals[k] || '').trim(); if(v) vars[k] = v; });
+    const corps = { produit_id: P.id, type: 'question_client', texte_brut: texte, auteur, poles: concernesEffectifs(), etape_code: saisie.etape || null,
+      so_canonique: soCourant(), repere: l.vals.REP || null, mpn: l.vals.REF || null, lien: l.vals.LIEN || null, photos: [], visible_client: true,
+      portee_validation: null, source: 'fabstory_lot', differer_notif: true,
+      choix_reponse: { choix: choixResolus, portee: (assistant.portee ? porteeDuModele() : null), vars }, modele_code: l.code };
+    lotEnCours = lot;
+    try{ await postJson(BASE + '/fabstory-note', corps); l.etat = { ok:true, msg:'Question créée (' + titreModeleLot(l.code) + ').' }; }
+    catch(e){ l.etat = { ok:false, msg:'Non créée : ' + e.message }; }
+    rendreSaisie();
+  }
+  L.filter(l => l.reprise).forEach(l => { l.etat = { ok:true, msg:'Réponse déjà donnée reprise : pas de nouvelle question.' }; });
+  assistantReset(); lotEnCours = lot; rendreSaisie();
+  const m = el('lot-msg'); if(m) m.textContent = 'Terminé — pensez à l’envoi groupé au client.';
+};
+function titreModeleLot(code){ const r = LOT_RAISONS.find(x => x[0] === code); return r ? r[1] : code; }
+
 /* ================================================================ BOOT ==== */
 (async function(){
   await chargerCartes();
@@ -3089,6 +3221,16 @@ FS.poserIndice = async function(){
       await FS.assistantOuvrir();
       if(chemins[q]){ assistant.pile = chemins[q].slice(); rendreSaisie(); }
       else if(/^M[0-9]/.test(q)){ FS.choisirSituation(q); }
+      if(q === 'indispo' && vals.REF) deduirePourquoi(vals.REF);   /* v5.3 : proposition, non bloquante */
+    }
+    /* v5.3 : lot de questions (#lot=base64(JSON)) */
+    const h = location.hash || '';
+    if(P && P.id === pid && h.indexOf('#lot=') === 0){
+      try{
+        const lot = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(h.slice(5))))));
+        if(!MODELES){ try{ await chargerModeles(); }catch(e){} }
+        ouvrirLot(lot);
+      }catch(e){ alert('Lot de questions illisible : ' + e.message); }
     }
   }
 })();
