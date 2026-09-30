@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.7";
+const APP_VERSION = "13.8";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -1476,6 +1476,9 @@ function blocOdoo(){
 // Seul le conteneur data-odoo est reconstruit : le reste du bandeau de
 // rattachement n est jamais touche.
 function odooRendu(){
+  /* v13.8 (30/09/2026) : quand le déroulé est à l étape 3, le formulaire devis vit DANS le pop-up */
+  const pop = document.querySelector('#dd-odoo [data-odoo]');
+  if(pop){ pop.outerHTML = `<div data-odoo>${blocOdoo()}</div>`; return; }
   const el = document.getElementById('rattachement');
   if(!el) return;
   const anc = el.querySelector('[data-odoo]');
@@ -3961,7 +3964,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.15', DD_DATE = '30/09/2026'; /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.16', DD_DATE = '30/09/2026'; /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4004,6 +4007,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}${DD._consult ? '' : exigencesPanel()}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
     brancherDepot();
+    if (!document.getElementById('dd-odoo')) { const pg = document.querySelector('#rattachement [data-odoo][data-dd]'); if (pg && typeof odooRendu === 'function') odooRendu(); }
   }
   /* v1.13 (30/09/2026, demande Olivier) : zone glisser-déposer pour le zip PCB — le champ fichier reste la source de vérité */
   function brancherDepot(){
@@ -4367,11 +4371,19 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     }
     /* v1.13 : pas de déroulé ET pas de devis Odoo = on est à l étape 3, pas à la 4 (constat Safety B 30/09) */
     if (!(FICHE_LIEN && (FICHE_LIEN.odoo_so_id || FICHE_LIEN.odoo_so_name))) {
+      if (!(FICHE_LIEN && FICHE_LIEN.produit_id)) {
+        cadre('Étape 3/8 — Carte + devis', 'carte à rattacher',
+          `<div class="dd-carte"><div class="dd-h">CE DOSSIER N'EST RATTACHÉ À AUCUNE CARTE</div><div class="dd-ligne" style="line-height:1.6">Rattache-le d'abord à une carte (bloc « Rattacher ce dossier à une carte » sur la fiche), puis rouvre le déroulé : le devis se crée ici.</div></div>`,
+          SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn" onclick="DD.fermer()">Aller rattacher la carte</button>`, false, 3);
+        return;
+      }
+      /* v1.16 : le formulaire devis (le même que sur la fiche) est déplacé dans le pop-up ; sur la fiche, un simple renvoi */
+      const pg = document.querySelector('#rattachement [data-odoo]'); if (pg) { pg.innerHTML = '<p class="hint" style="margin:0">Formulaire devis ouvert dans le déroulé devis.</p>'; pg.dataset.dd = '1'; }
       cadre('Étape 3/8 — Carte + devis', 'devis Odoo à créer',
-        `<div class="dd-carte"><div class="dd-h">LE DEVIS ODOO N'EXISTE PAS ENCORE</div>
-          <div class="dd-ligne" style="line-height:1.6">Crée-le sur l'écran de la fiche, bloc « Créer le devis dans Odoo » : vérifie la référence et les quantités, puis « Créer dans Odoo ».<br>
-          Le RfQ Luminovo est créé tout de suite après, avec le n° du devis, et la BOM se charge en fond. Rouvre ensuite le déroulé : il reprend à l'étape 4 (fichiers PCB).</div></div>`,
-        SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.versDevis()">Aller créer le devis</button>`, false, 3);
+        `<div class="dd-carte" id="dd-odoo"><div data-odoo>${blocOdoo()}</div></div>
+         <div class="dd-ligne" style="color:var(--text3)">Au clic sur « Créer dans Odoo », le RfQ Luminovo est créé tout de suite avec le n° du devis, la BOM se charge en fond et le déroulé passe à l'étape 4.</div>`,
+        SIDE_REGLE, '', false, 3);
+      if (typeof ODOO !== 'undefined' && ODOO.etat !== 'ouvert' && ODOO.etat !== 'charge' && typeof odooVerifier === 'function') odooVerifier();
       return;
     }
     cadre('Étape 4/8 — RfQ + PCB', 'à créer',
@@ -4430,7 +4442,8 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         const d = ETAT.deroule; if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7 || d.etape === 8)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
-    fermer(){ clearTimeout(TIMER); DD._consult = null; $$('dd-fond').classList.remove('show'); },
+    fermer(){ clearTimeout(TIMER); DD._consult = null; $$('dd-fond').classList.remove('show');
+      const po = document.getElementById('dd-odoo'); if (po) { po.remove(); if (typeof odooRendu === 'function') odooRendu(); }   /* v1.16 : le formulaire devis revient sur la fiche */ },
     retourEtape(){ DD._consult = null; DD._courReel = null; afficher(); },
     voirEtape(k){
       /* v1.14 : consultation seule — on relit le journal, rien n est relancé ni écrit */
