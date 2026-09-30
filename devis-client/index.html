@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.8";
+const APP_VERSION = "13.9";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -3938,6 +3938,8 @@ async function basculerAnalyse(jobId, statut, btn){
 .dd-h{font-size:11px;letter-spacing:.06em;color:var(--text3)}
 .dd-carte{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .dd-carte.err{border-left:3px solid var(--red-badge)}
+.dd-carte.warn{border-left:3px solid var(--amber-badge)}
+.dd-carte.ok{border-left:3px solid var(--green-badge)}
 .dd-ligne{font-size:12px;color:var(--text2)}
 .dd-rep{font-family:var(--mono);font-size:12px;font-weight:600}
 .dd-pill{padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:var(--sans)}
@@ -3964,7 +3966,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.16', DD_DATE = '30/09/2026'; /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.17', DD_DATE = '30/09/2026'; /* v1.17 : étape 5 — contrôle de l import, non câblés de l analyse confirmés en bloc avec la vraie ligne client, lignes sans pièce gardées par défaut */ /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4078,7 +4080,19 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const d = fin.detail || {}, ch = d.charge || {};
     const groupes = (d.a_confirmer || []).map((g, i) => ({ id: 'c' + i, reperes: g.reperes || [], ligne: g.ligne_bom || '', propose: (g.propose || []).map(p => (p.mpn || '?') + ' / ' + (p.fabricant || '?')).join(' ou ') }));
     const nc = (d.propositions_non_cable || []).filter(p => !p.deja_non_cable).map((p, i) => ({ id: 'n' + i, reperes: p.reperes, ligne: p.ligne }));
-    const total = groupes.length + nc.length, faits = Object.keys(CHOIX).length;
+    /* v1.17 (30/09/2026, cas RTSYS Safety B) : non câblés venus de l analyse (déjà envoyés NC dans Luminovo) + contrôle de l import */
+    const ncA = d.non_cables || [], ctl = d.controle || null;
+    const total = groupes.length + nc.length + (ncA.length ? 1 : 0), faits = Object.keys(CHOIX).length;
+    const lig = t => esc(t || '').replace(/ · /g, '<span style="color:var(--text3)"> · </span>').replace(/(^|· <\/span>)([^:<]+) :/g, '$1<span style="color:var(--text3)">$2 :</span>');
+    const col = ctl && ctl.colonnes || {};
+    const refDouteuse = /comment|valeur|value|description|designation/i.test(col.reference || '');
+    const okL = ctl && ctl.lignes_fichier != null && ctl.lignes_fichier === ctl.lignes_luminovo;
+    const ctlHtml = !ctl
+      ? `<div class="dd-carte warn"><div class="dd-ligne"><b>⚠ Import fait avec l'ancienne version du script</b> : il ne reprenait pas les non câblés ni les IPN de l'analyse, les propositions ci-dessous ne sont pas fiables. Vide la BOM de ce RfQ dans Luminovo puis relance l'import.</div></div>`
+      : `<div class="dd-carte ${okL && !refDouteuse && col.statut ? 'ok' : 'warn'}"><div class="dd-h">L'IMPORT A-T-IL REPRIS L'ANALYSE ?</div>
+          <div class="dd-ligne">${okL ? '✅' : '⚠'} Lignes : ${esc(ctl.lignes_fichier)} dans la BOM traitée → ${esc(ctl.lignes_luminovo)} dans Luminovo</div>
+          <div class="dd-ligne">${refDouteuse ? '⚠' : '✅'} Colonne référence : <b>${esc(col.reference || '?')}</b> · fabricant : ${esc(col.fabricant || '—')} · IPN : ${esc(col.ipn || '—')}</div>
+          <div class="dd-ligne">${col.statut ? '✅' : '⚠'} Colonne statut de l'analyse : ${esc(col.statut || 'introuvable')} → <b>${esc(ctl.nc_analyse)}</b> ligne(s) non câblée(s) appliquée(s) d'office</div></div>`;
     const pill = (id, val, lab) => `<button class="dd-pill ${CHOIX[id] === val ? 'on' : ''}" onclick="DD.choisir('${id}','${val}')">${lab}</button>`;
     const corps =
       `<div><div class="dd-h">CHARGÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;align-items:center;flex-wrap:wrap;margin-top:6px">
@@ -4086,13 +4100,18 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         <span><span class="dd-num">${esc(ch.elements)}</span> <span class="dd-ligne">éléments</span></span>
         <span><span class="dd-num">${esc(ch.approuves)}</span> <span class="dd-ligne">approuvés d'office</span></span>
         ${d.pcb_bom ? '<span class="dd-ligne">Ligne PCB gardée en « PCB-BOM », non câblé</span>' : ''}</div></div>`
+      + `<div style="margin-top:4px">${ctlHtml}</div>`
       + `<div><div class="dd-h">À CONFIRMER — ${total - faits} sur ${total} restant</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">`
+      + (ncA.length ? `<div class="dd-carte"><div><b>Non câblés d'après l'analyse</b> <span class="dd-ligne">— déjà passés en non câblé dans Luminovo, ${ncA.length} ligne(s)</span></div>
+          ${ncA.map(x => `<div class="dd-ligne" style="line-height:1.5"><span class="dd-rep">${esc(x.reperes)}</span><br>${lig(x.ligne)}</div>`).join('')}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill('ncl','ok','Je confirme : non câblés')}<span class="dd-ligne" style="font-size:11px">Un doute sur une ligne ? Corrige-la dans Luminovo (RfQ → BOM), puis confirme ici.</span></div></div>` : '')
       + (groupes.map(g => `<div class="dd-carte"><div><span class="dd-rep">${esc(g.reperes.join(', '))}</span> &nbsp;<span>pièce proposée : <b>${esc(g.propose)}</b></span></div>
-          <div class="dd-ligne">BOM client : ${esc(g.ligne)} — gardée telle quelle dans la BOM originale.</div>
+          <div class="dd-ligne" style="line-height:1.5">BOM client : ${lig(g.ligne)}</div>
+          <div class="dd-ligne" style="font-size:11px;color:var(--text3)">Pas tranchable ici ? Laisse en attente et vérifie la ligne dans Luminovo (RfQ → BOM).</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(g.id,'ok','Confirmer la pièce proposée')}${pill(g.id,'non','Laisser en attente')}<span class="dd-ligne" style="font-size:11px">Proposé : confirmer</span></div></div>`).join(''))
-      + (nc.map(n => `<div class="dd-carte"><div><span class="dd-rep">${esc(n.reperes)}</span> &nbsp;<span>ligne sans pièce</span></div>
-          <div class="dd-ligne">BOM client : ${esc(n.ligne)}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(n.id,'nc','Passer en non câblé')}${pill(n.id,'garder','Garder')}<span class="dd-ligne" style="font-size:11px">Proposé : non câblé</span></div></div>`).join(''))
+      + (nc.map(n => `<div class="dd-carte"><div><span class="dd-rep">${esc(n.reperes)}</span> &nbsp;<span>ligne sans pièce trouvée${/IPN : /.test(n.ligne || '') ? ' — IPN PP pas encore connu dans Luminovo, à sourcer' : ''}</span></div>
+          <div class="dd-ligne" style="line-height:1.5">BOM client : ${lig(n.ligne)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(n.id,'garder','Garder (à sourcer)')}${pill(n.id,'nc','Passer en non câblé')}<span class="dd-ligne" style="font-size:11px">Proposé : garder</span></div></div>`).join(''))
       + (total ? '' : '<div class="dd-carte"><div class="dd-ligne">Rien à confirmer : toutes les pièces sont approuvées.</div></div>')
       + `</div></div>`
       + `<div><div class="dd-h">NOTÉ POUR L'ÉTAPE 7 (QUESTIONS CLIENT, RIEN N'EST ENVOYÉ ICI)</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Les pièces obsolètes et les écarts avec le fichier de pose seront rassemblés ici au lot 2.</div></div></div>`;
