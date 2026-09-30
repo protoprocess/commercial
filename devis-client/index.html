@@ -608,14 +608,14 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.4";
+const APP_VERSION = "13.5";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
    Si la carte FabStory n'est pas connue, repli sur l'ancien comportement. */
 /* v13.1 (29/09/2026) : porte « Devis refab » RETIRÉE (bouton + ouverture ?refab=1) — décision Olivier : « pas la solution, tout court », à rediscuter. Le code DD.refab reste présent mais n'est plus appelable ; workflow ouvrir_refab dépublié. */
 /* v13.0 (29/09/2026) : BASCULE EN PROD de la recette 12.33 (déroulé devis automatique : RfQ + import BOM en fond, pop-up étapes 4 à 8, porte Devis refab). Go Olivier 29/09. Retour arrière : étiquette Git avant-bascule-devis-2026-09-29 (prod 12.19). Les webhooks n8n gardent leur nom « recette-… » (workflows « RECETTE — Déroulé devis »), à renommer plus tard. */
-const APP_DATE = "29/09/2026";
+const APP_DATE = "30/09/2026";
 /* v12.31-recette (25/09/2026) : pop-up v1.8 — écrans dégraissés (cases, chiffres, boutons) ; standards PP = 🟢, 🟠 seulement pour un écart ou une valeur absente.
 /* v12.33-recette (25/09/2026) : refab — devis Odoo créé automatiquement s il manque (sans NRE) ; ?refab=1 ouvre la porte refab.
 /* v12.32-recette (25/09/2026) : porte « Devis refab » (bouton du bandeau, workflow ouvrir_refab NHmuVctKidvnRTQk) : carte + devis + quantités → RfQ existant, scénarios/calcul existants réutilisables, puis étapes 7-8.
@@ -1403,10 +1403,8 @@ function blocOdoo(){
       ? `<p class="hint" style="margin:5px 0 0">Déjà dans Odoo : ${versions.map(v=>esc(v.nom)).join(' · ')}</p>`
       : `<p class="hint" style="margin:5px 0 0">Aucune version de cette carte n'existe encore dans Odoo.</p>`}
 
-    <label class="odoo-f" style="margin-top:11px">Lien Luminovo <span class="hint">— facultatif</span></label>
-    <input id="odoo-luminovo" value="${esc(d.luminovo || '')}" placeholder="https://…"
-      style="width:100%;font-family:var(--mono);font-size:12px">
-    <p class="hint" style="margin:5px 0 0">Posé sur l'article Odoo. Se colle depuis l'onglet du projet Luminovo.</p>
+    <!-- v13.5 (30/09/2026) : champ « Lien Luminovo » retiré de l écran — le déroulé crée le RfQ juste après le devis. Champ gardé caché (valeur existante conservée). -->
+    <input id="odoo-luminovo" type="hidden" value="${esc(d.luminovo || '')}">
 
     ${(function(){
       const mid = midCourant();
@@ -3326,6 +3324,8 @@ async function chargerFicheDepuisLien(){
     afficher();
     bandeauFiche(j);
     rtAfficher();
+    /* v13.5 (30/09/2026, go Olivier) : le déroulé s ouvre sur toute fiche, quelle que soit l entrée */
+    if(window.DD && !params.get('deroule') && !params.get('deroule_id')) setTimeout(() => { try { DD.ouvrir(); } catch(e){} }, 600);
   }catch(e){
     const m = /load failed|failed to fetch|networkerror/i.test(e.message)
       ? "Impossible de joindre n8n pour ouvrir la fiche."
@@ -3958,7 +3958,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.12', DD_DATE = '29/09/2026'; // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.13', DD_DATE = '30/09/2026'; /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -3992,22 +3992,50 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     }).join('') + '</div>';
   }
   function cadre(titre, sub, corps, side, pied, bloque, cour){
-    const a = (ETAT && ETAT.analyse) || {};
+    const a = (ETAT && ETAT.analyse) || {}; DD._cour = cour || 5;
     $$('dd-box').innerHTML =
       `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
        <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
       + etapesHtml(cour || 5, bloque)
       + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}${exigencesPanel()}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
+    brancherDepot();
+  }
+  /* v1.13 (30/09/2026, demande Olivier) : zone glisser-déposer pour le zip PCB — le champ fichier reste la source de vérité */
+  function brancherDepot(){
+    const inp = document.getElementById('dd-zip'); if (!inp || inp.dataset.depot) return;
+    inp.dataset.depot = '1'; inp.style.display = 'none';
+    const z = document.createElement('div');
+    z.style.cssText = 'margin-top:6px;border:1.5px dashed var(--border2);border-radius:var(--radius-lg);padding:18px;text-align:center;cursor:pointer;color:var(--text2);font-size:13px;line-height:1.5';
+    const vide = '<i class="ti ti-file-zip" style="font-size:22px;display:block;margin-bottom:4px"></i>Glisse le zip PCB ici<br><span style="color:var(--text3);font-size:12px">ou clique pour le choisir · .zip .rar .7z · 16 Mo max</span>';
+    const montrer = () => { const f = inp.files && inp.files[0];
+      if (!f) { z.innerHTML = vide; z.style.borderColor = 'var(--border2)'; return; }
+      const mo = f.size / 1048576; const trop = mo > 16;
+      z.innerHTML = `<i class="ti ti-circle-check" style="font-size:22px;display:block;margin-bottom:4px;color:${trop ? 'var(--red)' : 'var(--green)'}"></i><b>${esc(f.name)}</b> — ${mo.toFixed(1).replace('.', ',')} Mo${trop ? '<br><span style="color:var(--red)">Trop lourd : 16 Mo maximum</span>' : '<br><span style="color:var(--text3);font-size:12px">clique ou glisse un autre fichier pour remplacer</span>'}`;
+      z.style.borderColor = trop ? 'var(--red-badge)' : 'var(--green-badge)'; };
+    z.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); inp.click(); });  /* la zone est dans un <label> : sans ça, double fenêtre de choix */
+    inp.addEventListener('change', montrer);
+    ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.style.borderColor = 'var(--blue)'; z.style.background = 'var(--blue-bg)'; }));
+    ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.style.background = ''; if (ev === 'dragleave') montrer(); }));
+    z.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return;
+      if (!/\.(zip|rar|7z)$/i.test(f.name)) { alert('Il faut un fichier .zip, .rar ou .7z (les fichiers PCB du client, compressés).'); montrer(); return; }
+      const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; montrer(); });
+    inp.insertAdjacentElement('afterend', z); montrer();
   }
   // ---------- fil rouge : exigences du dossier (sorties de l'analyse) ----------
   const ORIGINES = { pcb: 'PCB', montage: 'câblage', autre: 'exigence', attention: 'attention', question: 'question client', manquant: 'manquant', hors_capacite: 'hors capacité' };
   function exigencesPrises(){ const s = new Set(); (ETAT.journal || []).forEach(j => { if (j.evenement === 'go' && j.detail && Array.isArray(j.detail.exigences_prises)) j.detail.exigences_prises.forEach(x => s.add(x)); }); return s; }
   function exigencesPanel(){
-    const ex = ((ETAT || {}).analyse || {}).exigences || []; if (!ex.length) return '';
-    const prises = exigencesPrises(); const restantes = ex.filter(e => !prises.has(e.id)).length;
+    const ex0 = ((ETAT || {}).analyse || {}).exigences || []; if (!ex0.length) return ''; let ex = ex0;
+    const prises = exigencesPrises(); const restantes = ex0.filter(e => !prises.has(e.id)).length;
+    /* v1.13 : tri par étape — celles de l étape affichée d abord, les autres ensuite (constat 30/09 : câblage et PCB mélangés) */
+    const cour = DD._cour || 0; const txt = e => ((e.origine || '') + ' ' + (e.texte || e.libelle || '')).toLowerCase();
+    const etapeDe = e => { const t = txt(e); if (/pcb|couche|ipc.?a.?600|classe (iii|3)|ipc 3|finition|épaisseur|epaisseur|cuivre|gerber|sérigraph|vernis/.test(t)) return 4; if (/montage|câbl|cabl|colle|press|ipc.?a.?610|brasure|vernis de tropical|rx|aoi/.test(t)) return 6; if (/délai|delai|urgent|sourcing|composant|fourni|consign|obsol/.test(t)) return 7; return 0; };
+    const ici = cour ? ex0.filter(e => etapeDe(e) === cour) : [];
+    const nbIci = (ici.length && ici.length < ex0.length) ? ici.length : 0;
+    if (nbIci) ex = [...ici, ...ex0.filter(e => etapeDe(e) !== cour)];
     return `<div><div class="dd-h">EXIGENCES DU DOSSIER — ${restantes ? restantes + ' à prendre en compte' : 'toutes prises en compte'}</div>
-      <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:340px;overflow:auto">${ex.map(e => { const p = prises.has(e.id); return `<label class="dd-ligne" style="display:flex;gap:7px;align-items:flex-start;${p ? 'opacity:.55' : ''}"><input type="checkbox" class="dd-ex" value="${esc(e.id)}" ${p ? 'checked disabled' : ''} style="margin-top:2px"><span><span style="color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em">${esc(ORIGINES[e.origine] || e.origine)}</span> ${esc(e.texte)}${e.source ? ' <span style="color:var(--text3)">(' + esc(e.source) + ')</span>' : ''}</span></label>`; }).join('')}</div>
+      <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:340px;overflow:auto">${ex.map((e, i) => { const p = prises.has(e.id); return (nbIci && i === 0 ? '<div class="dd-ligne" style="color:var(--blue);font-size:11px">Pour cette étape</div>' : '') + (nbIci && i === nbIci ? '<div class="dd-ligne" style="color:var(--text3);font-size:11px;margin-top:6px">Pour les autres étapes</div>' : '') + `<label class="dd-ligne" style="display:flex;gap:7px;align-items:flex-start;${p ? 'opacity:.55' : ''}"><input type="checkbox" class="dd-ex" value="${esc(e.id)}" ${p ? 'checked disabled' : ''} style="margin-top:2px"><span><span style="color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em">${esc(ORIGINES[e.origine] || e.origine)}</span> ${esc(e.texte)}${e.source ? ' <span style="color:var(--text3)">(' + esc(e.source) + ')</span>' : ''}</span></label>`; }).join('')}</div>
 </div>`;
   }
   const SIDE_REGLE = '';
@@ -4332,6 +4360,15 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Script creer_rfq_pcb v1.3</span><button class="dd-btn p" onclick="DD.creer()">Déposer les fichiers PCB</button>`, false, 4);
       return;
     }
+    /* v1.13 : pas de déroulé ET pas de devis Odoo = on est à l étape 3, pas à la 4 (constat Safety B 30/09) */
+    if (!(FICHE_LIEN && (FICHE_LIEN.odoo_so_id || FICHE_LIEN.odoo_so_name))) {
+      cadre('Étape 3/8 — Carte + devis', 'devis Odoo à créer',
+        `<div class="dd-carte"><div class="dd-h">LE DEVIS ODOO N'EXISTE PAS ENCORE</div>
+          <div class="dd-ligne" style="line-height:1.6">Crée-le sur l'écran de la fiche, bloc « Créer le devis dans Odoo » : vérifie la référence et les quantités, puis « Créer dans Odoo ».<br>
+          Le RfQ Luminovo est créé tout de suite après, avec le n° du devis, et la BOM se charge en fond. Rouvre ensuite le déroulé : il reprend à l'étape 4 (fichiers PCB).</div></div>`,
+        SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.versDevis()">Aller créer le devis</button>`, false, 3);
+      return;
+    }
     cadre('Étape 4/8 — RfQ + PCB', 'à créer',
       `
        <div class="dd-carte" style="gap:10px">
@@ -4388,6 +4425,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
     fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
+    versDevis(){ DD.fermer(); const b = document.getElementById('odoo-go') || document.querySelector('[data-odoo]'); if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else { alert('Ouvre le bloc « Créer le devis dans Odoo » sous « Dossier rattaché ».'); } },
     async lancer(){
       const sel = $$('dd-rfq'); if (!sel) return;
       const [rfq, asm] = sel.value.split('|'); const a = ETAT.analyse || {};
@@ -4477,7 +4515,10 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       // v1.4 : dès que le devis Odoo est créé (étape 3), on crée le RfQ Luminovo et on lance l'import BOM en fond.
       try {
         const a = ETAT.analyse || {}; const job = jobCourant(); if (!job) return;
-        const r = await fetch(`${base()}/webhook/recette-creer-rfq`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job, client: a.client || (FICHE_LIEN && FICHE_LIEN.client) || '', nom_rfq: ref || a.ref_projet || '', so_odoo: so || null, valideur: qui() }) });
+        /* v1.13 : nom du RfQ = référence + indice + nom de la carte (convention), pas le seul code saisi */
+        const od = (window.ODOO && ODOO.data) || {}; let nomRfq = ref || a.ref_projet || '';
+        try { const cle = (typeof odooNomPrevu === 'function') ? odooNomPrevu() : ''; if (cle) nomRfq = (cle + ' ' + (od.reference_interne || '')).trim(); } catch (e) {}
+        const r = await fetch(`${base()}/webhook/recette-creer-rfq`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job, client: a.client || (FICHE_LIEN && FICHE_LIEN.client) || '', nom_rfq: nomRfq, so_odoo: so || null, valideur: qui() }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
         alert('RfQ Luminovo créé' + (j.import_bom === 'lance' ? ' — la BOM se charge en tâche de fond (3-4 min). Tu peux passer à l\'étape 4 (fichiers PCB).' : ' — pas de BOM traitée sur cette analyse, import non lancé.'));
