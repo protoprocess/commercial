@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.5";
+const APP_VERSION = "13.6";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -3924,6 +3924,9 @@ async function basculerAnalyse(jobId, statut, btn){
 .dd-etapes{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap}
 .dd-etapes span{padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text3)}
 .dd-etapes span.fait{color:var(--green)}
+.dd-etapes span.fait.clic{cursor:pointer}
+.dd-etapes span.fait.clic:hover{border-color:var(--green-badge);background:var(--surface2)}
+.dd-etapes span.vue{border-color:var(--green);background:var(--surface2)}
 .dd-etapes span.cour{background:var(--accent);color:#fff;border-color:transparent;font-weight:600}
 .dd-etapes span.bloq{background:var(--red-bg);color:var(--red-badge);border-color:transparent;font-weight:600}
 .dd-corps{display:flex;min-height:0;flex:1}
@@ -3958,7 +3961,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.13', DD_DATE = '30/09/2026'; /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.14', DD_DATE = '30/09/2026'; /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -3987,8 +3990,9 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // ---------- rendu ----------
   function etapesHtml(cour, bloque){
     return '<div class="dd-etapes">' + ETAPES.map((n, i) => {
-      const k = i + 1; const cls = k < cour ? 'fait' : (k === cour ? (bloque ? 'bloq' : 'cour') : '');
-      return `<span class="${cls}">${k < cour ? '✓ ' : ''}${esc(n)}</span>`;
+      const k = i + 1; const cls = k < cour ? 'fait clic' + (DD._consult === k ? ' vue' : '') : (k === cour ? (bloque ? 'bloq' : 'cour') : '');
+      /* v1.14 : une étape passée se consulte au clic (lecture seule, jamais relancée) */
+      return `<span class="${cls}"${k < cour ? ` onclick="DD.voirEtape(${k})" title="Voir ce qui a été fait"` : ''}>${k < cour ? '✓ ' : ''}${esc(n)}</span>`;
     }).join('') + '</div>';
   }
   function cadre(titre, sub, corps, side, pied, bloque, cour){
@@ -3997,7 +4001,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
        <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
       + etapesHtml(cour || 5, bloque)
-      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}${exigencesPanel()}</div></div>`
+      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${side}${DD._consult ? '' : exigencesPanel()}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
     brancherDepot();
   }
@@ -4240,6 +4244,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   // ---------- pilotage ----------
   function afficher(){
+    if (DD._consult) return;   /* v1.14 : consultation d une étape passée en cours, on ne l écrase pas */
     const d = ETAT.deroule, j = ETAT.journal || [];
     if (!d) return ecranDepart();
     const finDe = n => [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin' && x.etape === n);
@@ -4413,6 +4418,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   window.DD = {
     async ouvrir(relance){
+      DD._consult = null; DD._courReel = null;
       if (!jobCourant() && !DD._deroule) { DD.refab(); return; }
       $$('dd-fond').classList.add('show'); $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Lecture du dossier…</div>';
       try {
@@ -4424,7 +4430,34 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         const d = ETAT.deroule; if (d && ((d.statut === 'en_cours' && (d.etape === 4 && (ETAT.journal || []).some(x => x.etape === 4 && x.evenement === 'script') || d.etape === 6 || d.etape === 7 || d.etape === 8)) || (d.etape === 5 && (d.bom_statut === 'en_cours' || d.bom_statut === 'fait')))) TIMER = setTimeout(() => rafraichir().catch(e => console.warn(e)), 15000);
       } catch (e) { $$('dd-box').innerHTML = '<div style="padding:30px;color:var(--red)">Impossible de lire le déroulé : ' + esc(e.message) + '</div><div class="dd-pied"><button class="dd-btn" onclick="DD.fermer()">Fermer</button></div>'; }
     },
-    fermer(){ clearTimeout(TIMER); $$('dd-fond').classList.remove('show'); },
+    fermer(){ clearTimeout(TIMER); DD._consult = null; $$('dd-fond').classList.remove('show'); },
+    retourEtape(){ DD._consult = null; DD._courReel = null; afficher(); },
+    voirEtape(k){
+      /* v1.14 : consultation seule — on relit le journal, rien n est relancé ni écrit */
+      const reel = DD._courReel || DD._cour || 5; DD._courReel = reel; DD._consult = k;
+      const a = ETAT.analyse || {}, d = ETAT.deroule || {}, j = (ETAT.journal || []).filter(x => x.etape === k);
+      const quand = x => x && x.cree_le ? new Date(x.cree_le).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      const go = [...j].reverse().find(x => x.evenement === 'go'), fin = [...j].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin');
+      const L = (t, v) => v == null || v === '' ? '' : `<div class="dd-ligne"><span style="color:var(--text3)">${esc(t)} :</span> ${v}</div>`;
+      const eur = v => v == null ? '—' : Number(v).toFixed(2).replace('.', ',') + ' €';
+      let quoi = '';
+      if (k <= 2) quoi = L('Client', esc(a.client || '')) + L('Dossier', esc(a.ref_projet || '')) + L('Quantités demandées', esc((a.quantites || []).join(' / '))) + L('BOM traitée le', a.bom_traite_le ? esc(new Date(a.bom_traite_le).toLocaleString('fr-FR')) : '') + L('Exigences relevées', esc(String((a.exigences || []).length)));
+      else if (k === 3) { const so = d.so_odoo || (FICHE_LIEN && (FICHE_LIEN.odoo_so_name || FICHE_LIEN.odoo_so_id)); quoi = L('Devis Odoo', so ? `<b>${esc(so)}</b> <a target="_blank" style="color:var(--blue)" href="${ODOO_URL}/odoo/sales/${encodeURIComponent(String(d.so_odoo_id || (FICHE_LIEN && FICHE_LIEN.odoo_so_id) || so))}">ouvrir ↗</a>` : '<span style="color:var(--amber)">aucun</span>') + L('Quantités du devis', esc((d.quantites || []).join(' / '))) + L('RfQ Luminovo', d.rfq_luminovo ? 'créé ✓ (' + esc(d.dossier || '') + ')' : '<span style="color:var(--amber)">pas encore</span>'); }
+      else if (k === 4 && fin) { const sp = (fin.detail || {}).spec || []; quoi = sp.length ? '<table style="border-collapse:collapse;font-size:12px;width:100%">' + sp.map(l => `<tr><td style="padding:3px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(l.param)}</td><td style="padding:3px 8px;border-bottom:1px solid var(--border)">${l.valeur == null ? '—' : esc(l.valeur)}</td><td style="padding:3px 8px;color:var(--text3);border-bottom:1px solid var(--border)">${esc(l.source || '')}</td></tr>`).join('') + '</table>' : L('Fichiers déposés', esc(String(((fin.detail || {}).fichiers || []).length))); }
+      else if (k === 5 && go) { const g = go.detail || {}; quoi = L('Pièces approuvées', esc(String((g.approuver || []).length))) + L('Laissées à confirmer', esc(String((g.laisser || []).length))) + L('Passées en non câblé', esc(String((g.non_cable || []).length))); }
+      else if (k === 6 && fin) quoi = ((fin.detail || {}).scenarios || []).map(x => `<div class="dd-ligne">${x.erreur ? '⚠ Qté ' + esc(x.qte) + ' : ' + esc(x.erreur) : '✔ <b>' + esc(x.nom || ('Qté ' + x.qte)) + '</b>' + (x.modele ? ' — « ' + esc(x.modele) + ' »' : '') + ((x.briques || []).length ? ' + ' + esc(x.briques.join(', ')) : '')}</div>`).join('');
+      else if (k === 8 && fin) quoi = ((fin.detail || {}).montants || []).map(x => `<div class="dd-ligne">Qté <b>${esc(x.qte)}</b> — matière ${eur(x.matiere)} · fabrication ${eur(x.fabrication)}</div>`).join('');
+      if (!quoi) quoi = '<div class="dd-ligne" style="color:var(--text3)">Pas de détail enregistré pour cette étape.</div>';
+      const ids = new Set((go && go.detail && go.detail.exigences_prises) || []);
+      const exig = ((a.exigences || []).filter(e => ids.has(e.id))).map(e => `<div class="dd-ligne">☑ ${esc(e.texte)}</div>`).join('');
+      const hist = j.map(x => `<div class="dd-ligne" style="color:var(--text3)">${esc(quand(x))} — ${esc(x.evenement === 'go' ? 'validé' : x.evenement === 'script' ? ((x.detail || {}).phase === 'fin' ? 'traitement terminé' : 'traitement lancé') : x.evenement === 'alerte' ? 'alerte : ' + ((x.detail || {}).motif || '') : x.evenement)}${x.qui ? ' · ' + esc(x.qui) : ''}</div>`).join('');
+      cadre(`${esc(ETAPES[k - 1])} — déjà fait`, go ? 'validé par ' + esc(go.qui || '?') + ' le ' + esc(quand(go)) : 'étape passée',
+        `<div class="dd-carte" style="border-left:3px solid var(--green-badge)"><div class="dd-h">CE QUI A ÉTÉ FAIT</div>${quoi}</div>
+         ${exig ? `<div class="dd-carte"><div class="dd-h">EXIGENCES PRISES EN COMPTE ICI</div>${exig}</div>` : ''}
+         <div class="dd-carte"><div class="dd-ligne">🔒 Consultation seule : rien n'est relancé. Pour corriger, fais-le directement dans Odoo ou Luminovo.</div></div>`,
+        hist ? `<div><div class="dd-h">HISTORIQUE</div><div style="margin-top:6px">${hist}</div></div>` : '',
+        `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.retourEtape()">Revenir à l'étape en cours</button>`, false, reel);
+    },
     versDevis(){ DD.fermer(); const b = document.getElementById('odoo-go') || document.querySelector('[data-odoo]'); if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else { alert('Ouvre le bloc « Créer le devis dans Odoo » sous « Dossier rattaché ».'); } },
     async lancer(){
       const sel = $$('dd-rfq'); if (!sel) return;
