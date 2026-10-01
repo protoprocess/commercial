@@ -197,6 +197,8 @@
   .pm-texte { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pm-texte .prop-pp { padding: 0 4px; }
   .pt-mini.resolu .pm-texte { color: var(--vert); font-weight: 600; }
+  .pm-sep { display: flex; align-items: center; gap: 8px; margin: 13px 0 7px; font-size: 11.5px; font-weight: 700; color: var(--vert); }
+  .pm-sep::after { content: ""; flex: 1; height: 1px; background: var(--border2); }
   #points .point { display: none; margin: 14px 0; scroll-margin-top: 64px; }
   #points .point.actif { display: block; }
   @media screen and (min-width: 980px) {
@@ -568,8 +570,11 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.54";
+const APP_VERSION = "0.55";
 const APP_DATE = "01/10/2026";
+/* v0.55 (01/10/2026, decision Olivier : « du moment qu on voit qu on a repondu et qu on avance ») :
+   dans le panneau, une question repondue DESCEND en bas de la liste, en vert, sous un petit titre
+   « Repondu (n) ». Le haut de la liste ne contient plus que ce qui reste a faire ; rien ne disparait. */
 /* v0.54 (01/10/2026, retour Olivier sur la 0.53 : « je voulais les cartes repliees en haut a droite,
    comme la vue interne ») : les questions en attente sont des MINI-CARTES dans un PANNEAU A DROITE
    (meme principe que « En attente de reponse » de FabStory interne) ; le detail et le formulaire
@@ -1513,6 +1518,20 @@ function placerPanneau() {
 if (MQ_LARGE) {
   MQ_LARGE.addEventListener ? MQ_LARGE.addEventListener("change", placerPanneau) : MQ_LARGE.addListener(placerPanneau);
 }
+/* v0.55 : une mini-carte repondue descend sous le titre « Repondu (n) », en bas de la liste. */
+function rangerRepondu(mini) {
+  const liste = document.getElementById("ptsListe");
+  if (!liste || !mini) return;
+  let sep = document.getElementById("ptsSep");
+  if (!sep) {
+    sep = document.createElement("div");
+    sep.className = "pm-sep";
+    sep.id = "ptsSep";
+    liste.appendChild(sep);
+  }
+  liste.appendChild(mini);
+  sep.textContent = t("repondu") + " (" + liste.querySelectorAll(".pt-mini.resolu").length + ")";
+}
 function resumeMini(e) {
   const lignes = String(e.texte == null ? "" : e.texte).split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
   const prop = lignes.filter(function (l) { return /^Proposition\s+PP\s*:/i.test(l); })[0];
@@ -1852,6 +1871,7 @@ async function envoyerReponse(bloc, e, form, choixSel) {
     mini.classList.add("resolu");
     const lt = mini.querySelector(".pm-texte");
     if (lt) lt.textContent = "\u2713 " + t("repondu") + (resume ? " : " + resume : "");
+    rangerRepondu(mini);
   }
   if (!ratees.length) {
     const suivant = document.querySelector("#points .point:not(.resolu)");
