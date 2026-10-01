@@ -4168,7 +4168,9 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     /* v1.42 (chantier 197) : composants fournis par le client -> rien à acheter donc rien à trancher ; les pièces proposées sont prises d office (elles ne servent qu au comptage de la main-d œuvre) */
     if (fournEtat().comp) {
       groupes.forEach(g => { CHOIX[g.id] = 'ok'; });
-      const nSans = tr.filter(t => !t.propose).reduce((n, t) => n + String(t.reperes || '').split(/,\s*/).filter(Boolean).length, 0);
+      /* importer_bom v1.5 : les R / C restés sans rien ont reçu une pièce générique -> on compte ce qui reste VRAIMENT sans pièce dans Luminovo (hors propositions, prises d office) */
+      const avecProp = new Set(tr.filter(t => t.propose).flatMap(t => String(t.reperes || '').split(/,\s*/).filter(Boolean)));
+      const nSans = Array.isArray(d.sans_piece) ? d.sans_piece.filter(r => !avecProp.has(r)).length : tr.filter(t => !t.propose).reduce((n, t) => n + String(t.reperes || '').split(/,\s*/).filter(Boolean).length, 0);
       const corpsF = `<div><div class="dd-h">CHARGÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;align-items:center;flex-wrap:wrap;margin-top:6px">
           <span><span class="dd-num">${esc(ch.lignes_bom_originale)}</span> <span class="dd-ligne">lignes, BOM originale conservée</span></span>
           <span><span class="dd-num">${esc(ch.elements)}</span> <span class="dd-ligne">éléments</span></span>
