@@ -41,7 +41,7 @@
   .logo-text .lt { color: #fff; }
   .logo-text .ls { color: #555; margin: 0 5px; }
   .logo-text .lo { color: var(--accent); }
-  .ver { margin-left: 12px; color: #6b7280; font-size: 11px; font-family: var(--mono); }
+  .ver { margin-left: 12px; color: #6b7280; font-size: 11px; font-family: var(--mono); white-space: nowrap; }
   .btn-home { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid #5BC4D8; color: #5BC4D8; font-size: 12px; font-weight: 600; text-decoration: none; }
   .btn-home:hover { background: #5BC4D8; color: #0a0c12; }
   .btn-imprimer { margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; font-family: var(--sans); cursor: pointer; }
@@ -175,6 +175,35 @@
   .liens-doc a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 12.5px; font-weight: 600; text-decoration: none; }
   .liens-doc a:hover { background: var(--accent); color: #fff; }
   .point-meta { font-size: 11.5px; color: var(--text3); margin-top: 5px; }
+
+  /* ---- v0.53 : vue carte (une carte compacte par question, detail au clic) ---- */
+  .point { padding: 12px 16px; margin-bottom: 9px; }
+  .pt-haut { cursor: pointer; }
+  .pt-ligne { display: flex; align-items: flex-start; gap: 10px; }
+  .pt-ligne .pt-comp { flex: 1; min-width: 0; }
+  .pt-ligne .comp { margin-bottom: 4px; font-size: 13px; }
+  .pt-ouvrir {
+    flex: none; border: 1px solid var(--accent); background: var(--surface); color: var(--accent-fonce);
+    border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: var(--sans); white-space: nowrap;
+  }
+  .pt-ouvrir:hover { background: var(--accent); color: #fff; }
+  .point.ouvert .pt-ouvrir { border-color: var(--border2); color: var(--text2); background: var(--surface); }
+  .point.resolu .pt-ouvrir { border-color: var(--vert); color: var(--vert); background: var(--vert-bg); }
+  .pt-rep { font-size: 12.5px; color: var(--vert); font-weight: 600; margin-top: 5px; overflow-wrap: anywhere; }
+  .pt-detail { display: none; margin-top: 9px; }
+  .point.ouvert .pt-detail { display: block; }
+  .prop-pp { font-weight: 700; background: #FDF0E1; color: var(--accent-fonce); padding: 1px 6px; border-radius: 4px; }
+  .rep-tout { display: none; }
+  .rep.deplie .rep-court { display: none; }
+  .rep.deplie .rep-tout { display: inline; }
+  .rep-plus {
+    border: 1px solid var(--border2); background: var(--bg); color: var(--text2); border-radius: 999px;
+    padding: 0 7px; font-size: 11px; font-weight: 600; line-height: 17px; cursor: pointer; font-family: var(--sans);
+    vertical-align: 1px;
+  }
+  .rep-plus:hover { border-color: var(--accent); color: var(--accent-fonce); }
+  @media print { .rep-court { display: none !important; } .rep-tout { display: inline !important; } }
 
   /* Formulaire de reponse */
   .rep-form { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 13px; }
@@ -516,8 +545,20 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.52";
-const APP_DATE = "22/09/2026";
+const APP_VERSION = "0.53";
+const APP_DATE = "01/10/2026";
+/* v0.53 (01/10/2026, chantier FabStory lisibilite, decisions Olivier) :
+   (1) VUE CARTE : chaque question en attente est une carte compacte (composant, raison,
+       proposition PP) ; le reste du texte, la datasheet, les pieces et le formulaire de reponse
+       ne s ouvrent qu au clic. Une seule carte ouverte a la fois (les saisies en cours sont
+       conservees). Apres envoi, la carte se replie en vert et la suivante s ouvre.
+   (2) « Proposition PP : » en gras surligne, partout (points et historique).
+   (3) REPERES limites a 3 (« D101, D106, D111 +23 ») dans la ligne Rep ET dans la phrase ;
+       le clic sur +N deplie la liste complete ; a l impression la liste est toujours complete.
+   (4) Le choix « Accepter l equivalent propose par PP » est masque quand la question ne porte
+       aucune proposition (modeles rupture / obsolete / MOQ sans equivalent PP).
+   (5) Resume apres envoi : le choix retenu est affiche (il manquait pour les questions a modele).
+   (6) Version + date visibles dans l en-tete. */
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
 document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
@@ -578,7 +619,7 @@ function majRapportVide() {
   const unVisible = (ops && ops.style.display !== "none") || (conf && conf.style.display !== "none") || (ph && ph.style.display !== "none") || (cart && cart.style.display !== "none");
   vide.style.display = unVisible ? "none" : "block";
 }
-document.getElementById("verBadge").textContent = "v" + APP_VERSION;
+document.getElementById("verBadge").textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
 document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
 document.title = "Suivi des projets · " + APP_NAME + " v" + APP_VERSION;
 
@@ -616,6 +657,7 @@ const T = {
     refus_indispo: "Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.",
     bandeau_lecture: "Ce lien est en lecture seule : le suivi reste consultable, mais les r\u00e9ponses en ligne sont ferm\u00e9es. Contactez Proto Process pour toute question.",
     voir_bom: "Voir la BOM",
+    repondre: "R\u00e9pondre", fermer: "Fermer", detail: "D\u00e9tail", repondu: "R\u00e9pondu", tous_reperes: "Voir tous les rep\u00e8res",
     points_titre: "En attente de votre r\u00e9ponse", points_sous: "Votre r\u00e9ponse d\u00e9bloque directement la pr\u00e9paration de votre carte.",
     points_fait: "Tous les points sont trait\u00e9s \u2014 merci\u00a0!",
     onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
@@ -679,6 +721,7 @@ const T = {
     refus_indispo: "Tracking is temporarily unavailable. Please try again in a few minutes.",
     bandeau_lecture: "This link is read-only: tracking remains available, but online replies are closed. Contact Proto Process for any question.",
     voir_bom: "View BOM",
+    repondre: "Reply", fermer: "Close", detail: "Details", repondu: "Replied", tous_reperes: "Show all designators",
     points_titre: "Awaiting your reply", points_sous: "Your reply directly unblocks the preparation of your board.",
     points_fait: "All points are settled \u2014 thank you!",
     onglet_historique: "History", onglet_rapport: "Production report",
@@ -922,17 +965,57 @@ function esc(v) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+/* v0.53 : reperes limites a 3 a l ecran (« D101, D106, D111 +23 »). Le clic sur +N deplie
+   la liste ; a l impression la liste complete est toujours sortie (CSS print). */
+function listeReperes(txt) {
+  return String(txt == null ? "" : txt).split(/\s*[,;\n]+\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
+}
+function htmlReperes(txt) {
+  const l = listeReperes(txt);
+  if (l.length <= 3) return esc(txt);
+  const tout = esc(l.join(", "));
+  return '<span class="rep"><span class="rep-court">' + esc(l.slice(0, 3).join(", ")) +
+    ' <button type="button" class="rep-plus" title="' + tout + '" aria-label="' + esc(t("tous_reperes")) + '">+' + (l.length - 3) + '</button></span>' +
+    '<span class="rep-tout">' + tout + '</span></span>';
+}
+document.addEventListener("click", function (ev) {
+  const b = ev.target && ev.target.closest ? ev.target.closest(".rep-plus") : null;
+  if (!b) return;
+  ev.preventDefault();
+  const r = b.closest(".rep");
+  if (r) r.classList.add("deplie");
+});
 /* v0.16 : texte client en paragraphes, URL brute -> lien "fiche produit" (jamais
-   affichee en clair), sans changer le texte enregistre. */
-function htmlTexteClient(texte) {
+   affichee en clair), sans changer le texte enregistre.
+   v0.53 : la liste de reperes repetee dans la phrase est raccourcie comme la ligne Rep,
+   et « Proposition PP : » est mis en avant. Rend un tableau de paragraphes (HTML). */
+function parasTexteClient(texte, repere) {
   const brut = String(texte == null ? "" : texte);
   const paras = brut.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+  const repEsc = (repere && listeReperes(repere).length > 3) ? esc(String(repere).trim()) : "";
   return paras.map(function (l) {
-    const h = esc(l).replace(/\s*[\u2014\u2013-]?\s*(https?:\/\/[^\s<]+?)([.,;:!?]?)(?=\s|$)/g, function (m, url, fin) {
+    let h = esc(l).replace(/\s*[\u2014\u2013-]?\s*(https?:\/\/[^\s<]+?)([.,;:!?]?)(?=\s|$)/g, function (m, url, fin) {
       return ' (<a class="lien-inline" href="' + url + '" target="_blank" rel="noopener">' + t("fiche_produit") + '</a>)' + fin;
     });
-    return "<p>" + h + "</p>";
-  }).join("");
+    if (repEsc && h.indexOf(repEsc) >= 0) h = h.split(repEsc).join(htmlReperes(repere));
+    h = h.replace(/(Proposition\s+PP\s*:)/g, '<span class="prop-pp">$1</span>');
+    return h;
+  });
+}
+function htmlTexteClient(texte, repere) {
+  return parasTexteClient(texte, repere).map(function (h) { return "<p>" + h + "</p>"; }).join("");
+}
+/* v0.53 : une question sans proposition PP ne doit pas offrir « Accepter l equivalent
+   propose par PP » (les modeles gardaient ce choix meme quand la proposition etait vide). */
+function sansProposition(e) {
+  const p = e && e.enveloppe && e.enveloppe.proposition;
+  if (p && String(p).trim()) return false;
+  return !/Proposition\s+PP/i.test(String((e && e.texte) || ""));
+}
+function choixSansObjet(e, c) {
+  if (!c || !sansProposition(e)) return false;
+  return /propos[\u00e9e]e?\s+par\s+PP|proposed\s+by\s+PP/i.test(String(c.libelle || "")) ||
+    /c[\u00e2a]blons\s{2,}[\u00e0a]\s+la\s+place/i.test(String(c.aide || ""));
 }
 function svgLienExt() {
   return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -1368,6 +1451,32 @@ function rendrePoints(r) {
   const zone = document.getElementById("points");
   zone.innerHTML = "";
   attente.forEach(function (e) { zone.appendChild(construirePoint(e)); });
+  /* v0.53 : une seule question -> ouverte d office ; plusieurs -> liste compacte. */
+  if (attente.length === 1) ouvrirPoint(zone.querySelector(".point"));
+}
+
+/* v0.53 : vue carte. Ouvrir / replier ne detruit rien : une saisie commencee dans une
+   carte est conservee quand on en ouvre une autre. */
+function majBoutonPoint(bloc) {
+  const b = bloc.querySelector(".pt-ouvrir");
+  if (!b) return;
+  const ouvert = bloc.classList.contains("ouvert");
+  if (bloc.classList.contains("resolu")) b.textContent = "\u2713 " + t("repondu");
+  else if (ouvert) b.textContent = t("fermer") + " \u25B4";
+  else b.textContent = (DONNEES && DONNEES.repondable === false ? t("detail") : t("repondre")) + " \u25BE";
+  b.setAttribute("aria-expanded", ouvert ? "true" : "false");
+}
+function ouvrirPoint(bloc) {
+  if (!bloc) return;
+  document.querySelectorAll("#points .point.ouvert").forEach(function (x) {
+    if (x !== bloc) { x.classList.remove("ouvert"); majBoutonPoint(x); }
+  });
+  bloc.classList.add("ouvert");
+  majBoutonPoint(bloc);
+}
+function basculerPoint(bloc) {
+  if (bloc.classList.contains("ouvert")) { bloc.classList.remove("ouvert"); majBoutonPoint(bloc); }
+  else ouvrirPoint(bloc);
 }
 
 function construirePoint(e) {
@@ -1379,23 +1488,39 @@ function construirePoint(e) {
     : (e.so_canonique ? '<span class="chip chip-etape">' + t("chip_commande") + esc(e.so_canonique) + "</span>" : "");
   const comp = (e.repere || e.mpn)
     ? '<div class="comp">' +
-      (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
-      (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
+      (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>&emsp;" : "") +
+      (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + htmlReperes(e.repere) + "</span>" : "") +
       "</div>"
     : "";
+  /* v0.53 : carte compacte = 1er paragraphe (la raison) + la proposition PP ; le reste au clic. */
+  const haut = [], bas = [];
+  parasTexteClient(e.texte, e.repere).forEach(function (h, i) {
+    ((i === 0 || h.indexOf('class="prop-pp"') >= 0) ? haut : bas).push("<p>" + h + "</p>");
+  });
   bloc.innerHTML =
     '<div class="point-tete">' +
-      '<span class="point-ico">' + svgCroix(24) + "</span>" +
+      '<span class="point-ico">' + svgCroix(20) + "</span>" +
       '<div class="point-corps">' +
-        (soBadge ? '<div style="margin-bottom:7px">' + soBadge + "</div>" : "") +
-        comp +
-        '<div class="point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
-        htmlPhotosEntree(e) + htmlPieces(e.pieces) +
-        '<div class="point-meta">' + t("question_posee") + esc(fmtDate(e.cree_le)) +
-          (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
-        construireFormulaire(e) +
+        '<div class="pt-haut">' +
+          '<div class="pt-ligne"><div class="pt-comp">' +
+            (soBadge ? '<div style="margin-bottom:6px">' + soBadge + "</div>" : "") + comp +
+          '</div><button type="button" class="pt-ouvrir"></button></div>' +
+          '<div class="point-texte">' + haut.join("") + "</div>" +
+        "</div>" +
+        '<div class="pt-detail">' +
+          (bas.length ? '<div class="point-texte">' + bas.join("") + "</div>" : "") + htmlLiensDoc(e) +
+          htmlPhotosEntree(e) + htmlPieces(e.pieces) +
+          '<div class="point-meta">' + t("question_posee") + esc(fmtDate(e.cree_le)) +
+            (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
+          construireFormulaire(e) +
+        "</div>" +
       "</div>" +
     "</div>";
+  bloc.querySelector(".pt-haut").addEventListener("click", function (ev) {
+    if (ev.target.closest("a, .rep-plus")) return;
+    basculerPoint(bloc);
+  });
+  majBoutonPoint(bloc);
   if (DONNEES.repondable !== false) brancherFormulaire(bloc, e);
   return bloc;
 }
@@ -1412,6 +1537,7 @@ function construireFormulaire(e) {
        portee est UNE case (decision Olivier 31/08 : "valable pour toujours" ou rien). */
     html += '<div class="rep-lbl">' + t("votre_reponse") + '</div><div class="choix-liste">';
     e.enveloppe.choix.forEach(function (c, i) {
+      if (choixSansObjet(e, c)) return;   /* v0.53 : pas de proposition PP -> pas ce choix (l indice i reste celui de l enveloppe) */
       html += '<button type="button" class="choix-btn" data-env="' + i + '">' + esc(c.libelle) + "</button>";
     });
     html += "</div>";
@@ -1643,11 +1769,12 @@ async function envoyerReponse(bloc, e, form, choixSel) {
   }
   /* Croix rouge -> coche verte, sans recharger la page. */
   bloc.classList.add("resolu");
-  bloc.querySelector(".point-ico").innerHTML = svgCoche(24);
+  bloc.querySelector(".point-ico").innerHTML = svgCoche(20);
   const choixObj = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+  /* v0.53 : pour une question a modele, choixSel EST le libelle du choix (il n etait pas repris). */
   const resume = (choixSel === "libre") ? commentaire
     : (choixSel === "autre") ? (t("autre") + " \u2014 " + commentaire)
-    : (choixObj ? choixObj.label : "") + (commentaire ? " \u2014 " + commentaire : "");
+    : (choixObj ? choixObj.label : (env ? choixSel : "")) + (commentaire ? " \u2014 " + commentaire : "");
   let bilanPieces = "";
   if (jointes.length) bilanPieces += "\n" + jointes.length + (jointes.length > 1 ? t("fichiers_joints") : t("fichier_joint"));
   if (ratees.length) bilanPieces += "\n" + t("non_joint") + ratees.join(", ") + t("non_joint_fin");
@@ -1656,6 +1783,21 @@ async function envoyerReponse(bloc, e, form, choixSel) {
     "\n" + esc(t("atelier_informe")) + "</span></div>" +
     (jointes.length ? htmlPieces(jointes) : "");
   majCompte();
+  /* v0.53 : la carte repondue affiche sa reponse en vert et se replie ; la suivante s ouvre.
+     Si une piece n a pas pu etre jointe, la carte reste ouverte pour que l avertissement soit lu. */
+  const haut = bloc.querySelector(".pt-haut");
+  if (haut && resume) {
+    const lr = document.createElement("div");
+    lr.className = "pt-rep";
+    lr.textContent = t("repondu") + " : " + resume;
+    haut.appendChild(lr);
+  }
+  if (!ratees.length) {
+    bloc.classList.remove("ouvert");
+    const suivant = document.querySelector("#points .point:not(.resolu)");
+    if (suivant) ouvrirPoint(suivant);
+  }
+  majBoutonPoint(bloc);
 }
 
 function montrerErreur(zone, message) {
@@ -1769,13 +1911,13 @@ function rendreFil(r) {
     }
     const comp = (e.repere || e.mpn)
       ? '<div class="comp">' +
-        (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + esc(e.repere) + "</span>&emsp;" : "") +
+        (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + htmlReperes(e.repere) + "</span>&emsp;" : "") +
         (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
         "</div>"
       : "";
     let plein = '<div class="entree-tete">' + chips.join("") +
       '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
-      comp + '<div class="entree-texte point-texte">' + htmlTexteClient(e.texte) + "</div>" + htmlLiensDoc(e) +
+      comp + '<div class="entree-texte point-texte">' + htmlTexteClient(e.texte, e.repere) + "</div>" + htmlLiensDoc(e) +
       htmlPhotosEntree(e) + htmlPieces(e.pieces);
     (reponsesDe[e.id] || []).forEach(function (rep) {
       plein += '<div class="reponse-bloc">' +
