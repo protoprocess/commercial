@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.24";
+const APP_VERSION = "13.25";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -4006,7 +4006,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
        <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
       + etapesHtml(cour || 5, bloque)
-      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${liensPanel()}${side}${DD._consult ? '' : exigencesPanel()}<button class="dd-btn" style="color:var(--pp-blue);text-align:left" onclick="DD.aideClaude()" title="Copie un résumé du dossier et ouvre le projet Claude"><i class="ti ti-message-question"></i> Demander de l'aide à Claude</button></div></div>`
+      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${liensPanel()}<button class="dd-btn" style="color:var(--pp-blue);border-color:var(--pp-blue);font-weight:500;text-align:left;margin-bottom:14px" onclick="DD.aideClaude()" title="Copie un résumé du dossier et ouvre le projet Claude"><i class="ti ti-message-question"></i> Demander de l'aide à Claude</button>${side}${DD._consult ? '' : exigencesPanel()}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
     brancherDepot();
     if (!document.getElementById('dd-odoo')) { const pg = document.querySelector('#rattachement [data-odoo][data-dd]'); if (pg && typeof odooRendu === 'function') odooRendu(); }
