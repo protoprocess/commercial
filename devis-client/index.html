@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.36";
+const APP_VERSION = "13.37";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -3136,6 +3136,8 @@ function rtRendre(){
         <i class="ti ti-external-link"></i> Créer le client dans Odoo</button>
       <button class="btn-s" onclick="RT.charge=false;rtAfficher()"><i class="ti ti-refresh"></i> Rafraîchir</button></div>
       <div id="rt-sug" class="rt-sug hidden"></div>
+      <div class="rt-l" style="margin-top:6px"><span class="rt-e">ou choisir</span>
+        <select class="dd-sel" style="max-width:420px" onchange="if(this.value) rtChoisir(Number(this.value))"><option value="">— toutes les sociétés Odoo (${(RT.societes || []).length}) —</option>${[...(RT.societes || [])].sort((a, b) => String(a.nom).localeCompare(String(b.nom), 'fr')).map(x => `<option value="${x.id}">${esc(x.nom)}${x.code ? ' · ' + esc(x.code) : ''}</option>`).join('')}</select></div>
       <p class="hint" style="margin:6px 0 0">Le libellé du dossier « ${esc(libelle || '—')} » n'est associé à aucun client connu.</p>`;
     el.innerHTML = h;
     rtChercher(libelle);
@@ -3168,7 +3170,9 @@ function rtChercher(q){
   if(!box) return;
   const n = rtNorm(q);
   if(n.length < 2){ box.classList.add('hidden'); return; }
-  const res = RT.societes.filter(s => s.nom_normalise.indexOf(n) >= 0).slice(0, 12);
+  /* v13.37 (01/10/2026, cas COMP'AUT / compaut) : la recherche ignore aussi espaces et ponctuation */
+  const cp = x => String(x || '').replace(/\s+/g, ''); const nc = cp(n);
+  const res = RT.societes.filter(s => s.nom_normalise.indexOf(n) >= 0 || (nc.length >= 2 && cp(s.nom_normalise).indexOf(nc) >= 0)).slice(0, 12);
   if(!res.length){
     box.classList.remove('hidden');
     box.innerHTML = `<div style="cursor:default;color:var(--text3)">Aucun client Odoo ne correspond.</div>`;
