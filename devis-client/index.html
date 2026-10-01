@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.12";
+const APP_VERSION = "13.13";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -3966,7 +3966,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.20', DD_DATE = '01/10/2026'; /* v1.20 : codes PP inconnus de Luminovo = UNE ligne de synthèse, plus de liste (demande Olivier) */ /* v1.19 : étape 5 — récap des MPN accrochés d office aux IPN absents de Luminovo (importer_bom v1.3, chantier D) */ /* v1.18 : bouton « tout garder » pour les lignes sans pièce */ /* v1.17 : étape 5 — contrôle de l import, non câblés de l analyse confirmés en bloc avec la vraie ligne client, lignes sans pièce gardées par défaut */ /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.21', DD_DATE = '01/10/2026'; /* v1.21 : étape 5 — non câblés en tableau (raison + choix par ligne), « MPN incertain ou non trouvé » avec la pièce proposée par le script (Accepter / Importer sans référence) et note FabStory des points à vérifier à la commande (chantier D) */ /* v1.20 : codes PP inconnus de Luminovo = UNE ligne de synthèse, plus de liste (demande Olivier) */ /* v1.19 : étape 5 — récap des MPN accrochés d office aux IPN absents de Luminovo (importer_bom v1.3, chantier D) */ /* v1.18 : bouton « tout garder » pour les lignes sans pièce */ /* v1.17 : étape 5 — contrôle de l import, non câblés de l analyse confirmés en bloc avec la vraie ligne client, lignes sans pièce gardées par défaut */ /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4079,10 +4079,20 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   function ecranPorte(fin){
     const d = fin.detail || {}, ch = d.charge || {};
     const groupes = (d.a_confirmer || []).map((g, i) => ({ id: 'c' + i, reperes: g.reperes || [], ligne: g.ligne_bom || '', propose: (g.propose || []).map(p => (p.mpn || '?') + ' / ' + (p.fabricant || '?')).join(' ou ') }));
-    const nc = (d.propositions_non_cable || []).filter(p => !p.deja_non_cable).map((p, i) => ({ id: 'n' + i, reperes: p.reperes, ligne: p.ligne }));
-    /* v1.17 (30/09/2026, cas RTSYS Safety B) : non câblés venus de l analyse (déjà envoyés NC dans Luminovo) + contrôle de l import */
-    const ncA = d.non_cables || [], ctl = d.controle || null;
-    const total = groupes.length + nc.length + (ncA.length ? 1 : 0), faits = Object.keys(CHOIX).length;
+    /* v1.21 (01/10/2026, chantier D) : NC = tableau (raison + choix par ligne) ; « MPN incertain ou non trouvé » = pièce proposée par le script */
+    const ncSrc = d.non_cables || [], ctl = d.controle || null;
+    const trSrc = d.a_trancher || (d.propositions_non_cable || []).filter(p => !p.deja_non_cable).map(p => ({ reperes: p.reperes, ligne: p.ligne, propose: null, ecart: ['aucune pièce trouvée'] }));
+    const champs = t => { const o = []; String(t || '').split(' · ').forEach(x => { const i = x.indexOf(' : '); if (i > 0) o.push([x.slice(0, i).trim(), x.slice(i + 3).trim()]); }); return o; };
+    const val = (cs, re) => { const x = cs.find(([k]) => re.test(k)); return x ? x[1] : ''; };
+    const RE_Q = /^(quantity|qty|quantit|qt[eé])/i, RE_D = /^(description|d[eé]signation|libell)/i, RE_C = /^(comment|valeur|value)/i, RE_R = /^(ref ?fab|reffabricant|mpn|part ?n|manufacturer part|r[eé]f[eé]rence fab|ref ?constr)/i, RE_F = /^(fabricant|manufacturer|mfr|marque)$/i, RE_ST = /^statut ?pp$/i, RE_REP = /^(designator|rep[eè]re|component|ref ?des)/i;
+    const NCX = /(^|\|)\s*(nc|dnp|nm|non c[aâ]bl[eé]e?)\s*(\||$)/i;
+    const reps3 = r => { const a = String(r || '').split(/,\s*/).filter(Boolean); return esc(a.slice(0, 3).join(', ')) + (a.length > 3 ? ' <span style="color:var(--text3)">+' + (a.length - 3) + '</span>' : ''); };
+    const pourquoi = cs => { const x = cs.find(([k, v]) => !RE_ST.test(k) && !RE_REP.test(k) && NCX.test(v)); if (x) return 'BOM client, colonne « ' + x[0] + ' » : ' + x[1]; const st = cs.find(([k]) => RE_ST.test(k)); return st ? 'Analyse PP : ' + st[1] : 'Analyse PP'; };
+    const ncL = ncSrc.map((x, i) => { const cs = champs(x.ligne); return { id: 'k' + i, reperes: x.reperes, qte: val(cs, RE_Q), desc: val(cs, RE_D) || val(cs, RE_C), why: pourquoi(cs) }; });
+    const tr = trSrc.map((x, i) => { const cs = champs(x.ligne); return { id: 't' + i, reperes: x.reperes, desc: val(cs, RE_D) || val(cs, RE_C), ref: val(cs, RE_R), fab: val(cs, RE_F), propose: x.propose || null, ecart: x.ecart || [] }; });
+    ncL.forEach(n => { if (!CHOIX[n.id]) CHOIX[n.id] = 'nc'; });
+    tr.forEach(t => { if (!CHOIX[t.id]) CHOIX[t.id] = t.propose ? 'accepter' : 'sansref'; });
+    const total = groupes.length + ncL.length + tr.length, faits = [...groupes, ...ncL, ...tr].filter(x => CHOIX[x.id]).length;
     const lig = t => esc(t || '').replace(/ · /g, '<span style="color:var(--text3)"> · </span>').replace(/(^|· <\/span>)([^:<]+) :/g, '$1<span style="color:var(--text3)">$2 :</span>');
     const col = ctl && ctl.colonnes || {};
     const refDouteuse = /comment|valeur|value|description|designation/i.test(col.reference || '');
@@ -4102,6 +4112,21 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
           <span>ligne(s) au code PP inconnu de Luminovo : le script a choisi de vraies références.</span><span class="dd-ligne" style="margin-left:auto">✅ Rien à faire ici</span>
           ${nErrAcc || acc.erreur ? `<div class="dd-ligne" style="width:100%;color:var(--amber)">⚠ ${nErrAcc ? nErrAcc + ' ligne(s) non traitée(s)' : 'Étape non terminée'} → voir Luminovo</div>` : ''}</div>`;
     const pill = (id, val, lab) => `<button class="dd-pill ${CHOIX[id] === val ? 'on' : ''}" onclick="DD.choisir('${id}','${val}')">${lab}</button>`;
+    const TB = 'width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed', TH = 'text-align:left;font-weight:400;color:var(--text3);padding:6px 8px;border-bottom:1px solid var(--border)', TD = 'padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;overflow-wrap:anywhere';
+    const titre = (coul, ico, txt, btn) => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600;color:${coul}"><i class="ti ${ico}"></i> ${txt}</span>${btn || ''}</div>`;
+    const ncHtml = !ncL.length ? '' : `<div class="dd-carte" style="border-left:3px solid var(--pp-blue)">${titre('var(--pp-blue)', 'ti-plug-off', 'Non câblés d\'après l\'analyse — ' + ncL.length + ' ligne(s)', '<button class="dd-btn" style="margin-left:auto" onclick="DD.toutNC()">Tout confirmer NC</button>')}
+        <div style="overflow-x:auto"><table style="${TB}"><colgroup><col style="width:21%"><col style="width:6%"><col style="width:30%"><col style="width:24%"><col style="width:19%"></colgroup>
+        <tr><th style="${TH}">Repères</th><th style="${TH}">Qté</th><th style="${TH}">Ligne BOM client</th><th style="${TH}">Pourquoi NC</th><th style="${TH}">Choix</th></tr>
+        ${ncL.map(n => `<tr><td style="${TD}">${reps3(n.reperes)}</td><td style="${TD}">${esc(n.qte)}</td><td style="${TD}">${esc(n.desc)}</td><td style="${TD}">${esc(n.why)}</td><td style="${TD}"><div style="display:flex;gap:6px;flex-wrap:wrap">${pill(n.id, 'nc', 'NC')}${pill(n.id, 'cabler', 'À câbler')}</div></td></tr>`).join('')}
+        </table></div></div>`;
+    const trHtml = !tr.length ? '' : `<div class="dd-carte" style="border-left:3px solid var(--amber-badge)">${titre('var(--amber)', 'ti-help-circle', 'MPN incertain ou non trouvé — ' + tr.length + ' ligne(s)', '<button class="dd-btn" style="margin-left:auto" onclick="DD.toutAccepter()">Tout accepter</button>')}
+        <div style="overflow-x:auto"><table style="${TB}"><colgroup><col style="width:16%"><col style="width:26%"><col style="width:28%"><col style="width:30%"></colgroup>
+        <tr><th style="${TH}">Repères</th><th style="${TH}">Ligne BOM client</th><th style="${TH}">Proposé par le script</th><th style="${TH}">Choix</th></tr>
+        ${tr.map(t => `<tr><td style="${TD}">${reps3(t.reperes)}</td><td style="${TD}">${esc(t.desc)}${t.ref ? '<br><span style="color:var(--text2)">' + esc(t.ref) + (t.fab ? ' (' + esc(t.fab) + ')' : '') + '</span>' : ''}</td>
+          <td style="${TD}">${t.propose ? esc(t.propose.mpn) + ' <span style="color:var(--text2)">(' + esc(t.propose.fabricant || '') + ')</span>' : '<span style="color:var(--text3)">aucune pièce trouvée</span>'}${t.propose && t.ecart.length ? '<br><span style="color:var(--amber);font-size:12px">' + esc(t.ecart.join(' · ')) + '</span>' : ''}</td>
+          <td style="${TD}"><div style="display:flex;gap:6px;flex-wrap:wrap">${t.propose ? pill(t.id, 'accepter', 'Accepter') : ''}${pill(t.id, 'sansref', 'Importer sans référence')}</div></td></tr>`).join('')}
+        </table></div>
+        <div class="dd-ligne" style="font-size:12px;color:var(--text2);border:1px dashed var(--border2);border-radius:var(--radius);padding:8px 10px">À la validation, une note FabStory interne est créée (une seule pour le dossier) : lignes acceptées avec écart orange → « À la commande : vérifier que le client accepte la référence choisie » ; lignes importées sans référence → « à vérifier ou à régler au plus tard à la commande ».</div></div>`;
     const corps =
       `<div><div class="dd-h">CHARGÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;align-items:center;flex-wrap:wrap;margin-top:6px">
         <span><span class="dd-num">${esc(ch.lignes_bom_originale)}</span> <span class="dd-ligne">lignes, BOM originale conservée</span></span>
@@ -4110,18 +4135,13 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         ${d.pcb_bom ? '<span class="dd-ligne">Ligne PCB gardée en « PCB-BOM », non câblé</span>' : ''}</div></div>`
       + `<div style="margin-top:4px">${ctlHtml}</div>`
       + accHtml
-      + `<div><div class="dd-h">À CONFIRMER — ${total - faits} sur ${total} restant</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">`
-      + (ncA.length ? `<div class="dd-carte"><div><b>Non câblés d'après l'analyse</b> <span class="dd-ligne">— déjà passés en non câblé dans Luminovo, ${ncA.length} ligne(s)</span></div>
-          ${ncA.map(x => `<div class="dd-ligne" style="line-height:1.5"><span class="dd-rep">${esc(x.reperes)}</span><br>${lig(x.ligne)}</div>`).join('')}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill('ncl','ok','Je confirme : non câblés')}<span class="dd-ligne" style="font-size:11px">Un doute sur une ligne ? Corrige-la dans Luminovo (RfQ → BOM), puis confirme ici.</span></div></div>` : '')
+      + `<div><div class="dd-h">À CONFIRMER</div><div style="display:flex;flex-direction:column;gap:12px;margin-top:6px">`
+      + ncHtml
       + (groupes.map(g => `<div class="dd-carte"><div><span class="dd-rep">${esc(g.reperes.join(', '))}</span> &nbsp;<span>pièce proposée : <b>${esc(g.propose)}</b></span></div>
           <div class="dd-ligne" style="line-height:1.5">BOM client : ${lig(g.ligne)}</div>
           <div class="dd-ligne" style="font-size:11px;color:var(--text3)">Pas tranchable ici ? Laisse en attente et vérifie la ligne dans Luminovo (RfQ → BOM).</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(g.id,'ok','Confirmer la pièce proposée')}${pill(g.id,'non','Laisser en attente')}<span class="dd-ligne" style="font-size:11px">Proposé : confirmer</span></div></div>`).join(''))
-      + (nc.length > 1 ? `<div class="dd-carte" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap"><span class="dd-ligne"><b>${nc.length} lignes sans pièce trouvée</b> — de vrais composants, à sourcer.</span><button class="dd-btn p" style="margin-left:auto" onclick="DD.toutGarder()">Tout garder (${nc.length})</button></div>` : '')
-      + (nc.map(n => `<div class="dd-carte"><div><span class="dd-rep">${esc(n.reperes)}</span> &nbsp;<span>ligne sans pièce trouvée${/IPN : /.test(n.ligne || '') ? ' — IPN PP pas encore connu dans Luminovo, à sourcer' : ''}</span></div>
-          <div class="dd-ligne" style="line-height:1.5">BOM client : ${lig(n.ligne)}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${pill(n.id,'garder','Garder (à sourcer)')}${pill(n.id,'nc','Passer en non câblé')}<span class="dd-ligne" style="font-size:11px">Proposé : garder</span></div></div>`).join(''))
+      + trHtml
       + (total ? '' : '<div class="dd-carte"><div class="dd-ligne">Rien à confirmer : toutes les pièces sont approuvées.</div></div>')
       + `</div></div>`
       + `<div><div class="dd-h">NOTÉ POUR L'ÉTAPE 7 (QUESTIONS CLIENT, RIEN N'EST ENVOYÉ ICI)</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Les pièces obsolètes et les écarts avec le fichier de pose seront rassemblés ici au lot 2.</div></div></div>`;
@@ -4130,7 +4150,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const pied = `<button class="dd-btn" onclick="DD.abandonner()">Abandonner…</button><span class="dd-ligne" style="margin-left:auto">${faits === total ? 'Tout est tranché' : faits + '/' + total + ' tranchés'}</span>
       <button class="dd-btn p" ${faits === total ? '' : 'disabled'} onclick="DD.valider()">Valider l'étape 5 → Scénarios</button>`;
     cadre('Étape 5/8 — Nomenclature (BOM)', 'à confirmer', corps, side, pied);
-    DD._groupes = groupes; DD._nc = nc;
+    DD._groupes = groupes; DD._ncA = ncL; DD._tr = tr;
   }
   function ecranSuite(){
     const d = ETAT.deroule || {};
@@ -4520,13 +4540,24 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         await rafraichir();
       } catch (e) { ecranLancer('Le script n\'a pas démarré : ' + e.message); }
     },
+    toutNC(){ (DD._ncA || []).forEach(n => { CHOIX[n.id] = 'nc'; }); const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
+    toutAccepter(){ (DD._tr || []).forEach(t => { CHOIX[t.id] = t.propose ? 'accepter' : 'sansref'; }); const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
     toutGarder(){ (DD._nc || []).forEach(n => { if (!CHOIX[n.id]) CHOIX[n.id] = 'garder'; }); const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
     choisir(id, val){ CHOIX[id] = val; const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
     async valider(){
-      const approuver = [], laisser = [], non_cable = [];
+      /* v1.21 (01/10/2026, chantier D) : NC / à câbler par ligne, pièces proposées acceptées, lignes sans référence, note FabStory des points à la commande */
+      const approuver = [], laisser = [], non_cable = [], a_cabler = [], accepter = [], sans_ref = [];
+      const split = r => String(r || '').split(/,\s*/).filter(Boolean);
       (DD._groupes || []).forEach(g => (CHOIX[g.id] === 'ok' ? approuver : laisser).push(...g.reperes));
-      (DD._nc || []).forEach(n => { if (CHOIX[n.id] === 'nc') non_cable.push(n.reperes); });
-      const corps = { deroule_id: ETAT.deroule.id, etape: 5, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes(), approuver, laisser, non_cable };
+      (DD._ncA || []).forEach(n => (CHOIX[n.id] === 'cabler' ? a_cabler : non_cable).push(...split(n.reperes)));
+      const nEcart = [], nSans = [];
+      (DD._tr || []).forEach(t => {
+        if (CHOIX[t.id] === 'accepter' && t.propose) { accepter.push({ reperes: split(t.reperes), part_id: t.propose.id }); if (t.ecart.length) nEcart.push('- ' + t.reperes + ' : ' + t.propose.mpn + ' (' + (t.propose.fabricant || '') + ') au lieu de ' + (t.ref || t.desc || '?') + ' — ' + t.ecart.join(', ')); }
+        else { sans_ref.push(...split(t.reperes)); nSans.push('- ' + t.reperes + ' : ' + (t.ref || t.desc || '?') + (t.fab ? ' (' + t.fab + ')' : '')); } });
+      let note_points = '';
+      if (nEcart.length) note_points += 'À LA COMMANDE : vérifier que le client accepte les références choisies au devis (' + qui() + ') :\n' + nEcart.join('\n');
+      if (nSans.length) note_points += (note_points ? '\n\n' : '') + 'IMPORTÉ SANS RÉFÉRENCE dans Luminovo : à vérifier ou à régler au plus tard à la commande :\n' + nSans.join('\n');
+      const corps = { deroule_id: ETAT.deroule.id, etape: 5, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes(), approuver, laisser, non_cable, a_cabler, accepter, sans_ref, note_points };
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture de tes choix dans Luminovo…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
