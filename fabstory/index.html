@@ -515,8 +515,11 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.4';
+const APP_VERSION = '5.5';
 const APP_DATE = '01/10/2026';
+/* 5.5 (01/10/2026, retour Olivier sur la 5.4 : « je ne voulais Commercial / Production / Méthodes que sur les
+   notes internes — il y en a partout, plus de tri visuel possible ») : la pastille de pôle n'est posée que sur les
+   NOTES INTERNES (type note, non visibles du client). Questions client, réponses et notes visibles du client : aucune. */
 /* 5.4 (01/10/2026, chantier FabStory lisibilité, décisions Olivier) : affichage seulement, rien ne change en base.
    (1) PASTILLE DE PÔLE en tête de chaque note / question (tri visuel rapide, pour que Jérôme repère les notes
        méthodes) : Méthodes (bleu) = pôle METHODES ou étape « Méthodes et dossier fab » ; Commercial (mauve) ;
@@ -967,7 +970,7 @@ FS.editerLien = async function(){
    (METHODES, CMS…) : on la traduit en 3 pastilles, sans rien deviner quand elle est vide. */
 const POLES_LIBELLES = { methodes:'M\u00e9thodes', commercial:'Commercial', production:'Production' };
 function polesAffiches(e){
-  if(!e || e.type === 'indice') return [];
+  if(!e || e.type !== 'note' || e.visible_client === true) return [];   /* 5.5 : notes internes seulement */
   const vu = {};
   const etapeMethodes = (e.etape_code === 'METHODES');
   if(etapeMethodes) vu.methodes = true;
