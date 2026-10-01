@@ -4667,6 +4667,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     toutGarder(){ (DD._nc || []).forEach(n => { if (!CHOIX[n.id]) CHOIX[n.id] = 'garder'; }); const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
     choisir(id, val){ CHOIX[id] = val; const fin = [...(ETAT.journal || [])].reverse().find(x => x.evenement === 'script' && x.detail && x.detail.phase === 'fin'); ecranPorte(fin); },
     async valider(){
+      if (!DD.exigencesEtapeOk()) return;
       /* v1.21 (01/10/2026, chantier D) : NC / à câbler par ligne, pièces proposées acceptées, lignes sans référence, note FabStory des points à la commande */
       const approuver = [], laisser = [], non_cable = [], a_cabler = [], accepter = [], sans_ref = [];
       const split = r => String(r || '').split(/,\s*/).filter(Boolean);
@@ -4730,6 +4731,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Calcul non lancé : ' + e.message); }
     },
     async go8(){
+      if (!DD.exigencesEtapeOk()) return;
       const props = DD._props8 || []; const ecritures = [];
       if (DD._peutEcrire8) props.forEach((p, i) => {
         if (p.type === 'article' || p.type === 'nre') { const v = Number(String(($$('dd-p' + i) || {}).value || '').replace(',', '.')); if (isFinite(v) && v > 0) ecritures.push({ ligne_id: p.ligne_id, price_unit: Math.round(v * 100) / 100 }); }
@@ -4804,6 +4806,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } catch (e) { alert('Le script n\'a pas démarré : ' + e.message); ecranScenarios(); }
     },
     async go6(){
+      if (!DD.exigencesEtapeOk()) return;
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Enregistrement…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: 6, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes().concat((propositionFab().points || []).map(p => ({ id: p.id, origine: 'fabrication', texte: p.titre + ' → ' + p.geste }))) }) });
@@ -4820,6 +4823,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     },
     choixPoint(i, v){ CHOIX['p' + i] = v; const q = $$('dd-b-q' + i), n = $$('dd-b-n' + i); if (q) q.classList.toggle('on', v === 'question' || v === 'accepter'); if (n) n.classList.toggle('on', v === 'rien' || v === 'exclure'); },
     async go7(){
+      if (!DD.exigencesEtapeOk()) return;
       const pts = DD._points || [];
       /* v1.27 : une case par ligne (rouge, orange, vert) ; chaque ligne cochée devient une question FabStory par référence */
       const choisies = pts.filter((p, i) => { const c = document.querySelector('.dd-q7[data-i="' + i + '"]'); return c ? c.checked : (p.genre === 'question' && CHOIX['p' + i] === 'question'); });
