@@ -244,8 +244,11 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "8.2";
-const APP_DATE = "25/09/2026";
+const APP_VERSION = "9.0";
+const APP_DATE = "01/10/2026";
+/* v9.0 (01/10/2026, chantier 193, go Olivier) : POINTS OUVERTS DE LA CARTE a la saisie de la commande — questions client / internes sans
+   reponse et notes du devis a regler avant commande, en un bloc de synthese avant les ecritures Odoo ; case « Vu, je lance quand meme
+   la commande » obligatoire (tracee : qui, quand). API Commande v0.22. */
 /* PROD 8.0 — basculee depuis la recette le 25/09/2026 (retour : etiquette avant-bascule-2026-09-25). Contenu de commande v7.10 (pop-up déroulé v2.0, chantier 174), jamais servie en prod.
    8.0-recette : + bouton « Relever les commandes » (remplace le réveil n8n 30 min, décision Olivier/Dorian 24/09/2026).
    Chemins partagés en ../../shared/. Les écritures Odoo restent RÉELLES (tests sur vrais dossiers). */
@@ -883,6 +886,58 @@ const INP = 'background:var(--surface2);border:1px solid var(--border2);border-r
 const ODOO = 'https://protoprocess-main-16873066.dev.odoo.com/odoo/sales/';
 const ODOO_PROJET = 'https://protoprocess-main-16873066.dev.odoo.com/odoo/project/';
 
+/* ---- POINTS OUVERTS DE LA CARTE (v9.0, chantier 193, go Olivier 01/10/2026) ----
+   A la saisie d une commande, on remonte ce qui est reste en suspens sur la carte FabStory :
+   questions client et internes sans reponse, notes du devis a regler avant commande.
+   Une case « Vu, je lance quand meme la commande » (tracee : qui, quand) debloque les ecritures Odoo.
+   Lecture en echec = rien n est affiche et rien n est bloque (on ne coince jamais une commande sur une panne). */
+let POINTS = { cle: null, data: null, enCours: false };
+function pointsCle(pid, so) { return pid + '|' + (so || ''); }
+async function chargerPoints(pid, so) {
+  const cle = pointsCle(pid, so);
+  if (POINTS.cle === cle) return;
+  POINTS = { cle: cle, data: null, enCours: true };
+  try {
+    const r = await appel('commande-points-ouverts?produit_id=' + encodeURIComponent(pid) + '&so=' + encodeURIComponent(so || ''));
+    if (POINTS.cle !== cle) return;
+    POINTS.data = (r && r.ok) ? r : null;
+  } catch (e) { if (POINTS.cle !== cle) return; POINTS.data = null; }
+  POINTS.enCours = false;
+  if (DERNIER && DERNIER.rep) afficher(DERNIER.rep);
+}
+function htmlPoints(p, bloquant) {
+  const court = t => String(t || '').replace(/^Points ouverts avant commande[^)]*\)\s*/i, '').replace(/^[^A-Za-z0-9\u00c0-\u00ff]+/, '').replace(/\s*\([^)]*$/, '');
+  const ligne = (n, coul, titre, ex) => !n ? '' : '<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)">' +
+    '<span style="font-size:20px;font-weight:600;color:' + coul + ';min-width:26px;text-align:center">' + n + '</span>' +
+    '<div style="flex:1;line-height:1.5"><div style="color:var(--text);font-weight:500">' + titre + '</div>' +
+    '<div style="color:var(--text2);font-size:12px">' + ech((ex || []).map(court).join(' \u00b7 ')) + (n - (ex || []).length > 0 ? ' \u00b7 + ' + (n - (ex || []).length) + ' autre' + (n - (ex || []).length > 1 ? 's' : '') : '') + '</div></div></div>';
+  const qc = p.questions_client || {}, qi = p.questions_internes || {}, nd = p.notes_devis || {};
+  const pl = n => n > 1 ? 's' : '';
+  const vu = p.vu;
+  return '<div class="points-ouverts" style="border:1px solid var(--amber-badge);border-radius:var(--radius);box-shadow:inset 3px 0 0 var(--amber-badge);padding:12px;display:flex;flex-direction:column;gap:8px;margin:4px 0 10px">' +
+    '<div style="font-size:13px;font-weight:600;color:var(--amber)">\u26a0 Points ouverts sur cette carte</div>' +
+    ligne(qc.n, 'var(--red)', 'Question' + pl(qc.n) + ' client sans r\u00e9ponse' + (qc.depuis ? ' <span style="color:var(--text3);font-weight:400">(depuis le ' + ech(qc.depuis) + ')</span>' : ''), qc.exemples) +
+    ligne(qi.n, 'var(--amber)', 'Question' + pl(qi.n) + ' interne' + pl(qi.n) + ' sans r\u00e9ponse', qi.exemples) +
+    ligne(nd.n, 'var(--amber)', 'Point' + pl(nd.n) + ' not\u00e9' + pl(nd.n) + ' au devis, \u00e0 r\u00e9gler avant commande', nd.exemples) +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+    '<a class="btn-s" style="text-decoration:none" href="' + ech(p.url_fabstory) + '" target="_blank" rel="noopener">Ouvrir la carte dans FabStory \u2197</a>' +
+    (vu ? '<span style="margin-left:auto;color:var(--green);font-size:12px">\u2713 Vu par ' + ech(vu.qui) + ' le ' + ech(vu.le) + '</span>'
+        : '<label style="margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text)"><input type="checkbox" onchange="pointsVus(this)"> Vu, je lance quand m\u00eame la commande</label>') +
+    '</div>' + (bloquant && !vu ? '<div class="why">Les \u00e9critures Odoo se d\u00e9bloquent une fois la case coch\u00e9e.</div>' : '') + '</div>';
+}
+async function pointsVus(caseEl) {
+  const p = POINTS.data; if (!p) return;
+  let qui = ''; try { qui = localStorage.getItem('pp_signaleur') || ''; } catch (e) {}
+  if (!qui) { qui = (prompt('Ton pr\u00e9nom (pour la trace) :') || '').trim(); if (!qui) { caseEl.checked = false; return; } try { localStorage.setItem('pp_signaleur', qui); } catch (e) {} }
+  caseEl.disabled = true;
+  try {
+    const r = await appel('commande-points-vus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ produit_id: p.produit_id, so: p.so || '', qui: qui,
+      points: { total: p.total, questions_client: (p.questions_client || {}).n || 0, questions_internes: (p.questions_internes || {}).n || 0, notes_devis: (p.notes_devis || {}).n || 0 } }) });
+    if (!r || !r.ok) throw new Error((r && r.motif) || 'refus');
+    POINTS.data = r; if (DERNIER && DERNIER.rep) afficher(DERNIER.rep);
+  } catch (e) { caseEl.disabled = false; caseEl.checked = false; alert('Case non enregistr\u00e9e : ' + e.message); }
+}
+
 function afficher(rep) {
   if (!rep || !rep.pieces) { el('etat').textContent = 'R\u00e9ponse illisible.'; el('etat').className = 'etat-msg err'; return; }
   const P = {}; rep.pieces.forEach(p => { P[p.piece] = p; });
@@ -895,6 +950,11 @@ function afficher(rep) {
   const E = []; /* { n, lib, etat: done|active|wait|info, corps, dep } */
   // 1. carte
   const carteOk = carte.verdict === 'existe';
+  /* v9.0 : points ouverts de la carte (lecture a part ; l affichage est relance quand elle revient) */
+  const ptsCle = carteOk ? pointsCle(carte.carte.id, so.so || '') : null;
+  if (carteOk && POINTS.cle !== ptsCle) chargerPoints(carte.carte.id, so.so || '');
+  const ptsAttente = carteOk && POINTS.cle === ptsCle && POINTS.enCours;
+  const pts = (carteOk && POINTS.cle === ptsCle && POINTS.data && POINTS.data.total > 0) ? POINTS.data : null;
   E.push({ n: 1, lib: 'Carte FabStory', done: carteOk, bloque: false });
   // 2. article
   const artOk = !!art.article;
@@ -1020,6 +1080,11 @@ function afficher(rep) {
     if (DIAG.applique && DIAG.applique.ok) corps[6] = '<div class="journal">' + htmlJournal(DIAG.applique) + '</div>';
     else if (recmd) corps[6] = htmlRecommande({ nom: conf.devis.nom, etat: conf.devis.etat, po_deja_pose: conf.devis.po_pose, carte: carteOk ? carte.carte.cle_produit + (carte.carte.indice ? ' \u00b7 indice ' + carte.carte.indice : '') : null }, ent);
     else corps[6] = htmlEcritures(conf);
+    /* v9.0 : points ouverts -> bloc AVANT les ecritures ; tant que la case n est pas cochee, les ecritures restent masquees */
+    if (!(DIAG.applique && DIAG.applique.ok)) {
+      if (ptsAttente) corps[6] = '<span class="spin"></span>Lecture des points ouverts de la carte\u2026';
+      else if (pts) corps[6] = htmlPoints(pts, true) + (pts.vu ? corps[6] : '');
+    }
   }
 
   // 7
@@ -1027,6 +1092,8 @@ function afficher(rep) {
   corps[7] = (so.so ? '<a href="' + ODOO + ech(so.so_id) + '" target="_blank" rel="noopener">Ouvrir ' + ech(so.so) + '</a> : ' : '') +
     'v\u00e9rifier, confirmer le devis, envoyer l\u2019AR.' +
     (ancienne.length ? ' <b>Puis seulement</b> neutraliser (quantit\u00e9 0) ' + ancienne.map(e => ech(String(e.constat).split(' : ')[0])).join(', ') + '.' : '');
+  /* v9.0 : sans bon de commande (pas d etape 6), les points ouverts s affichent ici, pour information */
+  if (pts && !conf) corps[7] = htmlPoints(pts, false) + corps[7];
 
   /* --- rendu --- */
   const z = el('pieces'); z.innerHTML = '';
