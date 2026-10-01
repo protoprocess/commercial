@@ -158,6 +158,18 @@ textarea{resize:vertical;min-height:64px}
 .chip.vis-client{background:var(--info-bg);color:var(--info-txt)}
 .chip.vis-interne{background:var(--surface2);color:var(--text3);font-weight:500}
 .tl-meta{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
+/* 5.4 : pastille de pôle, proposition PP, repères courts */
+.pole{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 9px 2px 7px}
+.pole::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+.pole.methodes{background:#E3EDFB;color:#1D4FA3}
+.pole.commercial{background:#F0E8FA;color:#6B3FA0}
+.pole.production{background:#E3F2E1;color:#2F6B2A}
+.prop-pp{font-weight:700;background:var(--accent-bg);color:var(--accent-fonce);padding:1px 6px;border-radius:4px}
+.rep-tout{display:none}
+.rep.deplie .rep-court{display:none}
+.rep.deplie .rep-tout{display:inline}
+.rep-plus{border:1px solid var(--border2);background:var(--surface2);color:var(--text2);border-radius:999px;padding:0 7px;font-size:10.5px;font-weight:600;line-height:16px;cursor:pointer;font-family:var(--sans);vertical-align:1px}
+.rep-plus:hover{border-color:var(--accent);color:var(--accent-fonce)}
 .tl-texte{font-size:13.5px;line-height:1.5;white-space:pre-wrap}
 .tl-det{font-size:11.5px;color:var(--text2);font-family:var(--mono);margin-top:4px}
 .tl-comp{font-family:var(--mono);font-size:12.5px;font-weight:600;margin-bottom:5px}
@@ -503,8 +515,16 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.3';
-const APP_DATE = '29/09/2026';
+const APP_VERSION = '5.4';
+const APP_DATE = '01/10/2026';
+/* 5.4 (01/10/2026, chantier FabStory lisibilité, décisions Olivier) : affichage seulement, rien ne change en base.
+   (1) PASTILLE DE PÔLE en tête de chaque note / question (tri visuel rapide, pour que Jérôme repère les notes
+       méthodes) : Méthodes (bleu) = pôle METHODES ou étape « Méthodes et dossier fab » ; Commercial (mauve) ;
+       Production (vert) = le reste de l'atelier (dont l'unique entrée CMS). Entrée sans pôle = pas de pastille.
+       Revient en plus léger sur le retrait de la 5.0 : une pastille, ni filtre ni « Qui est concerné ? ».
+   (2) « Proposition PP : » en gras surligné dans le texte des questions (fil, volet, en attente).
+   (3) REPÈRES limités à 3 (« D101, D106, D111 +23 ») dans la ligne Rep ET dans la phrase ; le clic sur +N
+       déplie la liste complète (info-bulle au survol). */
 /* 5.3 (29/09/2026, même chantier) : (1) ÉCRAN LOT — plusieurs questions d'un coup : lien ?produit=ID#lot=<JSON base64>
    (déroulé devis étape 7) ; un bloc par composant (raison préremplie en gris, modifiable, case inclure), une question
    par composant (réponses exploitables par les achats), notification différée = un seul envoi groupé ; question déjà
@@ -941,8 +961,57 @@ FS.editerLien = async function(){
     await recharger(true);
   }catch(e){ alert('Lien non enregistr\u00e9 : ' + e.message); }
 };
+/* 5.4 : pastilles de pôle affichées pour une entrée (règle B validée par Olivier le 01/10/2026 :
+   « de l'affichage et du tri visuel rapide, on ne demande pas la perfection »). La colonne poles mélange
+   des destinataires (COMMERCIAL / PRODUCTION / QUALITE) et des codes d'étape glissés par d'autres applis
+   (METHODES, CMS…) : on la traduit en 3 pastilles, sans rien deviner quand elle est vide. */
+const POLES_LIBELLES = { methodes:'M\u00e9thodes', commercial:'Commercial', production:'Production' };
+function polesAffiches(e){
+  if(!e || e.type === 'indice') return [];
+  const vu = {};
+  const etapeMethodes = (e.etape_code === 'METHODES');
+  if(etapeMethodes) vu.methodes = true;
+  (Array.isArray(e.poles) ? e.poles : []).forEach(v => {
+    if(v === 'METHODES') vu.methodes = true;
+    else if(v === 'COMMERCIAL') vu.commercial = true;
+    else if(v === 'PRODUCTION'){ if(!etapeMethodes) vu.production = true; }   /* à l'étape Méthodes, PRODUCTION n'est que la pose automatique */
+    else if(v === 'QUALITE'){ vu.commercial = true; vu.production = true; }
+    else if(poleDefaut(v) === 'COMMERCIAL') vu.commercial = true;
+    else vu.production = true;
+  });
+  return ['methodes','commercial','production'].filter(k => vu[k]);
+}
+function htmlPoles(e){
+  return polesAffiches(e).map(k => '<span class="pole ' + k + '">' + POLES_LIBELLES[k] + '</span>').join('');
+}
+/* 5.4 : repères limités à 3 à l'écran ; +N déplie la liste (et la donne en info-bulle). */
+function listeReperes(txt){
+  return String(txt == null ? '' : txt).split(/\s*[,;\n]+\s*/).map(x => x.trim()).filter(Boolean);
+}
+function htmlReperes(txt){
+  const l = listeReperes(txt);
+  if(l.length <= 3) return esc(txt);
+  const tout = esc(l.join(', '));
+  return '<span class="rep"><span class="rep-court">' + esc(l.slice(0,3).join(', ')) +
+    ' <button type="button" class="rep-plus" title="' + tout + '" onclick="FS.deplierRep(event,this)">+' + (l.length - 3) + '</button></span>' +
+    '<span class="rep-tout">' + tout + '</span></span>';
+}
+FS.deplierRep = function(ev, b){
+  ev.stopPropagation(); ev.preventDefault();
+  const r = b.closest('.rep'); if(r) r.classList.add('deplie');
+};
+/* 5.4 : texte d'une entrée — la liste de repères répétée dans la phrase est raccourcie comme la ligne Rep,
+   et « Proposition PP : » est mis en avant. Le texte enregistré n'est pas modifié. */
+function htmlTexteEntree(e){
+  let h = esc(e.texte_brut || '');
+  if(e.repere && listeReperes(e.repere).length > 3){
+    const r = esc(String(e.repere).trim());
+    if(r && h.indexOf(r) >= 0) h = h.split(r).join(htmlReperes(e.repere));
+  }
+  return h.replace(/(Proposition\s+PP\s*:)/g, '<span class="prop-pp">$1</span>');
+}
 function chipsEntree(e, complet, sansType){
-  let h = sansType ? '' : '<span class="chip ' + esc(e.type) + '">' + esc(TYPES_LIBELLES[e.type] || e.type) + '</span>';
+  let h = htmlPoles(e) + (sansType ? '' : '<span class="chip ' + esc(e.type) + '">' + esc(TYPES_LIBELLES[e.type] || e.type) + '</span>');
   if(e.etat === 'en_attente') h += '<span class="chip attente-c">En attente</span>';
   if(e.etat === 'resolu') h += '<span class="chip resolu-c">R\u00e9solu</span>';
   if(e.type !== 'indice'){
@@ -959,7 +1028,7 @@ function compEntree(e){
   /* retour Olivier : identifier D ABORD le composant, la cause ensuite */
   if(!e.repere && !e.mpn) return '';
   const m = [];
-  if(e.repere) m.push('<span class="cl">Rep:</span> <span class="cv">' + esc(e.repere) + '</span>');
+  if(e.repere) m.push('<span class="cl">Rep:</span> <span class="cv">' + htmlReperes(e.repere) + '</span>');
   if(e.mpn) m.push('<span class="cl">Ref/MPN:</span> <span class="cv">' + esc(e.mpn) + '</span>');
   return '<div class="tl-comp">' + m.join('\u00a0\u00a0\u00a0') + '</div>';
 }
@@ -1015,7 +1084,7 @@ function htmlEntree(e, cls){
     (caduc ? '<span class="chip-caduc">Remplac\u00e9e</span>' : '') +
     '<span class="tl-meta">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) + '</span></div>' +
     compEntree(e) +
-    '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
+    '<div class="tl-texte">' + htmlTexteEntree(e) + '</div>' +
     detEntree(e) + piecesEntree(e) + '</div>';
 }
 /* ============================================ NOTIFIER (chantier 136) ==== *
@@ -1194,11 +1263,11 @@ function rendreFiche(){
 }
 function miniAttente(a){
   const comp = [];
-  if(a.repere) comp.push('<span class="cl">Rep:</span> <span class="cv">' + esc(a.repere) + '</span>');
+  if(a.repere) comp.push('<span class="cl">Rep:</span> <span class="cv">' + htmlReperes(a.repere) + '</span>');
   if(a.mpn) comp.push('<span class="cl">Ref/MPN:</span> <span class="cv">' + esc(a.mpn) + '</span>');
   return '<div class="att-mini' + (a.id===choisieId?' choisie':'') + '" onclick="ouvrirVolet(' + a.id + ')">' +
     (comp.length ? '<div class="am-comp">' + comp.join('\u00a0\u00a0') + '</div>' : '') +
-    '<div class="am-texte">' + esc(a.texte_brut || '') + '</div></div>';
+    '<div class="am-texte">' + htmlTexteEntree(a) + '</div></div>';
 }
 function majAside(){
   const enAttente = FICHE ? (FICHE.en_attente || []) : [];
@@ -1645,7 +1714,7 @@ function ouvrirVolet(id){
     '<p class="hint" style="margin:0 0 7px">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) +
     (e.so_canonique ? ' \u00b7 ' + esc(e.so_canonique) : '') + '</p>' +
     compEntree(e) +
-    '<div class="tl-texte">' + esc(e.texte_brut||'') + '</div>' +
+    '<div class="tl-texte">' + htmlTexteEntree(e) + '</div>' +
     detEntree(e) + piecesEntree(e);
 
   if(estQuestion && e.etat === 'en_attente'){
