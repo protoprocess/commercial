@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.21";
+const APP_VERSION = "13.22";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -4643,7 +4643,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       } else L.push('', 'Ma question : ');
       const txt = L.join('\n');
       /* v1.28.1 : la confirmation doit être VUE — bandeau bien visible, 20 s, et l'onglet Claude ne s'ouvre qu'après 1,2 s pour laisser le temps de la lire */
-      const ok = () => { const m = document.createElement('div'); m.innerHTML = '<b>✔ Résumé copié.</b> Dans Claude, ouvre un nouveau fil et colle (Ctrl+V).'; m.style.cssText = 'position:fixed;top:18px;left:50%;transform:translateX(-50%);background:var(--pp-blue);color:#0a0c12;border-radius:var(--radius);padding:12px 20px;z-index:99999;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,.5)'; document.body.appendChild(m); setTimeout(() => m.remove(), 20000); };
+      const ok = () => { const m = document.createElement('div'); m.innerHTML = '<b>✔ Résumé copié.</b> Dans Claude, ouvre un nouveau fil et colle (Ctrl+V).'; m.style.cssText = 'position:fixed;top:18px;left:50%;transform:translateX(-50%);background:var(--pp-blue);color:#0a0c12;border-radius:var(--radius);padding:12px 20px;z-index:99999;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,.5)'; document.body.appendChild(m); setTimeout(() => m.remove(), 5000); };
       const ouvrir = () => setTimeout(() => window.open('https://claude.ai/project/019f6f80-4cd1-76bb-9d15-a5163b498d26', '_blank'), 1200);
       let copie = false; try { const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); copie = document.execCommand('copy'); ta.remove(); } catch (e) {}
       if (copie) { ok(); ouvrir(); }
