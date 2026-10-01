@@ -608,7 +608,7 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.34";
+const APP_VERSION = "13.35";
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -4496,7 +4496,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const det = go8.detail || {}; const o = (fin8.detail || {}).odoo || {};
     cadre('Étape 8/8 — Devis', 'à envoyer',
       `<div class="dd-carte"><div class="dd-ligne" style="line-height:1.7">${det.lignes_ecrites != null ? '<b>' + esc(det.lignes_ecrites) + '</b> ligne(s) écrite(s) dans le devis ' + esc(det.odoo_devis || o.name || '') + '.' : 'Montants confirmés, sans écriture (devis non modifiable).'}${(det.erreurs_odoo || []).length ? '<br><span style="color:var(--red)">Erreurs Odoo : ' + esc(det.erreurs_odoo.join(' · ')) + '</span>' : ''}<br>Reste ton geste : <b>relire et envoyer le devis depuis Odoo</b>. Le déroulé passera à « fait » quand le devis sera constaté envoyé.</div>
-        ${o.name ? '<a class="dd-btn p" style="text-decoration:none;display:inline-block" target="_blank" href="' + ODOO_URL + '/odoo/sales/' + encodeURIComponent(o.name) + '">Ouvrir le devis dans Odoo</a>' : ''}</div>`,
+        ${o.name ? '<a class="dd-btn p" style="text-decoration:none;display:inline-block" target="_blank" href="' + ODOO_URL + '/odoo/sales/' + encodeURIComponent(o.id || (ETAT.deroule || {}).so_odoo_id || o.name) + '">Ouvrir le devis dans Odoo</a>' : ''}</div>`,
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Go par ${esc(go8.qui || '')} le ${esc(new Date(go8.le).toLocaleString('fr-FR'))}</span>`, false, 8);
   }
   // ---------- étape 4 ----------
@@ -4597,7 +4597,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       const eur = v => v == null ? '—' : Number(v).toFixed(2).replace('.', ',') + ' €';
       let quoi = '';
       if (k <= 2) quoi = L('Client', esc(a.client || '')) + L('Dossier', esc(a.ref_projet || '')) + L('Quantités demandées', esc((a.quantites || []).join(' / '))) + L('BOM traitée le', a.bom_traite_le ? esc(new Date(a.bom_traite_le).toLocaleString('fr-FR')) : '') + L('Exigences relevées', esc(String((a.exigences || []).length)));
-      else if (k === 3) { const so = d.so_odoo || (FICHE_LIEN && (FICHE_LIEN.odoo_so_name || FICHE_LIEN.odoo_so_id)); quoi = L('Devis Odoo', so ? `<b>${esc(so)}</b> <a target="_blank" style="color:var(--blue)" href="${ODOO_URL}/odoo/sales/${encodeURIComponent(String(d.so_odoo_id || (FICHE_LIEN && FICHE_LIEN.odoo_so_id) || so))}">ouvrir ↗</a>` : '<span style="color:var(--amber)">aucun</span>') + L('Quantités du devis', esc((d.quantites || []).join(' / '))) + L('RfQ Luminovo', d.rfq_luminovo ? 'créé ✓ (' + esc(d.dossier || '') + ')' : '<span style="color:var(--amber)">pas encore</span>'); }
+      else if (k === 3) { const so = d.so_odoo || (FICHE_LIEN && (FICHE_LIEN.odoo_so_name || FICHE_LIEN.odoo_so_id)); const soId = d.so_odoo_id || (FICHE_LIEN && /^\d+$/.test(String(FICHE_LIEN.odoo_so_id || '')) ? FICHE_LIEN.odoo_so_id : null); quoi = L('Devis Odoo', so ? `<b>${esc(so)}</b> ${soId ? '<a target="_blank" style="color:var(--blue)" href="' + ODOO_URL + '/odoo/sales/' + encodeURIComponent(String(soId)) + '">ouvrir ↗</a>' : ''}` : '<span style="color:var(--amber)">aucun</span>') + L('Quantités du devis', esc((d.quantites || []).join(' / '))) + L('RfQ Luminovo', d.rfq_luminovo ? 'créé ✓ (' + esc(d.dossier || '') + ')' : '<span style="color:var(--amber)">pas encore</span>'); }
       else if (k === 4 && fin) { const sp = (fin.detail || {}).spec || []; quoi = sp.length ? '<table style="border-collapse:collapse;font-size:12px;width:100%">' + sp.map(l => `<tr><td style="padding:3px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(l.param)}</td><td style="padding:3px 8px;border-bottom:1px solid var(--border)">${l.valeur == null ? '—' : esc(l.valeur)}</td><td style="padding:3px 8px;color:var(--text3);border-bottom:1px solid var(--border)">${esc(l.source || '')}</td></tr>`).join('') + '</table>' : L('Fichiers déposés', esc(String(((fin.detail || {}).fichiers || []).length))); }
       else if (k === 5 && go) { const g = go.detail || {}; quoi = L('Pièces approuvées', esc(String((g.approuver || []).length))) + L('Laissées à confirmer', esc(String((g.laisser || []).length))) + L('Passées en non câblé', esc(String((g.non_cable || []).length))); }
       else if (k === 6 && fin) quoi = ((fin.detail || {}).scenarios || []).map(x => `<div class="dd-ligne">${x.erreur ? '⚠ Qté ' + esc(x.qte) + ' : ' + esc(x.erreur) : '✔ <b>' + esc(x.nom || ('Qté ' + x.qte)) + '</b>' + (x.modele ? ' — « ' + esc(x.modele) + ' »' : '') + ((x.briques || []).length ? ' + ' + esc(x.briques.join(', ')) : '')}</div>`).join('');
