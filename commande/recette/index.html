@@ -915,7 +915,7 @@ function htmlPoints(p, bloquant) {
   const pl = n => n > 1 ? 's' : '';
   const vu = p.vu;
   return '<div class="points-ouverts" style="border:1px solid var(--amber-badge);border-radius:var(--radius);box-shadow:inset 3px 0 0 var(--amber-badge);padding:12px;display:flex;flex-direction:column;gap:8px;margin:4px 0 10px">' +
-    '<div style="font-size:13px;font-weight:600;color:var(--amber)"><i class="ti ti-alert-triangle"></i> Points ouverts sur cette carte</div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--amber)">\u26a0 Points ouverts sur cette carte</div>' +
     ligne(qc.n, 'var(--red)', 'Question' + pl(qc.n) + ' client sans r\u00e9ponse' + (qc.depuis ? ' <span style="color:var(--text3);font-weight:400">(depuis le ' + ech(qc.depuis) + ')</span>' : ''), qc.exemples) +
     ligne(qi.n, 'var(--amber)', 'Question' + pl(qi.n) + ' interne' + pl(qi.n) + ' sans r\u00e9ponse', qi.exemples) +
     ligne(nd.n, 'var(--amber)', 'Point' + pl(nd.n) + ' not\u00e9' + pl(nd.n) + ' au devis, \u00e0 r\u00e9gler avant commande', nd.exemples) +
