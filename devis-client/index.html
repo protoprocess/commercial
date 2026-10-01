@@ -608,7 +608,9 @@ pre.txt{background:var(--surface2);border:1px solid var(--border);border-radius:
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
 // Un seul endroit a modifier a chaque mise a jour ; se repercute
 // automatiquement dans le titre d'onglet et le badge d'en-tete.
-const APP_VERSION = "13.38";
+const APP_VERSION = "14.0";
+/* v14.0 (01/10/2026, chantier 197, go Olivier) : déroulé devis — mode « fournitures client » : deux cases à l'étape 3 (PCB fourni / composants
+   fournis par le client), pré-cochées depuis l'analyse, mémorisées sur le déroulé et respectées par les étapes suivantes. */
 /* v13.4 (29/09/2026, chantier « Questions client : modèles précis et déroulé », go Olivier) : étape 7 — les questions client ne
    sont plus créées côté serveur en M2 fixe : FabStory s'ouvre sur un ÉCRAN LOT (un bloc par composant, modèle déduit par
    lire_sourcing v1.3 : M8 si délai connu, M9 sinon, modifiable ; M7 obsolète / M10 MOQ au choix). Envoi groupé depuis FabStory.
@@ -3970,7 +3972,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   // pieces approuvees d'office si confiance haute, sinon confirmation humaine ;
   // « non cable » PROPOSE, jamais impose ; questions client regroupees a l'etape 7.
   // ---------------------------------------------------------------------------
-  const DD_VERSION = '1.41', DD_DATE = '01/10/2026'; /* v1.41 (blocage COMPAUT 16:26) : un script d étape n compte s il est plus récent que le DERNIER GO DE CETTE MÊME ÉTAPE (et non du go précédent) — l import BOM, lancé en fond dès l étape 3, redevient reconnu ; un retour en arrière relance toujours */ /* v1.40 (retour Maura via Olivier) : à l étape 3, le bloc « Rattacher ce dossier à une carte » vient DANS le pop-up (comme le formulaire devis), on ne sort plus vers l ancien écran */ /* v1.39 : note créée sous la ligne « délai rapide » ; v1.38 : exigences de l étape à cocher avant de valider, fiche de cohérence (PCB nommé, scénarios = information) */ /* v1.37 : étape 8 — bouton « Relire le calcul » (après une modification dans Luminovo) ; calculer_devis v1.5 rafraîchit le sourcing et soumet les scénarios pour calcul avant de lire */ /* v1.36 : un script d étape n est considéré « lancé » que s il l a été APRÈS le dernier go de l étape précédente (sinon, après un retour en arrière, le pop-up attendait un résultat qui ne venait jamais — blocage étape 7 du 01/10) */ /* v1.35 : MPN strict du client lu dans Odoo (étape 3) et appliqué à l étape 7 */ /* v1.34 (option A, décision Olivier) : étape 8 — ligne article « — délai rapide 10 jours » par quantité, créée dans le devis Odoo au go (calculer_devis v1.4, écran v2.5) ; tableau des montants par délai */ /* v1.33 (décisions Olivier) : étape 6 — bloc « Délais à chiffrer » : standard (15 j, PCB 8 j, composants au meilleur prix) toujours coché, rapide (10 j = PCB 5 j + câblage 5 j, composants au plus vite) coché si le dossier parle d'urgent ; un scénario Luminovo par quantité × délai, offre PCB retenue automatiquement au plus près du délai visé */ /* v1.32 : consultation d une étape passée — étape 7 résumée (matière, classement, questions créées), dates lisibles, historique limité aux 8 derniers événements (le journal porte « le », pas « cree_le ») */ /* v1.31 (décision Olivier) : au Valider de l étape 7, les questions client cochées sont créées D OFFICE par le déroulé (bon modèle, date), plus de passage par l écran lot FabStory ; FabStory s ouvre ensuite pour un coup d œil */ /* v1.30 (idée Ariel) : les lignes réglées depuis la lecture précédente restent à l écran, bloc vert « RÉGLÉES », décochées ; bouton « Relire le sourcing » mis en évidence */ /* v1.29 (demande Olivier) : panneau de droite = seulement les exigences DE L ÉTAPE, en blanc ; plus de rappel des autres étapes (redondant = non lu) ; liens Ouvrir à chaque étape */ /* v1.28 : aide Claude — copie AVANT d ouvrir l onglet (sinon le presse-papier est perdu), résumé des lignes de l étape 7 ; liens « Ouvrir : » en bleu */ /* v1.27 (décisions Olivier) : étape 7 — une case « signaler au client » pré-cochée sur CHAQUE ligne (rouge, orange, vert), sauf R/C en vert quand le client n est pas MPN strict ; délais = modèle « rupture, date annoncée » avec date = aujourd hui + délai + 15 j, sans garantie ; un seul bouton d aide Claude pour tout le bloc */ /* v1.26 : étape 7 — plus de code M8/M9 à l écran (« Signaler au client : rupture sans date / avec date »), bouton « Demander de l aide à Claude » mis en avant dans le bloc rouge */ /* v1.25 (01/10/2026, décisions Olivier) : la BOM = la BOM client — étape 7 en tableau vert / orange / rouge (seules les rouges à trancher), liens Luminovo · FabStory · Odoo dans le panneau de droite, Samtec BGA = activité ajoutée (sorti du standard) */ /* v1.24 : étape 7 épurée — « réglé par le script » (même MPN autre fabricant, offres changées) en synthèse, seules les vraies ruptures à trancher, PCB jamais en question, bouton Relire toujours présent (lire_sourcing v1.6) */ /* v1.23 (chantier 188) : écran « Points méthodes » avant les scénarios (liste pré-cochée + quantités, note FabStory interne pôle méthodes, activités et variables Luminovo écrites par creer_scenarios v1.5, STOP 01005, modèles WW si client hors France, porte 6 sans saisie manuelle) */ /* v1.22 : étape 5 sans « Lu sur le dossier » ; exigences de l étape BOM limitées à la BOM ; bouton « Demander de l aide à Claude » à toutes les étapes (copie un résumé + ouvre le projet Claude) */ /* v1.21 : étape 5 — non câblés en tableau (raison + choix par ligne), « MPN incertain ou non trouvé » avec la pièce proposée par le script (Accepter / Importer sans référence) et note FabStory des points à vérifier à la commande (chantier D) */ /* v1.20 : codes PP inconnus de Luminovo = UNE ligne de synthèse, plus de liste (demande Olivier) */ /* v1.19 : étape 5 — récap des MPN accrochés d office aux IPN absents de Luminovo (importer_bom v1.3, chantier D) */ /* v1.18 : bouton « tout garder » pour les lignes sans pièce */ /* v1.17 : étape 5 — contrôle de l import, non câblés de l analyse confirmés en bloc avec la vraie ligne client, lignes sans pièce gardées par défaut */ /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
+  const DD_VERSION = '1.42', DD_DATE = '01/10/2026'; /* v1.42 (chantier 197) : mode « fournitures client » — cases PCB fourni / composants fournis à l étape 3, mémorisées sur le déroulé.  v1.41 (blocage COMPAUT 16:26) : un script d étape n compte s il est plus récent que le DERNIER GO DE CETTE MÊME ÉTAPE (et non du go précédent) — l import BOM, lancé en fond dès l étape 3, redevient reconnu ; un retour en arrière relance toujours */ /* v1.40 (retour Maura via Olivier) : à l étape 3, le bloc « Rattacher ce dossier à une carte » vient DANS le pop-up (comme le formulaire devis), on ne sort plus vers l ancien écran */ /* v1.39 : note créée sous la ligne « délai rapide » ; v1.38 : exigences de l étape à cocher avant de valider, fiche de cohérence (PCB nommé, scénarios = information) */ /* v1.37 : étape 8 — bouton « Relire le calcul » (après une modification dans Luminovo) ; calculer_devis v1.5 rafraîchit le sourcing et soumet les scénarios pour calcul avant de lire */ /* v1.36 : un script d étape n est considéré « lancé » que s il l a été APRÈS le dernier go de l étape précédente (sinon, après un retour en arrière, le pop-up attendait un résultat qui ne venait jamais — blocage étape 7 du 01/10) */ /* v1.35 : MPN strict du client lu dans Odoo (étape 3) et appliqué à l étape 7 */ /* v1.34 (option A, décision Olivier) : étape 8 — ligne article « — délai rapide 10 jours » par quantité, créée dans le devis Odoo au go (calculer_devis v1.4, écran v2.5) ; tableau des montants par délai */ /* v1.33 (décisions Olivier) : étape 6 — bloc « Délais à chiffrer » : standard (15 j, PCB 8 j, composants au meilleur prix) toujours coché, rapide (10 j = PCB 5 j + câblage 5 j, composants au plus vite) coché si le dossier parle d'urgent ; un scénario Luminovo par quantité × délai, offre PCB retenue automatiquement au plus près du délai visé */ /* v1.32 : consultation d une étape passée — étape 7 résumée (matière, classement, questions créées), dates lisibles, historique limité aux 8 derniers événements (le journal porte « le », pas « cree_le ») */ /* v1.31 (décision Olivier) : au Valider de l étape 7, les questions client cochées sont créées D OFFICE par le déroulé (bon modèle, date), plus de passage par l écran lot FabStory ; FabStory s ouvre ensuite pour un coup d œil */ /* v1.30 (idée Ariel) : les lignes réglées depuis la lecture précédente restent à l écran, bloc vert « RÉGLÉES », décochées ; bouton « Relire le sourcing » mis en évidence */ /* v1.29 (demande Olivier) : panneau de droite = seulement les exigences DE L ÉTAPE, en blanc ; plus de rappel des autres étapes (redondant = non lu) ; liens Ouvrir à chaque étape */ /* v1.28 : aide Claude — copie AVANT d ouvrir l onglet (sinon le presse-papier est perdu), résumé des lignes de l étape 7 ; liens « Ouvrir : » en bleu */ /* v1.27 (décisions Olivier) : étape 7 — une case « signaler au client » pré-cochée sur CHAQUE ligne (rouge, orange, vert), sauf R/C en vert quand le client n est pas MPN strict ; délais = modèle « rupture, date annoncée » avec date = aujourd hui + délai + 15 j, sans garantie ; un seul bouton d aide Claude pour tout le bloc */ /* v1.26 : étape 7 — plus de code M8/M9 à l écran (« Signaler au client : rupture sans date / avec date »), bouton « Demander de l aide à Claude » mis en avant dans le bloc rouge */ /* v1.25 (01/10/2026, décisions Olivier) : la BOM = la BOM client — étape 7 en tableau vert / orange / rouge (seules les rouges à trancher), liens Luminovo · FabStory · Odoo dans le panneau de droite, Samtec BGA = activité ajoutée (sorti du standard) */ /* v1.24 : étape 7 épurée — « réglé par le script » (même MPN autre fabricant, offres changées) en synthèse, seules les vraies ruptures à trancher, PCB jamais en question, bouton Relire toujours présent (lire_sourcing v1.6) */ /* v1.23 (chantier 188) : écran « Points méthodes » avant les scénarios (liste pré-cochée + quantités, note FabStory interne pôle méthodes, activités et variables Luminovo écrites par creer_scenarios v1.5, STOP 01005, modèles WW si client hors France, porte 6 sans saisie manuelle) */ /* v1.22 : étape 5 sans « Lu sur le dossier » ; exigences de l étape BOM limitées à la BOM ; bouton « Demander de l aide à Claude » à toutes les étapes (copie un résumé + ouvre le projet Claude) */ /* v1.21 : étape 5 — non câblés en tableau (raison + choix par ligne), « MPN incertain ou non trouvé » avec la pièce proposée par le script (Accepter / Importer sans référence) et note FabStory des points à vérifier à la commande (chantier D) */ /* v1.20 : codes PP inconnus de Luminovo = UNE ligne de synthèse, plus de liste (demande Olivier) */ /* v1.19 : étape 5 — récap des MPN accrochés d office aux IPN absents de Luminovo (importer_bom v1.3, chantier D) */ /* v1.18 : bouton « tout garder » pour les lignes sans pièce */ /* v1.17 : étape 5 — contrôle de l import, non câblés de l analyse confirmés en bloc avec la vraie ligne client, lignes sans pièce gardées par défaut */ /* v1.16 : création du devis Odoo DANS le pop-up (étape 3), plus d aller-retour vers l écran de la fiche */ /* v1.15 : « Aller créer le devis » ouvre vraiment le formulaire, et le déroulé se rouvre seul après la création */ /* v1.14 : étapes passées cliquables, en consultation seule (go Olivier 30/09) */ /* v1.13 (30/09/2026, devis RTSYS Safety B) : étape 3 réelle quand le devis Odoo n existe pas, nom du RfQ selon la convention, exigences triées par étape, ouverture auto sur toute fiche */ // v1.12 : briques optionnelles « Insertion press-fit » / « Sous-traitance » cochées d après l analyse et ajoutées AU SCÉNARIO à la création (jamais dans les modèles) // v1.11 : étape 6 guidée par le dossier — modèle et faces proposés (100% TRAD / CMS LIGHT ≤ 10 / STD), bloc « ce dossier n est pas un basique » (press-fit, THT sur cuivre épais, exigences) avec geste attendu et case prise en compte au go ; création auto des scénarios sur le modèle proposé. // v1.10 : refab — devis Odoo créé s'il n'existe pas (sans NRE) ; ?refab=1 ouvre directement la porte // v1.9 : porte « Devis refab » (entrée directe à l'étape 6, scénarios et calcul existants réutilisables) // v1.8 : moins de texte (règle : des cases, des chiffres, des boutons — l'écran se reconnaît, il ne se lit pas) // v1.7 : adresses (étape 8) + fiche de cohérence // v1.6 : fil rouge « Exigences du dossier » (analyse) sur chaque porte, case « pris en compte » enregistrée au go // v1.5 : étape 8 (calcul rejoué, trame Odoo proposée puis remplie au go) // v1.4 : RfQ + import BOM dès l'étape 3 (fond), étape 4 = fiche PCB seule, scénarios auto après la BOM // v1.3 : étapes 6 (scénarios) et 7 (sourcing + questions client FabStory) // v1.2 : spec PCB à 3 sources (documents client, fichiers, standards PP), écrite dans Luminovo au go
   const CLE_SCRIPT = 'f7eba1cb0eea36fc2f34b588fdebc87e99258120279b7ec3'; // RECETTE : en prod, passer par X-PP-Auth
   const ETAPES = ['1 Dossier','2 Analyse','3 Carte + devis','4 RfQ + PCB','5 BOM','6 Scénarios','7 Sourcing + PCB','8 Devis'];
   let ETAT = null, CHOIX = {}, RFQS = [], TIMER = null;
@@ -4010,7 +4012,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       `<div class="dd-tete"><div><h2>${titre}</h2><div class="sub">${esc(a.ref_projet || '')} · ${esc(a.client || '')}${sub ? ' · ' + sub : ''}</div></div>
        <button class="dd-btn" style="margin-left:auto" onclick="DD.fermer()">Quitter (reprendre plus tard)</button></div>`
       + etapesHtml(cour || 5, bloque)
-      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${liensPanel()}<button class="dd-btn" style="color:var(--pp-blue);border-color:var(--pp-blue);font-weight:500;text-align:left;margin-bottom:14px" onclick="DD.aideClaude()" title="Copie un résumé du dossier et ouvre le projet Claude"><i class="ti ti-message-question"></i> Demander de l'aide à Claude</button>${side}${DD._consult ? '' : exigencesPanel()}</div></div>`
+      + `<div class="dd-corps"><div class="dd-main">${corps}</div><div class="dd-side">${liensPanel()}<button class="dd-btn" style="color:var(--pp-blue);border-color:var(--pp-blue);font-weight:500;text-align:left;margin-bottom:14px" onclick="DD.aideClaude()" title="Copie un résumé du dossier et ouvre le projet Claude"><i class="ti ti-message-question"></i> Demander de l'aide à Claude</button>${fournSide()}${side}${DD._consult ? '' : exigencesPanel()}</div></div>`
       + `<div class="dd-pied">${pied}</div>`;
     brancherDepot();
     if (!document.getElementById('dd-odoo')) { const pg = document.querySelector('#rattachement [data-odoo][data-dd]'); if (pg && typeof odooRendu === 'function') odooRendu(); }
@@ -4163,6 +4165,23 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       + `</div></div>`
       + `<div><div class="dd-h">NOTÉ POUR L'ÉTAPE 7 (QUESTIONS CLIENT, RIEN N'EST ENVOYÉ ICI)</div><div class="dd-carte" style="margin-top:6px"><div class="dd-ligne">Les pièces obsolètes et les écarts avec le fichier de pose seront rassemblés ici au lot 2.</div></div></div>`;
     const side = SIDE_REGLE; /* v1.22 : « Lu sur le dossier » retiré (technique, inutile à l écran) */
+    /* v1.42 (chantier 197) : composants fournis par le client -> rien à acheter donc rien à trancher ; les pièces proposées sont prises d office (elles ne servent qu au comptage de la main-d œuvre) */
+    if (fournEtat().comp) {
+      groupes.forEach(g => { CHOIX[g.id] = 'ok'; });
+      /* importer_bom v1.5 : les R / C restés sans rien ont reçu une pièce générique -> on compte ce qui reste VRAIMENT sans pièce dans Luminovo (hors propositions, prises d office) */
+      const avecProp = new Set(tr.filter(t => t.propose).flatMap(t => String(t.reperes || '').split(/,\s*/).filter(Boolean)));
+      const nSans = Array.isArray(d.sans_piece) ? d.sans_piece.filter(r => !avecProp.has(r)).length : tr.filter(t => !t.propose).reduce((n, t) => n + String(t.reperes || '').split(/,\s*/).filter(Boolean).length, 0);
+      const corpsF = `<div><div class="dd-h">CHARGÉ DANS LUMINOVO</div><div class="dd-carte" style="flex-direction:row;gap:22px;align-items:center;flex-wrap:wrap;margin-top:6px">
+          <span><span class="dd-num">${esc(ch.lignes_bom_originale)}</span> <span class="dd-ligne">lignes, BOM originale conservée</span></span>
+          <span><span class="dd-num">${esc(ch.elements)}</span> <span class="dd-ligne">éléments</span></span>
+          <span><span class="dd-num">${esc(ch.non_cable)}</span> <span class="dd-ligne">non câblés</span></span></div></div>
+        <div class="dd-carte ok"><div class="dd-h" style="color:var(--blue)">COMPOSANTS FOURNIS PAR LE CLIENT</div>
+          <div class="dd-ligne" style="line-height:1.6;color:var(--text)">Toutes les lignes seront marquées « fournies par le client » dans Luminovo.<br>Rien à acheter, rien à trancher, aucune question client.</div></div>
+        ${nSans ? `<div class="dd-carte warn"><div class="dd-ligne" style="line-height:1.6;color:var(--text)"><b>${nSans} composant(s) sans pièce reconnue</b> : non compté(s) dans la main-d'œuvre. À compléter dans Luminovo (RfQ → BOM) avant l'étape 8.</div></div>` : ''}`;
+      cadre('Étape 5/8 — Nomenclature (BOM)', 'composants fournis par le client', corpsF, side,
+        `<button class="dd-btn" onclick="DD.abandonner()">Abandonner…</button><span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.valider()">Continuer → Scénarios</button>`);
+      DD._groupes = groupes; DD._ncA = ncL; DD._tr = tr; return;
+    }
     const pied = `<button class="dd-btn" onclick="DD.abandonner()">Abandonner…</button><span class="dd-ligne" style="margin-left:auto">${faits === total ? 'Tout est tranché' : faits + '/' + total + ' tranchés'}</span>
       <button class="dd-btn p" ${faits === total ? '' : 'disabled'} onclick="DD.valider()">Valider l'étape 5 → Scénarios</button>`;
     cadre('Étape 5/8 — Nomenclature (BOM)', 'à confirmer', corps, side, pied);
@@ -4340,7 +4359,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   function ecranPorte7(fin){
     /* v1.25 (01/10/2026, décisions Olivier) : la BOM = la BOM client. L écran CONSTATE et CLASSE : vert (R/C/diode en délai, jamais critique),
        orange (délai sur pièce critique), rouge (aucune offre : seul cas à trancher). Tout part dans UNE note FabStory. */
-    const d = fin.detail || {}; const points = d.points || [];
+    const d = fin.detail || {}; const fourn7 = fournEtat(); const points = fourn7.comp ? [] : (d.points || []); /* v1.42 : composants fournis -> matière 0, aucune question */
     const court = l => l.length > 3 ? l.slice(0, 3).join(', ') + ' +' + (l.length - 3) : l.join(', ');
     const scen = (d.scenarios || []).map(s => `<tr><td style="padding:4px 8px"><b>${esc(s.nom)}</b></td><td style="padding:4px 8px">${s.total_matiere != null ? esc(Number(s.total_matiere).toFixed(2)) + ' €' : '—'}</td><td style="padding:4px 8px">${esc((s.resume || {}).ok)} ok · ${esc((s.resume || {}).warning)} délais · ${esc((s.resume || {}).erreur)} sans offre</td><td style="padding:4px 8px;color:var(--text3)">${(s.resume || {}).dispo ? esc((s.resume.dispo.type || '') + ' ' + (s.resume.dispo.days != null ? s.resume.dispo.days + ' j' : '')) : '—'}</td></tr>`).join('');
     const pcb = d.pcb ? `<div class="dd-ligne">PCB : ${esc((d.pcb.offres || []).length)} offre(s) déposée(s)${(d.pcb.offres || []).length ? ' (' + esc([...new Set(d.pcb.offres.map(o => o.fournisseur || o.origine || '?'))].join(', ')) + ')' : ''} — <b>choisis l'offre PCB dans Luminovo</b></div>` : '<div class="dd-ligne">Pas de fiche PCB sur ce RfQ (PCB fourni ou fiche absente).</div>';
@@ -4358,7 +4377,8 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
     const rouge = points.filter(p => p.couleur === 'rouge'), orange = points.filter(p => p.couleur === 'orange'), vert = points.filter(p => p.couleur === 'vert'), reglees = points.filter(p => p.couleur === 'reglee');
     const enCours = !!d.recherche_en_cours;
     cadre('Étape 7/8 — Sourcing + PCB', enCours ? 'recherche en cours' : (rouge.length ? rouge.length + ' sans offre à trancher' : 'rien à trancher'),
-      `<div><div class="dd-h">MATIÈRE PAR SCÉNARIO</div><div class="dd-carte" style="margin-top:6px"><table style="border-collapse:collapse;font-size:12px;width:100%">${scen}</table>${pcb}</div></div>
+      `${fourn7.comp || fourn7.pcb ? `<div class="dd-carte ok"><div class="dd-h" style="color:var(--blue)">FOURNITURES CLIENT</div><div class="dd-ligne" style="line-height:1.6;color:var(--text)">${fourn7.pcb && fourn7.comp ? 'PCB et composants fournis par le client : matière 0.' : fourn7.comp ? 'Composants fournis par le client : seule la matière PCB est chiffrée.' : 'PCB fourni par le client : seuls les composants sont chiffrés.'}${fourn7.comp ? ' Aucune question client.' : ''}</div></div>` : ''}
+       <div><div class="dd-h">MATIÈRE PAR SCÉNARIO</div><div class="dd-carte" style="margin-top:6px"><table style="border-collapse:collapse;font-size:12px;width:100%">${scen}</table>${pcb}</div></div>
        ${points.length ? `<div style="display:flex;justify-content:flex-end;margin:4px 0 6px"><button class="dd-btn p" style="background:var(--pp-blue);border-color:var(--pp-blue)" onclick="DD.aideClaude()"><i class="ti ti-message-question"></i> Demander de l'aide à Claude pour les ${points.filter(p => p.signaler).length} ligne(s) à signaler</button></div>` : ''}
        ${bloc('🔴 SANS OFFRE', 'var(--red)', rouge, 'Aucune offre chez nos distributeurs : signalé au client comme rupture, ou équivalent propre trouvé avec Claude et ajouté dans Luminovo sur ta validation.')}
        ${bloc('🟠 DÉLAI SUR PIÈCE CRITIQUE', 'var(--amber)', orange, 'Signalé au client comme rupture avec date annoncée (délai + 15 j, sans garantie) : il répond dès le devis.')}
@@ -4504,6 +4524,33 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       SIDE_REGLE, `<span class="dd-ligne" style="margin-left:auto">Go par ${esc(go8.qui || '')} le ${esc(new Date(go8.le).toLocaleString('fr-FR'))}</span>`, false, 8);
   }
   // ---------- étape 4 ----------
+  /* v1.42 (chantier 197) : mode « fournitures client » — déclaré UNE fois (étape 3), mémorisé sur le déroulé, lu par toutes les étapes */
+  function fournDefaut(){
+    const f = (ETAT.analyse || {}).bom_fab || {}; const t = String(f.consignation || '').toLowerCase();
+    const oui = /fourni|consign|client/.test(t) && !/aucun|\bnon\b|\bsans\b/.test(t);
+    return { pcb: oui && /pcb|circuit|cartes? nues?/.test(t), comp: oui && /composant|kit|nomenclature|\bbom\b/.test(t), source: f.consignation || '' };
+  }
+  function fournEtat(){
+    const d = ETAT.deroule || {};
+    if (d.id) return { pcb: !!d.pcb_fourni, comp: !!d.composants_fournis };
+    if (!DD._fourn) { const x = fournDefaut(); DD._fourn = { pcb: x.pcb, comp: x.comp }; }
+    return DD._fourn;
+  }
+  function fournBloc(){
+    const e = fournEtat(); const src = fournDefaut().source;
+    const ligne = (k, lib) => `<label class="dd-ligne" style="display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--text)"><input type="checkbox" ${e[k] ? 'checked' : ''} onchange="DD.fournSet('${k}', this.checked)"> ${lib}</label>`;
+    return `<div class="dd-carte" style="gap:8px"><div class="dd-h" style="color:var(--blue)">FOURNITURES CLIENT</div>
+      ${ligne('pcb', 'PCB fourni par le client')}
+      ${ligne('comp', 'Composants fournis par le client')}
+      <div class="dd-ligne" style="color:var(--text3);line-height:1.5">${src ? 'Lu dans la demande : « ' + esc(src) + ' ». ' : ''}Une case cochée = rien n'est chiffré ni acheté pour cette partie.</div></div>`;
+  }
+  function fournSide(){
+    const d = ETAT.deroule || {}; if (!d.id || DD._consult) return '';
+    const e = fournEtat();
+    const ligne = (k, lib) => `<label class="dd-ligne" style="display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--text)"><input type="checkbox" ${e[k] ? 'checked' : ''} onchange="DD.fournChanger('${k}', this.checked)"> ${lib}</label>`;
+    return `<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);padding:10px;display:flex;flex-direction:column;gap:6px"><div class="dd-h" style="color:var(--blue)">FOURNITURES CLIENT</div>
+      ${ligne('pcb', 'PCB fourni par le client')}${ligne('comp', 'Composants fournis par le client')}</div>`;
+  }
   function ecranDepart(){
     const a = ETAT.analyse || {}; const d = ETAT.deroule || {};
     if (d.rfq_luminovo) {
@@ -4530,7 +4577,8 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       /* v1.16 : le formulaire devis (le même que sur la fiche) est déplacé dans le pop-up ; sur la fiche, un simple renvoi */
       const pg = document.querySelector('#rattachement [data-odoo]'); if (pg) { pg.innerHTML = '<p class="hint" style="margin:0">Formulaire devis ouvert dans le déroulé devis.</p>'; pg.dataset.dd = '1'; }
       cadre('Étape 3/8 — Carte + devis', 'devis Odoo à créer',
-        `<div class="dd-carte" id="dd-odoo"><div data-odoo>${blocOdoo()}</div></div>
+        `${fournBloc()}
+         <div class="dd-carte" id="dd-odoo"><div data-odoo>${blocOdoo()}</div></div>
          <div class="dd-ligne" style="color:var(--text3)">Au clic sur « Créer dans Odoo », le RfQ Luminovo est créé tout de suite avec le n° du devis, la BOM se charge en fond et le déroulé passe à l'étape 4.</div>`,
         SIDE_REGLE, '', false, 3);
       if (typeof ODOO !== 'undefined' && ODOO.etat !== 'ouvert' && ODOO.etat !== 'charge' && typeof odooVerifier === 'function') odooVerifier();
@@ -4560,6 +4608,14 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
   }
   function ecranPorte4(fin){
     const d = fin.detail || {}, g = d.gerber || {};
+    /* v1.42 (chantier 197) : PCB fourni par le client -> fichiers chargés dans Luminovo, aucune spec à valider, aucune offre */
+    if (fournEtat().pcb) {
+      cadre('Étape 4/8 — RfQ + PCB', 'PCB fourni par le client',
+        `<div class="dd-carte ok"><div class="dd-h" style="color:var(--blue)">PCB FOURNI PAR LE CLIENT</div>
+          <div class="dd-ligne" style="line-height:1.6;color:var(--text)">Les fichiers PCB sont chargés dans Luminovo${d.zip ? ' (' + esc(d.zip) + ')' : ''}.<br>Rien à valider ni à chiffrer : le PCB sera marqué « fourni par le client ».</div></div>`,
+        SIDE_REGLE, `<span style="margin-left:auto"></span><button class="dd-btn p" onclick="DD.validerSpec()">Continuer → BOM (étape 5)</button>`, false, 4);
+      DD._gerber = null; return;
+    }
     if (Array.isArray(d.spec) && d.spec.length) return ecranPorte4Sources(fin);
     const lignes = [['Couches', g.couches], ['Dimensions (mm)', g.largeur_mm && g.hauteur_mm ? g.largeur_mm + ' × ' + g.hauteur_mm : null], ['Épaisseur (mm)', g.epaisseur_mm], ['Cuivre ext. / int. (µm)', g.cuivre_ext_um != null ? g.cuivre_ext_um + ' / ' + g.cuivre_int_um : null], ['Matériau', g.materiau], ['Finition', g.finition], ['Vernis', g.vernis ? g.vernis + ' (' + g.vernis_faces + ')' : null], ['Sérigraphie', g.serigraphie ? g.serigraphie + ' (' + g.serigraphie_faces + ')' : null], ['Via mini (mm) / trous', g.via_min_mm != null ? g.via_min_mm + ' / ' + g.trous : null], ['Vias borgnes / enterrés', g.vias_borgnes != null ? (g.vias_borgnes ? 'oui' : 'non') + ' / ' + (g.vias_enterres ? 'oui' : 'non') : null]];
     const tbl = '<table style="border-collapse:collapse;font-size:12px;width:100%">' + lignes.map(([k, v]) => `<tr><td style="padding:4px 8px;color:var(--text2);border-bottom:1px solid var(--border)">${esc(k)}</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">${v == null || v === '' ? '<span style="color:var(--amber)">non déterminé 🟠</span>' : esc(v)}</td><td style="padding:4px 8px;color:var(--text3);border-bottom:1px solid var(--border)">fichiers (Luminovo)</td></tr>`).join('') + '</table>';
@@ -4689,12 +4745,17 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       let note_points = '';
       if (nEcart.length) note_points += 'À LA COMMANDE : vérifier que le client accepte les références choisies au devis (' + qui() + ') :\n' + nEcart.join('\n');
       if (nSans.length) note_points += (note_points ? '\n\n' : '') + 'IMPORTÉ SANS RÉFÉRENCE dans Luminovo : à vérifier ou à régler au plus tard à la commande :\n' + nSans.join('\n');
+      /* v1.42 (chantier 197) : une seule note FabStory interne dit ce que le client fournit ; composants fournis -> aucune note « à vérifier à la commande » */
+      const fe = fournEtat();
+      if (fe.comp) note_points = 'FOURNITURES CLIENT (déclaré au devis par ' + qui() + ') : ' + (fe.pcb ? 'PCB et composants fournis par le client.' : 'composants fournis par le client.') + ' Rien à acheter pour cette partie : attendre la réception du kit avant de lancer.';
+      else if (fe.pcb) note_points = 'FOURNITURES CLIENT (déclaré au devis par ' + qui() + ') : PCB fourni par le client, aucun PCB à commander.' + (note_points ? '\n\n' + note_points : '');
       const corps = { deroule_id: ETAT.deroule.id, etape: 5, valideur: qui(), exigences_prises: DD.exigencesCochees(), exigences_textes: DD.exigencesTextes(), approuver, laisser, non_cable, a_cabler, accepter, sans_ref, note_points };
       $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Écriture de tes choix dans Luminovo…</div>';
       try {
         const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json(); if (!j.ok) throw new Error(j.erreur || 'refus');
+        if (fe.pcb || fe.comp) await DD.fournAppliquer(fe, true); /* v1.42 : lignes et PCB marqués « fournis par le client » AVANT la création des scénarios */
         CHOIX = {}; await rafraichir();
       } catch (e) { alert('Choix non enregistrés : ' + e.message); afficher(); }
     },
@@ -4762,6 +4823,19 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         await rafraichir();
       } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
     },
+    fournSet(k, v){ DD._fourn = Object.assign({}, fournEtat(), { [k]: !!v }); },
+    /* v1.42 (chantier 197) : écrit le mode sur le déroulé ET marque les lignes / le PCB « fournis par le client » dans Luminovo (rejouable) */
+    async fournAppliquer(f, silencieux){
+      const r = await fetch(`${base()}/webhook/recette-deroule-go`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deroule_id: ETAT.deroule.id, etape: ETAT.deroule.etape, phase: 'fournitures', valideur: qui(), fournitures: { pcb: !!f.pcb, comp: !!f.comp } }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { if (silencieux) { alert('Fournitures client : le marquage dans Luminovo a échoué (' + ((j && j.message) || 'HTTP ' + r.status) + '). Recoche la case dans le panneau de droite pour le rejouer.'); return null; } throw new Error((j && j.message) || ('HTTP ' + r.status)); }
+      return j;
+    },
+    async fournChanger(k, v){
+      const f = Object.assign({}, fournEtat(), { [k]: !!v });
+      $$('dd-box').innerHTML = '<div style="padding:30px"><span class="dd-spin"></span>Fournitures client : mise à jour dans Luminovo…</div>';
+      try { await DD.fournAppliquer(f); await rafraichir(); } catch (e) { alert('Non enregistré : ' + e.message); afficher(); }
+    },
     async apresDevis(so, ref){
       // v1.4 : dès que le devis Odoo est créé (étape 3), on crée le RfQ Luminovo et on lance l'import BOM en fond.
       try {
@@ -4769,7 +4843,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
         /* v1.13 : nom du RfQ = référence + indice + nom de la carte (convention), pas le seul code saisi */
         const od = (window.ODOO && ODOO.data) || {}; let nomRfq = ref || a.ref_projet || '';
         try { const cle = (typeof odooNomPrevu === 'function') ? odooNomPrevu() : ''; if (cle) nomRfq = (cle + ' ' + (od.reference_interne || '')).trim(); } catch (e) {}
-        const r = await fetch(`${base()}/webhook/recette-creer-rfq`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job, client: a.client || (FICHE_LIEN && FICHE_LIEN.client) || '', nom_rfq: nomRfq, so_odoo: so || null, valideur: qui() }) });
+        const r = await fetch(`${base()}/webhook/recette-creer-rfq`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job, client: a.client || (FICHE_LIEN && FICHE_LIEN.client) || '', nom_rfq: nomRfq, so_odoo: so || null, valideur: qui(), pcb_fourni: fournEtat().pcb, composants_fournis: fournEtat().comp }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok || !j.ok) throw new Error(j.erreur || ('HTTP ' + r.status));
         alert('RfQ Luminovo créé' + (j.import_bom === 'lance' ? ' — la BOM se charge en tâche de fond (3-4 min). Le déroulé reprend à l\'étape 4 (fichiers PCB).' : ' — pas de BOM traitée sur cette analyse, import non lancé.'));
@@ -4844,7 +4918,7 @@ select.dd-sel{background:var(--surface);color:var(--text);border:1px solid var(-
       const parFabStory = false;
       const questions = choisies.map(p => ({ modele: p.modele || 'M9', reperes: p.reperes, mpn: p.mpn, fabricant: p.fabricant, date: p.date || '', proposition: '' }));
       const exclusions = pts.filter((p, i) => p.genre === 'excedent' && CHOIX['p' + i] === 'exclure').map(p => p.reperes.join(','));
-      if (!confirm(`${questions.length} question(s) client vont être créées sur la carte FabStory (visibles du client avec le devis, non envoyées seules)${exclusions.length ? ', ' + exclusions.length + ' ligne(s) à exclure du sourcing dans Luminovo' : ''}. Continuer ?`)) return;
+      if ((questions.length || exclusions.length) && !confirm(`${questions.length} question(s) client vont être créées sur la carte FabStory (visibles du client avec le devis, non envoyées seules)${exclusions.length ? ', ' + exclusions.length + ' ligne(s) à exclure du sourcing dans Luminovo' : ''}. Continuer ?`)) return;
       let ongletLot = null;
       if (pidFab && questions.length) setTimeout(() => window.open('https://protoprocess.github.io/commercial/fabstory/?produit=' + encodeURIComponent(pidFab), '_blank'), 1500);
       if (parFabStory) {
