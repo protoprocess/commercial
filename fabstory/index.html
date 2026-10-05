@@ -515,8 +515,34 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.5';
-const APP_DATE = '01/10/2026';
+const APP_VERSION = '5.6';
+const APP_DATE = '05/10/2026';
+/* 5.6 : tri d'affichage des règles client (équivalents acceptés selon la BOM de la carte) */
+function htmlReglesTriees(regles){
+  const item = r => '<div class="regle-item"><span class="dom">' + esc(r.domaine) + '</span><br>' + esc(r.texte) + '</div>';
+  const autres = regles.filter(r => r.cle_technique !== 'EQUIVALENT_ACCEPTE');
+  const eq = regles.filter(r => r.cle_technique === 'EQUIVALENT_ACCEPTE');
+  const eqCarte = eq.filter(r => r.concerne_carte === true);
+  const eqReste = eq.filter(r => r.concerne_carte !== true);
+  const bomInconnue = eq.length && eq.every(r => r.concerne_carte === null || r.concerne_carte === undefined);
+  let h = autres.map(item).join('');
+  if (eqCarte.length) {
+    h += '<div style="margin-top:12px;font-size:12px;font-weight:600;color:var(--text2)"><i class="ti ti-circle-check" style="color:var(--green)"></i> '
+       + '\u00c9quivalents valid\u00e9s qui concernent cette carte (' + eqCarte.length + ')</div>' + eqCarte.map(item).join('');
+  }
+  if (eqReste.length) {
+    h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text3)">'
+       + 'Autres \u00e9quivalents valid\u00e9s par ce client (' + eqReste.length + ')'
+       + (bomInconnue ? ' \u2014 BOM de la carte non analys\u00e9e, tri impossible' : ' \u2014 composants absents de la BOM de cette carte')
+       + '</summary>' + eqReste.map(item).join('') + '</details>';
+  }
+  return h;
+}
+/* 5.6 (05/10/2026, décision Olivier après le cas RTSYS : 7 équivalents validés « pour tous mes projets » sur Safety B
+   s'affichaient en clair sur toutes les cartes RTSYS) : dans « Règles de ce client », les règles saisies à la main
+   restent en clair ; les ÉQUIVALENTS ACCEPTÉS dont le composant est dans la BOM de la carte (champ concerne_carte,
+   FabStory API v0.21) sont en clair sous leur propre titre ; les autres sont repliés dans « Autres équivalents
+   validés par ce client ». Sans analyse BOM de la carte : tous repliés, avec la mention. Retour : avant-fabstory-5.6-2026-10-05. */
 /* 5.5 (01/10/2026, retour Olivier sur la 5.4 : « je ne voulais Commercial / Production / Méthodes que sur les
    notes internes — il y en a partout, plus de tri visuel possible ») : la pastille de pôle n'est posée que sur les
    NOTES INTERNES (type note, non visibles du client). Questions client, réponses et notes visibles du client : aucune. */
@@ -1202,7 +1228,7 @@ function rendreFiche(){
   if(regles.length){
     html += '<div class="card"><details class="regles-resume"><summary><i class="ti ti-gavel" style="color:var(--info-txt)"></i> ' +
       'R\u00e8gles de ce client (' + regles.length + ')</summary>' +
-      regles.map(r => '<div class="regle-item"><span class="dom">' + esc(r.domaine) + '</span><br>' + esc(r.texte) + '</div>').join('') +
+      htmlReglesTriees(regles) +
       '</details></div>';
   }
 
