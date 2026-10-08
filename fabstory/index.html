@@ -193,6 +193,11 @@ label.lbl{font-size:12.5px;font-weight:600;color:var(--info-txt);display:block;m
 #volet-detail:not(:empty){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
 body.avec-attente .volet,body.volet-ouvert .volet{display:block}
 .att-titre{font-size:13px;font-weight:700;color:var(--red-badge);margin:0 0 8px;display:flex;align-items:center;gap:6px}
+/* v5.7 : colonne de droite repliee = un seul bouton "Questions (n)" */
+.att-rouvrir{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:7px 12px;font-size:12.5px;font-weight:700;color:var(--red-badge);cursor:pointer;white-space:nowrap}
+.att-rouvrir:hover{border-color:var(--accent)}
+body.aside-replie .volet{width:auto;min-width:0}
+body.aside-replie #zone-attente:not(:empty){background:transparent;border:none;border-radius:0;padding:0;margin-bottom:0}
 .att-mini{border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:8px 10px;margin-bottom:7px;cursor:pointer;background:#fff}
 .att-mini:hover{border-color:var(--accent)}
 .att-mini.choisie{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
@@ -204,7 +209,9 @@ body.avec-attente .volet,body.volet-ouvert .volet{display:block}
 .badge-lien{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);color:var(--info-txt);border:1px solid var(--border2);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer}
 .badge-lien:hover{border-color:var(--info)}
 #volet-detail h2{position:sticky;top:-16px;background:var(--surface);padding:6px 0;z-index:2;display:flex;align-items:center;gap:8px}
-.volet-fermer{margin-left:auto;flex:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:18px;line-height:1;color:var(--text2);padding:3px 8px;cursor:pointer}
+/* v5.7 : croix en caractere (plus d icone de police : elle ne rendait pas et
+   le bouton apparaissait vide), taille fixe pour qu elle se voie toujours. */
+.volet-fermer{margin-left:auto;flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:19px;line-height:1;color:var(--text2);padding:0;cursor:pointer}
 .volet-fermer:hover{border-color:var(--border2);color:var(--text)}
 .volet section{border-top:1px solid var(--border);padding:11px 0}
 .volet section > summary,.volet details > summary{cursor:pointer;font-size:12.5px;font-weight:600;list-style:none;display:flex;align-items:center;gap:6px;color:var(--text2)}
@@ -345,6 +352,9 @@ dialog.dlg-large{max-width:960px;width:94vw}
   body.avec-attente .volet{display:none}
   body.volet-ouvert .volet{display:block}
   .attente-strip{display:flex}
+  /* v5.7 : le repli ne concerne que le grand ecran ; sous 1260px le volet
+     reste un tiroir de largeur fixe. */
+  body.aside-replie .volet{width:min(460px,96vw)}
 }
 @media(max-width:920px){
   .wrap{padding:11px}
@@ -515,8 +525,8 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.6';
-const APP_DATE = '05/10/2026';
+const APP_VERSION = '5.7';
+const APP_DATE = '09/10/2026';
 /* 5.6 : tri d'affichage des règles client (équivalents acceptés selon la BOM de la carte) */
 function htmlReglesTriees(regles){
   const item = r => '<div class="regle-item"><span class="dom">' + esc(r.domaine) + '</span><br>' + esc(r.texte) + '</div>';
@@ -628,6 +638,10 @@ let filtre = 'tous';
 let filtreMetier = '';
 let filtreConcerne = '';
 let choisieId = null;                 // entree ouverte dans le volet
+/* v5.7 : la colonne de droite (questions en attente + detail) se replie,
+   l etat est garde d une carte a l autre et d une session a l autre. */
+let asideReplie = false;
+try{ asideReplie = localStorage.getItem('fs_aside_replie') === '1'; }catch(err){}
 let saisie = { type:'note', etape:null, portee:null, repond_a:null, concernes:null };
 /* Chantier 136 : \u00ab Qui est concern\u00e9 ? \u00bb = destinataires de la notification.
    concernes null = suit automatiquement le m\u00e9tier choisi (mapping identique a
@@ -788,7 +802,7 @@ function retourCartes(){
   choisieId = null;
   const d = el('volet-detail'); if(d) d.innerHTML = '';
   const za = el('zone-attente'); if(za) za.innerHTML = '';
-  document.body.classList.remove('avec-attente', 'volet-ouvert');
+  document.body.classList.remove('avec-attente', 'volet-ouvert', 'aside-replie');
   P = null; FICHE = null; STATUT = null;
 }
 async function chargerStatut(){
@@ -1298,17 +1312,33 @@ function miniAttente(a){
     (comp.length ? '<div class="am-comp">' + comp.join('\u00a0\u00a0') + '</div>' : '') +
     '<div class="am-texte">' + htmlTexteEntree(a) + '</div></div>';
 }
+/* v5.7 : repli / depli de la colonne de droite (etat garde en local). */
+function memoAside(){ try{ localStorage.setItem('fs_aside_replie', asideReplie ? '1' : '0'); }catch(err){} }
+FS.replierAside = function(){
+  asideReplie = true; memoAside();
+  choisieId = null;
+  const d = el('volet-detail'); if(d) d.innerHTML = '';
+  majAside();
+};
+FS.deplierAside = function(){ asideReplie = false; memoAside(); majAside(); };
 function majAside(){
   const enAttente = FICHE ? (FICHE.en_attente || []) : [];
   const zone = el('zone-attente');
   if(zone){
-    zone.innerHTML = enAttente.length
-      ? '<h3 class="att-titre">En attente de r\u00e9ponse (' + enAttente.length + ')</h3>' +
-        enAttente.map(a => miniAttente(a)).join('')
-      : '';
+    if(!enAttente.length){
+      zone.innerHTML = '';
+    }else if(asideReplie && !choisieId){
+      zone.innerHTML = '<button class="att-rouvrir" onclick="FS.deplierAside()">Questions (' +
+        enAttente.length + ')</button>';
+    }else{
+      zone.innerHTML = '<h3 class="att-titre">En attente de r\u00e9ponse (' + enAttente.length + ')' +
+        '<button class="volet-fermer" title="Fermer le panneau" onclick="FS.replierAside()">\u00d7</button></h3>' +
+        enAttente.map(a => miniAttente(a)).join('');
+    }
   }
   document.body.classList.toggle('avec-attente', enAttente.length > 0);
   document.body.classList.toggle('volet-ouvert', !!choisieId);
+  document.body.classList.toggle('aside-replie', asideReplie && !choisieId);
 }
 FS.filtrer = function(f){ filtre = f; rendreFiche(); };
 FS.filtrerConcerne = function(v){ filtreConcerne = v || ''; rendreFiche(); };
@@ -1738,7 +1768,7 @@ function ouvrirVolet(id){
     '<button class="pastille v-pole' + ((e.poles||[]).includes(x.code)?' on':'') + '" data-pole="' + x.code + '">' + esc(x.libelle) + '</button>').join('');
 
   let h = '<h2>' + esc(TYPES_LIBELLES[e.type] || e.type) +
-    '<button class="volet-fermer" title="Fermer" onclick="FS.fermerVolet()"><i class="ti ti-x"></i></button></h2>' +
+    '<button class="volet-fermer" title="Fermer" onclick="FS.fermerVolet()">×</button></h2>' +
     '<div class="tl-tete" style="margin-bottom:7px">' + chipsEntree(e, true, true) + '</div>' +
     '<p class="hint" style="margin:0 0 7px">' + esc(e.auteur||'?') + ' \u00b7 ' + fdate(e.cree_le) +
     (e.so_canonique ? ' \u00b7 ' + esc(e.so_canonique) : '') + '</p>' +
