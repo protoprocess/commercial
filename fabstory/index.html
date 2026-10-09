@@ -525,7 +525,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.7';
+const APP_VERSION = '5.8';
 const APP_DATE = '09/10/2026';
 /* 5.6 : tri d'affichage des règles client (équivalents acceptés selon la BOM de la carte) */
 function htmlReglesTriees(regles){
@@ -2252,6 +2252,7 @@ const DEROULE = {
     ['M7','Obsolète','Fin de vie fabricant, il ne reviendra pas'],
     ['M8','Rupture, date de retour annoncée','Il reviendra à une date connue'],
     ['M9','Rupture sans date de retour','Aucune visibilité'],
+    ['M16','Introuvable chez nos distributeurs','Aucun de nos fournisseurs ne la distribue'],
     ['M10','Minimum de commande trop élevé','MOQ disproportionné par rapport au besoin'] ] },
   montage: { q:'Quel est le problème ?', o:[
     ['M5A','Sens de montage','Une orientation est proposée en photo'],
@@ -2567,6 +2568,31 @@ FS.chercherLienMouser = async function(force){
   }catch(e){ assistant.lienMsg = 'Recherche distributeurs indisponible.'; }
   if(msg) msg.textContent = assistant.lienMsg;
 };
+/* v5.8 (09/10) : un segment optionnel [ ... ] contenant PLUSIEURS variables
+   sautait en entier des qu'UNE seule etait vide — la « Proposition PP » d'un
+   modele indispo disparaissait quand le lien distributeur n'existait pas, alors
+   que les reponses, elles, citaient bien la proposition. Regle retenue (Olivier,
+   09/10) : une variable vide s'efface seule avec son separateur ; le segment ne
+   saute que si TOUTES ses variables sont vides. */
+function valVar(v){
+  const brut = (assistant.vals && assistant.vals[v] != null) ? assistant.vals[v]
+             : (v === 'DATASHEET' ? assistant.datasheet : '');
+  return String(brut == null ? '' : brut).trim();
+}
+function resoudreSegments(t){
+  return String(t == null ? '' : t).replace(/\n?\[([^\[\]|]*)\]/g, (seg, inner) => {
+    const vars = (inner.match(/\{[A-Z0-9_]+\}/g) || []).map(v => v.slice(1, -1));
+    if(!vars.length) return seg.replace(/[\[\]]/g, '');
+    if(!valVar(vars[0])) return '';                      /* la 1re variable porte le segment ({PROPOSITION}) : vide, tout saute, saut de ligne compris */
+    let s = inner;
+    vars.filter(v => !valVar(v)).forEach(v => {
+      s = s.replace(new RegExp('\\s*[\u2014\u2013-]\\s*\\{' + v + '\\}', 'g'), '')
+           .replace(new RegExp('\\s*\\(\\{' + v + '\\}\\)', 'g'), '')
+           .replace(new RegExp('\\s*\\{' + v + '\\}', 'g'), '');
+    });
+    return (seg.charAt(0) === '\n' ? '\n' : '') + s;
+  });
+}
 function nettoyerAuto(t){
   /* passe 1 sans endpoint distributeur : les segments {DATE}/{LIEN} sautent.
      v4.1 : un segment OPTIONNEL entre crochets (sans pipe) qui contient encore
@@ -2587,7 +2613,7 @@ function texteAssemble(){
   t = t.replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (x,a,b) => ctxModele === 'devis' ? a : b);
   if(assistant.specsLignes) t = t.replace('{SPECS}', assistant.specsLignes.map(l => l[0] + ' : ' + l[1]).join('\n'));
   if(piecesSaisie.length) t = t.split('{PJ}').join('Voir photo jointe.');
-  t = nettoyerAuto(remplirVars(t));
+  t = nettoyerAuto(remplirVars(resoudreSegments(t)));
   return t.replace(/\n{3,}/g,'\n\n').trim();
 }
 /* v4.28 : le message est MODIFIABLE à l'aperçu (contenteditable). Le texte édité
@@ -3053,8 +3079,8 @@ async function envoyerNote(){
   let enveloppe = null;
   if(estQuestionClient){
     const choixResolus = choixEdit.map(c => ({
-      ordre: c.ordre, libelle: nettoyerAuto(remplirVars(c.libelle)),   /* v5.1 : libellé aussi résolu (M11 « Implanter {REF_A} ») */
-      aide: c.aide ? nettoyerAuto(remplirVars(c.aide)) : null,
+      ordre: c.ordre, libelle: nettoyerAuto(remplirVars(resoudreSegments(c.libelle))),   /* v5.1 : libellé aussi résolu (M11 « Implanter {REF_A} ») */
+      aide: c.aide ? nettoyerAuto(remplirVars(resoudreSegments(c.aide))) : null,
       commentaire_obligatoire: !!c.commentaire_obligatoire
     }));
     /* v4.6 (31/08) : variables STRUCTUREES dans l enveloppe (REF, PROPOSITION, DATE,
