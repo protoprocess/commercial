@@ -134,6 +134,16 @@ textarea{resize:vertical;min-height:64px}
 /* v4.22 : boutons dedies du rapport de fab (fond pastel PP, texte fonce lisible) */
 .filtre-rf{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-fonce);font-weight:600}
 .filtre-vc{background:var(--info-bg);border-color:var(--info);color:var(--info-txt);font-weight:600}
+/* v5.9 : bouton du bandeau de bas de devis (note Odoo vue par le client) */
+.filtre-bd{background:var(--red-bg);border-color:var(--red);color:var(--red-badge);font-weight:600}
+.bd-ligne{display:flex;gap:9px;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:var(--radius);padding:9px 11px;margin-bottom:7px;background:#fff}
+.bd-ligne.ouvert{border-left:3px solid var(--accent)}
+.bd-ligne.confirme{border-left:3px solid var(--border2);opacity:.72}
+.bd-ligne .bd-so{font-family:var(--mono);font-size:12.5px;font-weight:700}
+.bd-ligne .bd-etat{font-size:11.5px;color:var(--text3)}
+.bd-ligne .bd-pose{background:var(--red-bg);color:var(--red-badge);border-radius:999px;padding:1px 9px;font-size:11px;font-weight:600}
+.bd-ligne .bd-vide{background:var(--green-bg);color:var(--green-badge);border-radius:999px;padding:1px 9px;font-size:11px;font-weight:600}
+.bd-ligne .bd-act{margin-left:auto;display:flex;gap:6px}
 /* ----------------------------------------------------------------- timeline */
 .tl-entree{border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px;background:#fff;cursor:pointer}
 .tl-entree:hover{border-color:var(--border2)}
@@ -512,6 +522,17 @@ dialog.dlg-large{max-width:960px;width:94vw}
   <div id="rf-corps"><p class="hint"><span class="spin"></span> Lecture des lots…</p></div>
 </dialog>
 
+<!-- v5.9 : bandeau de bas de devis (note Odoo vue par le client) -->
+<dialog id="dlg-bandeau">
+  <h2><i class="ti ti-alert-triangle"></i> Bandeau de bas de devis</h2>
+  <p class="mini" style="margin:0 0 8px">Bandeau rouge en bas du devis Odoo. <strong>Présent = il reste des questions client en attente</strong>, absent = tout est réglé.</p>
+  <div id="bd-corps"></div>
+  <div id="bd-msg" style="min-height:18px;margin-top:6px"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+    <button class="btn-s" onclick="document.getElementById('dlg-bandeau').close()">Fermer</button>
+  </div>
+</dialog>
+
 <!-- Recadrage plein ecran (v4.11, repris de fabstory-atelier) -->
 <div id="recadrage">
   <div class="aide">Déplacez le cadre, tirez les coins pour l’ajuster</div>
@@ -525,8 +546,21 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.8';
-const APP_DATE = '09/10/2026';
+const APP_VERSION = '5.9';
+const APP_DATE = '10/10/2026';
+/* 5.9 (10/10/2026) : BANDEAU DE BAS DE DEVIS pilotable a la main (bouton « Bandeau devis »
+   dans la barre du fil, a cote de « Préparer le mail client »). Le devis Odoo porte en bas
+   de page une note HTML : un bandeau rouge qui signale au client des references indisponibles,
+   avec le lien portail et le lien de suivi du projet. REGLE OLIVIER : bandeau present = il
+   reste des questions client en attente ; bandeau absent = tout est regle.
+   Quatre automatismes le posent ou le retirent deja (etape 8 du deroule devis, creation d une
+   question client ici meme, pose du PO par l appli Commande, menage quotidien a 05h30).
+   Restaient deux trous, que ce bouton bouche : la pose automatique se tait quand elle ne peut
+   pas decider (aucun devis rattache, ou plusieurs devis ouverts), et le retrait n arrive qu a
+   05h30 — trop tard pour un client qui repond et commande le meme jour.
+   Le devis est TOUJOURS designe a l ecran, jamais devine. Endpoint fabstory-bandeau
+   (FabStory - API v0.25). Lecture seulement a l ouverture de la pop-up, pour ne pas ajouter
+   une execution n8n a chaque carte consultee. */
 /* 5.6 : tri d'affichage des règles client (équivalents acceptés selon la BOM de la carte) */
 function htmlReglesTriees(regles){
   const item = r => '<div class="regle-item"><span class="dom">' + esc(r.domaine) + '</span><br>' + esc(r.texte) + '</div>';
@@ -1260,6 +1294,7 @@ function rendreFiche(){
     '<button class="filtre" onclick="FS.photosCarte()" title="Prendre ou reprendre les photos dessus / dessous de la carte (tablette ou t\u00e9l\u00e9phone), pour le rapport de fabrication.">Photos carte</button>' +
     '<button class="filtre filtre-rf" style="margin-left:auto" onclick="FS.rapportFab()" title="Valide et fige le rapport de fabrication du lot en cours (n\u00b0 de s\u00e9rie par BL Odoo, commentaires du tableau de conformit\u00e9). Une fois fig\u00e9, le client voit cette version.">Modifier Rapport de fab</button>' +
     '<button class="filtre filtre-vc" onclick="FS.voirRapportClient()" title="Ouvre la vue client de cette carte dans un nouvel onglet \u2014 c\u2019est aussi le rapport de fabrication, imprimable / t\u00e9l\u00e9chargeable depuis cette page.">Imprimer rapport de fab (depuis vue client)</button>' +
+    '<button class="filtre filtre-bd" onclick="FS.bandeau()" title="Bandeau rouge en bas du devis Odoo : le client y lit que des r\u00e9f\u00e9rences sont indisponibles et que prix et d\u00e9lais sont sous r\u00e9serve de ses r\u00e9ponses. Pr\u00e9sent = il reste des questions en attente, absent = tout est r\u00e9gl\u00e9. \u00c0 ouvrir quand la pose automatique n\u2019a pas pu d\u00e9cider (aucun devis rattach\u00e9, ou plusieurs devis ouverts), ou pour le retirer tout de suite sans attendre le m\u00e9nage de 5h30."><i class="ti ti-alert-triangle"></i> Bandeau devis</button>' +
     '<button class="btn-mail-client" onclick="FS.mailClient()" title="Cr\u00e9e un brouillon Gmail (commercial@ ou production@ selon vos initiales) avec les questions client en attente et le lien de r\u00e9ponse en ligne. Rien ne part sans vous.">Pr\u00e9parer le mail client</button>' +
     '</div>';
   if(!visibles.length){
@@ -1362,6 +1397,114 @@ FS.copierClient = async function(){
     alert(questions.length + ' question(s) client copi\u00e9e(s), pr\u00eates \u00e0 joindre au devis.');
   }catch(err){
     prompt('Copiez le texte ci-dessous :', texte);
+  }
+};
+
+/* ------------------------------------------- v5.9 : BANDEAU DE BAS DE DEVIS (10/10/2026) --
+   Voir le changelog en tete de script. Resume : le bandeau rouge du bas de devis Odoo dit au
+   client qu il reste des questions. Quatre automatismes le gerent ; ce bouton couvre les deux
+   cas qu ils ne savent pas traiter (0 ou plusieurs devis ouverts rattaches) et le retrait
+   immediat. Le devis vise part TOUJOURS dans l appel (so_id) : aucune deduction, ni ici ni
+   cote serveur — c est justement le cas ambigu.
+   L etat n est lu qu a l ouverture de la pop-up : une execution n8n par consultation du
+   bandeau, pas par carte ouverte. */
+let BD = null;   /* dernier etat lu dans Odoo, le temps que la pop-up reste ouverte */
+FS.bandeau = async function(){
+  const d = el('dlg-bandeau');
+  BD = null;
+  el('bd-corps').innerHTML = '<p class="hint" style="margin:0"><span class="spin"></span> Lecture des devis dans Odoo…</p>';
+  el('bd-msg').textContent = '';
+  d.showModal();
+  await bandeauLire();
+};
+async function bandeauLire(){
+  try{
+    BD = await postJson(BASE + '/fabstory-bandeau', { produit_id: P.id, action: 'etat' });
+    el('bd-corps').innerHTML = htmlBandeau(BD);
+  }catch(e){
+    BD = null;
+    el('bd-corps').innerHTML = '';
+    el('bd-msg').innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
+  }
+}
+function htmlBandeau(r){
+  const devis = r.devis || [];
+  const ouverts = devis.filter(s => s.ouvert);
+  const confirmes = devis.filter(s => s.confirme);
+  const nq = Number(r.nb_questions || 0);
+  let h = '<p class="hint" style="margin:0 0 10px">' +
+    (nq ? '<strong>' + nq + ' question' + (nq > 1 ? 's' : '') + ' client</strong> visible' +
+          (nq > 1 ? 's' : '') + ' encore en attente de réponse.'
+        : 'Aucune question client visible en attente.') +
+    (r.jeton ? '' : ' Pas de jeton actif sur cette carte : le bandeau ne portera que le lien du portail.') +
+    '</p>';
+  /* Aucun devis rattache : le premier des deux cas ou la pose automatique se tait. */
+  if(r.statut === 'aucun_rattachement' || !devis.length){
+    h += '<p class="hint" style="margin:0">Aucun devis Odoo n’est rattaché à cette carte ' +
+      '(ni commande, ni analyse de devis). Rien à poser ni à retirer : le bandeau vit sur un devis.</p>';
+    return h;
+  }
+  if(!ouverts.length){
+    h += '<p class="hint" style="margin:0 0 9px">Aucun devis en brouillon ou envoyé. Sur un devis ' +
+      'confirmé, la réserve de délai de l’AR est posée et nettoyée par l’appli Commande — ' +
+      'on n’y touche pas ici.</p>' + confirmes.map(s => ligneBandeau(s, false, nq)).join('');
+    return h;
+  }
+  /* Plusieurs devis ouverts : le second cas ambigu. On montre et on laisse choisir. */
+  if(ouverts.length > 1){
+    h += '<p class="hint" style="margin:0 0 9px"><strong>' + ouverts.length + ' devis ouverts</strong> ' +
+      'sont rattachés à cette carte. Choisissez celui qui porte les questions : rien n’est ' +
+      'deviné à votre place.</p>';
+  }
+  h += ouverts.map(s => ligneBandeau(s, true, nq)).join('');
+  if(confirmes.length){
+    h += '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text3)">' +
+      'Devis déjà confirmés (' + confirmes.length + ') — gérés par l’appli Commande</summary>' +
+      confirmes.map(s => ligneBandeau(s, false, nq)).join('') + '</details>';
+  }
+  return h;
+}
+/* Une ligne par devis. actif = devis ouvert (brouillon / envoye), le seul sur lequel on agit.
+   L action affichee est celle qui a du sens : retirer si le bandeau est la et qu il ne reste
+   aucune question, poser s il manque alors qu il reste des questions. L autre sens reste
+   possible (bouton secondaire) : c est l utilisateur qui sait. */
+function ligneBandeau(s, actif, nq){
+  const ETATS = { draft:'brouillon', sent:'envoyé', sale:'confirmé', done:'clôturé' };
+  let act = '';
+  if(actif){
+    const action = s.bandeau ? 'retirer' : 'poser';
+    const conseille = s.bandeau ? (Number(nq) === 0) : (Number(nq) > 0);
+    act = '<span class="bd-act"><button class="' + (conseille ? 'btn' : 'btn-s') + '" ' +
+      'style="padding:5px 11px;font-size:12px" onclick="FS.bandeauAction(' + s.so_id + ',\'' + action + '\')">' +
+      (s.bandeau ? 'Retirer' : 'Poser') + '</button></span>';
+  }
+  return '<div class="bd-ligne ' + (actif ? 'ouvert' : 'confirme') + '">' +
+    '<span class="bd-so">' + esc(s.so) + '</span>' +
+    '<span class="bd-etat">' + esc(ETATS[s.etat] || s.etat) + '</span>' +
+    '<span class="' + (s.bandeau ? 'bd-pose' : 'bd-vide') + '">' +
+    (s.bandeau ? 'bandeau posé' : 'pas de bandeau') + '</span>' + act + '</div>';
+}
+FS.bandeauAction = async function(soId, action){
+  const s = ((BD && BD.devis) || []).find(x => Number(x.so_id) === Number(soId));
+  const nom = s ? s.so : ('#' + soId);
+  const q = action === 'poser'
+    ? 'Poser le bandeau rouge en bas du devis ' + nom + ' ?\n\nLe client le verra sur son devis : ' +
+      'certaines références sont indisponibles, prix et délais sous réserve de ses réponses.'
+    : 'Retirer le bandeau rouge du devis ' + nom + ' ?\n\nPour le client, cela veut dire qu’il n’y a ' +
+      'plus de question en attente sur cette offre.';
+  if(!confirm(q)) return;
+  el('bd-msg').innerHTML = '<span class="hint"><span class="spin"></span> Écriture dans Odoo…</span>';
+  try{
+    const r = await postJson(BASE + '/fabstory-bandeau',
+      { produit_id: P.id, action: action, so_id: soId, auteur: qui() });
+    el('bd-msg').innerHTML = '<span class="ok-msg">' + (r.ecrit
+      ? (action === 'poser' ? 'Bandeau posé sur ' : 'Bandeau retiré de ') + esc(r.so || nom) + '.'
+      : esc(r.motif || 'Rien à changer.')) + '</span>';
+    /* On relit Odoo : ce qui s affiche est l etat du devis, pas ce qu on croit avoir fait. */
+    BD = await postJson(BASE + '/fabstory-bandeau', { produit_id: P.id, action: 'etat' });
+    el('bd-corps').innerHTML = htmlBandeau(BD);
+  }catch(e){
+    el('bd-msg').innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>';
   }
 };
 
