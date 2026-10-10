@@ -546,8 +546,15 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.9';
+const APP_VERSION = '5.10';
 const APP_DATE = '10/10/2026';
+/* 5.10 (10/10/2026, constat du test de la 5.9) : AVERTISSEMENT AVANT UN RETRAIT PREMATURE.
+   Le retrait retirait le bandeau sans rien dire meme quand il restait des questions client
+   visibles en attente — l invariant d Olivier (bandeau present = questions restantes) etait
+   casse sans que l utilisateur s en apercoive. La confirmation de « Retirer » nomme maintenant
+   le nombre de questions encore en attente et dit ce que le client va lire. Le retrait reste
+   TOUJOURS possible : geste manuel assume, jamais interdit. Le nombre vient de nb_questions
+   renvoye par l endpoint fabstory-bandeau (FabStory - API v0.25), pas d un calcul local. */
 /* 5.9 (10/10/2026) : BANDEAU DE BAS DE DEVIS pilotable a la main (bouton « Bandeau devis »
    dans la barre du fil, a cote de « Préparer le mail client »). Le devis Odoo porte en bas
    de page une note HTML : un bandeau rouge qui signale au client des references indisponibles,
@@ -1487,11 +1494,24 @@ function ligneBandeau(s, actif, nq){
 FS.bandeauAction = async function(soId, action){
   const s = ((BD && BD.devis) || []).find(x => Number(x.so_id) === Number(soId));
   const nom = s ? s.so : ('#' + soId);
-  const q = action === 'poser'
-    ? 'Poser le bandeau rouge en bas du devis ' + nom + ' ?\n\nLe client le verra sur son devis : ' +
-      'certaines références sont indisponibles, prix et délais sous réserve de ses réponses.'
-    : 'Retirer le bandeau rouge du devis ' + nom + ' ?\n\nPour le client, cela veut dire qu’il n’y a ' +
+  /* 5.10 : nb_questions vient de l endpoint (questions client VISIBLES en attente, meme
+     filtre que la pose automatique) — on ne le recalcule pas ici. Retrait alors qu il en
+     reste encore : on le DIT et on nomme le nombre, mais on ne l interdit jamais. */
+  const nq = Number((BD && BD.nb_questions) || 0);
+  let q;
+  if(action === 'poser'){
+    q = 'Poser le bandeau rouge en bas du devis ' + nom + ' ?\n\nLe client le verra sur son devis : ' +
+      'certaines références sont indisponibles, prix et délais sous réserve de ses réponses.';
+  }else if(nq > 0){
+    q = 'ATTENTION : il reste ' + nq + ' question' + (nq > 1 ? 's' : '') + ' client en attente sur cette carte.\n\n' +
+      'Retirer le bandeau du devis ' + nom + ' dira au client que tout est réglé et que les prix et délais ' +
+      'ne sont plus sous réserve, alors que ' +
+      (nq > 1 ? 'ces ' + nq + ' questions attendent ' : 'cette question attend ') + 'toujours sa réponse.\n\n' +
+      'Retirer quand même le bandeau ?';
+  }else{
+    q = 'Retirer le bandeau rouge du devis ' + nom + ' ?\n\nPour le client, cela veut dire qu’il n’y a ' +
       'plus de question en attente sur cette offre.';
+  }
   if(!confirm(q)) return;
   el('bd-msg').innerHTML = '<span class="hint"><span class="spin"></span> Écriture dans Odoo…</span>';
   try{
