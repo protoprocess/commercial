@@ -88,6 +88,7 @@ textarea{resize:vertical;min-height:64px}
 .fourn-l{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) 92px 86px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px}
 .fourn-l.entete{border-top:none;padding:10px 0 4px;font-size:11px;color:var(--text3)}
 .fourn-ref{font-family:var(--mono);overflow-wrap:anywhere}
+.fourn-ref.sans-ref{font-family:inherit;font-style:italic;color:var(--text3)}
 .fourn-rep{color:var(--text2);font-size:11.5px;overflow-wrap:anywhere}
 .fourn-pill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;justify-self:start}
 .fourn-pill.attendu{background:var(--surface2);color:var(--text2)}
@@ -546,8 +547,12 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.10';
-const APP_DATE = '10/10/2026';
+const APP_VERSION = '5.11';
+const APP_DATE = '22/10/2026';
+/* 5.11 (22/10/2026, constate sur SO2604-232) : une fourniture client sans MPN ni IPN affichait
+   « — » en colonne Reference. Ce tiret vient de la case IPN vide d'Achats PP (corrige a la source
+   en 15.40) : ce n'est pas une reference. On affiche « sans reference » en gris, les reperes
+   restent en colonne 2. Meme correctif sur la page client (FabStory Client 0.56). Rien en base. */
 /* 5.10 (10/10/2026, constat du test de la 5.9) : AVERTISSEMENT AVANT UN RETRAIT PREMATURE.
    Le retrait retirait le bandeau sans rien dire meme quand il restait des questions client
    visibles en attente — l invariant d Olivier (bandeau present = questions restantes) etait
@@ -935,6 +940,12 @@ function fournReperes(txt){
   if(t.length <= 4) return t.join(', ');
   return t.slice(0, 4).join(', ') + ' \u2026 (' + t.length + ' rep\u00e8res)';
 }
+/* 5.11 : « — » / « - » / « N/A » ne sont pas des references — voir l en-tete de version. */
+function fournRefTexte(l){
+  const r = String(l && l.ref != null ? l.ref : '').trim();
+  if (!r || /^[-\u2013\u2014_.\s]+$/.test(r) || /^(n\/?a|na|none|null)$/i.test(r)) return null;
+  return r;
+}
 function fournLigne(l){
   const etat = l.masque ? 'masque' : l.etat;
   const lib = { attendu:'Attendu', partiel:'Partiel', recu:'Re\u00e7u', non_cable:'Non c\u00e2bl\u00e9', masque:'Masqu\u00e9e' }[etat] || etat;
@@ -953,7 +964,9 @@ function fournLigne(l){
     act = '<div class="fourn-act"><button class="btn-s" onclick="FS.fournMasquer(' + l.id + ')"><i class="ti ti-eye-off"></i> Masquer au client</button></div>';
   }
   return '<div class="fourn-l' + ((l.masque || l.etat === 'non_cable') ? ' off' : '') + '">' +
-    '<span class="fourn-ref">' + esc(l.ref) + '</span>' +
+    (fournRefTexte(l)
+      ? '<span class="fourn-ref">' + esc(fournRefTexte(l)) + '</span>'
+      : '<span class="fourn-ref sans-ref">sans r\u00e9f\u00e9rence</span>') +
     '<span class="fourn-rep" title="' + esc(l.reperes || '') + '">' + esc(fournReperes(l.reperes)) + '</span>' +
     '<span class="fourn-qte">' + Math.round(l.recu || 0) + ' / ' + Math.round(l.attendu || 0) +
       (l.a_verifier ? ' <i class="ti ti-alert-triangle" style="color:var(--amber)" title="Quantit\u00e9 inf\u00e9rieure au nombre de rep\u00e8res : export Luminovo sans pi\u00e8ce approuv\u00e9e, \u00e0 v\u00e9rifier"></i>' : '') + '</span>' +

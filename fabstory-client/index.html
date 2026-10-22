@@ -129,6 +129,8 @@
   .fourn-l { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1.2fr) 96px 92px; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13px; }
   .fourn-l.entete { border-top: none; padding: 6px 0 4px; font-size: 11.5px; color: var(--text3); }
   .fourn-ref { font-family: var(--mono); overflow-wrap: anywhere; }
+  /* v0.56 : fourniture sans reference — on le dit, en retrait, sans imiter une vraie reference */
+  .fourn-ref.sans-ref { font-family: inherit; font-style: italic; color: var(--text3); }
   .fourn-rep { color: var(--text2); font-size: 12px; overflow-wrap: anywhere; }
   .fourn-pill { font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 20px; white-space: nowrap; justify-self: start; }
   .fourn-pill.attendu { background: var(--bg); color: var(--text2); border: 1px solid var(--border2); }
@@ -570,8 +572,14 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.55";
-const APP_DATE = "01/10/2026";
+const APP_VERSION = "0.56";
+const APP_DATE = "22/10/2026";
+/* v0.56 (22/10/2026, constate sur SO2604-232) : une fourniture client sans MPN ni IPN affichait
+   « — » (ou « - ») en colonne Reference. Ce tiret n'est pas une reference : c'est la case IPN vide
+   de l'onglet Analyse BOM d'Achats PP, qui descendait jusque dans la feuille achat puis dans la
+   table des fournitures (corrige a la source en Achats PP 15.40). Cote client il ressemblait a une
+   reference mal recopiee. La colonne affiche desormais « sans reference » / « no part number », en
+   gris ; les reperes restent en colonne 2 et ne sont pas repetes. Rien n'est modifie en base. */
 /* v0.55 (01/10/2026, decision Olivier : « du moment qu on voit qu on a repondu et qu on avance ») :
    dans le panneau, une question repondue DESCEND en bas de la liste, en vert, sous un petit titre
    « Repondu (n) ». Le haut de la liste ne contient plus que ce qui reste a faire ; rien ne disparait. */
@@ -686,7 +694,8 @@ const T = {
     fourn_question: "La carte sera livr\u00e9e sans ce composant. Confirmer ?",
     fourn_decide: "D\u00e9cision du {d} : vous ne fournirez pas ce composant, la carte sera livr\u00e9e sans.",
     fourn_deplier: "cliquer pour d\u00e9plier", fourn_replier: "cliquer pour replier", fourn_recues: "{n} fourniture(s) re\u00e7ue(s)",
-    fourn_reperes_n: "{n} rep\u00e8res", fourn_err: "La d\u00e9cision n\u2019a pas pu \u00eatre enregistr\u00e9e. R\u00e9essayez, ou contactez Proto Process.",
+    fourn_reperes_n: "{n} rep\u00e8res", fourn_sans_ref: "sans r\u00e9f\u00e9rence",
+    fourn_err: "La d\u00e9cision n\u2019a pas pu \u00eatre enregistr\u00e9e. R\u00e9essayez, ou contactez Proto Process.",
     refus_titre: "Ce lien n\u2019est pas ou plus valide",
     refus_texte: "Le lien de suivi que vous avez ouvert n\u2019est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.",
     refus_indispo: "Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.",
@@ -750,7 +759,8 @@ const T = {
     fourn_question: "The board will be delivered without this component. Confirm?",
     fourn_decide: "Decision of {d}: you will not supply this component, the board will be delivered without it.",
     fourn_deplier: "click to expand", fourn_replier: "click to collapse", fourn_recues: "{n} part(s) received",
-    fourn_reperes_n: "{n} designators", fourn_err: "The decision could not be saved. Try again, or contact Proto Process.",
+    fourn_reperes_n: "{n} designators", fourn_sans_ref: "no part number",
+    fourn_err: "The decision could not be saved. Try again, or contact Proto Process.",
     refus_titre: "This link is not valid, or no longer valid",
     refus_texte: "The tracking link you opened is no longer active. To receive a new link, please contact your Proto Process contact person.",
     refus_indispo: "Tracking is temporarily unavailable. Please try again in a few minutes.",
@@ -1125,6 +1135,15 @@ function fournReperes(txt) {
   if (tt.length <= 4) return tt.join(", ");
   return tt.slice(0, 4).join(", ") + " \u2026 (" + t("fourn_reperes_n").replace("{n}", tt.length) + ")";
 }
+/* v0.56 (22/10/2026, SO2604-232) : une fourniture sans MPN ni IPN affichait « — » ou « - » en
+   colonne Reference — le tiret vient de la case IPN vide d'Achats PP (corrige a la source en 15.40),
+   et cote client il ressemblait a une reference qu'on aurait mal recopiee. On dit ce qui est vrai :
+   cette fourniture n'a pas de reference. Les reperes restent en colonne 2, ils ne sont pas repetes ici. */
+function fournRefTexte(l) {
+  const r = String(l && l.ref != null ? l.ref : "").trim();
+  if (!r || /^[-–—_.\s]+$/.test(r) || /^(n\/?a|na|none|null)$/i.test(r)) return null;
+  return r;
+}
 function fournLigne(l) {
   const etat = l.etat;
   const lib = t("fourn_" + ({ attendu: "attendu", partiel: "partiel", recu: "recu", non_cable: "nc" }[etat] || "attendu"));
@@ -1140,7 +1159,9 @@ function fournLigne(l) {
     act = '<div class="fourn-act"><button type="button" class="fourn-btn" onclick="fournDemander(' + l.id + ')">' + esc(t("fourn_btn")) + "</button></div>";
   }
   return '<div class="fourn-l' + (etat === "non_cable" ? " off" : "") + '">' +
-    '<span class="fourn-ref">' + esc(l.ref) + "</span>" +
+    (fournRefTexte(l)
+      ? '<span class="fourn-ref">' + esc(fournRefTexte(l)) + "</span>"
+      : '<span class="fourn-ref sans-ref">' + esc(t("fourn_sans_ref")) + "</span>") +
     '<span class="fourn-rep" title="' + esc(l.reperes || "") + '">' + esc(fournReperes(l.reperes)) + "</span>" +
     '<span class="fourn-qte">' + Math.round(l.recu || 0) + " / " + Math.round(l.attendu || 0) + "</span>" +
     '<span class="fourn-pill ' + etat + '">' + esc(lib) + "</span>" + act + "</div>";
