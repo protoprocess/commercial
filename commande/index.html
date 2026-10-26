@@ -244,8 +244,14 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "9.1";
-const APP_DATE = "09/10/2026";
+const APP_VERSION = "9.2";
+const APP_DATE = "26/10/2026";
+/* v9.2 (26/10/2026) : CADENCE INCOMPLETE SIGNALEE A L ECRAN. Le 23/10 sur le PO-1258 QUOBLY, le mail
+   client ne portait aucune date ; le formulaire refab pre-remplissait quantite et prix, l envoi partait
+   et l ecran affichait « L action n a pas repondu (HTTP 500) » — le vrai motif restait dans n8n.
+   Deux gestes : 1. le champ qui manque passe en rouge AVANT l envoi, avec le motif en clair ;
+   2. cote API (Commande API v0.26), les controles de « Preparer le devis » refusent desormais poliment
+   ({ok:false, motif}) au lieu de faire planter l execution — forme que l appli sait deja afficher. */
 /* v9.1 (09/10/2026) : MOINS D APPELS n8n, a comportement metier INCHANGE — l appli etait devenue le premier
    consommateur de l instance (185 executions le 09/10) et le plafond mensuel approchait.
    Trois gestes, aucun ne touche au metier :
@@ -1243,11 +1249,35 @@ function afficher(rep) {
     } else ligneCadence();
     cible.querySelector('[data-cadence-plus]').addEventListener('click', ligneCadence);
     cible.querySelector('[data-creer-devis]').addEventListener('click', function () {
-      const cadences = Array.from(zone.children).map(r => ({
+      /* v9.2 (26/10/2026) : une cadence incomplete est signalee ICI, en rouge sur le champ
+         qui manque, avant tout envoi. Vecu le 23/10 sur le PO-1258 QUOBLY : le mail client
+         ne portait aucune date, le formulaire pre-remplissait quantite et prix, l envoi
+         partait quand meme et l ecran ne renvoyait qu un « HTTP 500 » impossible a
+         interpreter. On ne fait plus le voyage pour rien. */
+      const lignes = Array.from(zone.children).filter(r =>
+        r.querySelector('.fd-date').value || r.querySelector('.fd-qte').value || r.querySelector('.fd-prix').value);
+      zone.querySelectorAll('input').forEach(i => { i.style.borderColor = ''; });
+      const manques = []; let premier = null;
+      lignes.forEach((r, i) => {
+        const d = r.querySelector('.fd-date'), q = r.querySelector('.fd-qte'), p = r.querySelector('.fd-prix');
+        const trous = [];
+        if (!d.value) { d.style.borderColor = 'var(--red)'; premier = premier || d; trous.push('la date'); }
+        if (!(parseFloat(q.value) > 0)) { q.style.borderColor = 'var(--red)'; premier = premier || q; trous.push('la quantité'); }
+        if (!(parseFloat(p.value) >= 0)) { p.style.borderColor = 'var(--red)'; premier = premier || p; trous.push('le prix'); }
+        if (trous.length) manques.push('cadence ' + (i + 1) + ' : il manque ' + trous.join(' et '));
+      });
+      if (!lignes.length) manques.push('aucune cadence saisie — il en faut au moins une (date, quantité, prix)');
+      if (manques.length) {
+        el('etat').textContent = 'À compléter avant de créer le devis — ' + manques.join(' ; ') + '.';
+        el('etat').className = 'etat-msg err';
+        if (premier) premier.focus();
+        return;
+      }
+      const cadences = lignes.map(r => ({
         date: r.querySelector('.fd-date').value,
         qte: parseFloat(r.querySelector('.fd-qte').value),
         prix: parseFloat(r.querySelector('.fd-prix').value)
-      })).filter(c => c.date || c.qte || c.prix);
+      }));
       agir(this, 'commande-creer-devis', {
         produit_id: parseInt(this.dataset.creerDevis, 10),
         article_id: art.article ? art.article.id : null, /* v6.7 : l article vu a l ecran */
