@@ -42,7 +42,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var VERSION = '3.1';
+  var VERSION = '3.2';
   var SB = 'https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1';
   var KEY = 'sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O';
   var appli = (document.currentScript && document.currentScript.getAttribute('data-appli')) || 'commande';
@@ -200,6 +200,36 @@
     if (!voile.parentNode) document.body.appendChild(voile);
     if (!modale.parentNode) document.body.appendChild(modale);
     voile.classList.add('on');
+    /* v3.2 : le pop-up demarre, ne plante pas, et ne se voit pas. Il dit donc une fois
+       ce que le navigateur fait reellement de lui. A RETIRER une fois la cause trouvee. */
+    etatUneFois();
+  }
+
+  var etatDit = false;
+  function etatUneFois() {
+    if (etatDit) return; etatDit = true;
+    setTimeout(function () {
+      try {
+        var cs = window.getComputedStyle(voile);
+        var r = voile.getBoundingClientRect();
+        var t = [
+          'dans_page=' + (document.body.contains(voile) ? 1 : 0),
+          'classe=' + voile.className,
+          'display=' + cs.display,
+          'visib=' + cs.visibility,
+          'opac=' + cs.opacity,
+          'z=' + cs.zIndex,
+          'pos=' + cs.position,
+          'taille=' + Math.round(r.width) + 'x' + Math.round(r.height),
+          'xy=' + Math.round(r.left) + ',' + Math.round(r.top),
+          'css_tete=' + (css.parentNode ? 1 : 0),
+          'regles=' + ((css.sheet && css.sheet.cssRules && css.sheet.cssRules.length) || 0),
+          'contenu=' + (boite ? boite.innerHTML.length : -1),
+          'fenetre=' + window.innerWidth + 'x' + window.innerHeight
+        ].join(' ');
+        mesure('etat', null, t.slice(0, 400));
+      } catch (e) { try { mesure('etat', null, 'echec:' + (e && e.message)); } catch (x) {} }
+    }, 400);
   }
 
   function fermer(evt, detail) {
