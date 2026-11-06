@@ -244,7 +244,7 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "9.7";
+const APP_VERSION = "9.8";
 const APP_DATE = "06/11/2026";
 /* v9.3 (06/11/2026) : LES DEUX SCRIPTS PARTAGES PORTENT LEUR NUMERO DANS L ADRESSE
    (../shared/deroule.js?v=3.0 et ../shared/retour-accueil.js?v=1.1). Sans numero, le
@@ -275,17 +275,6 @@ const APP_DATE = "06/11/2026";
    Chemins partagés en ../../shared/. Les écritures Odoo restent RÉELLES (tests sur vrais dossiers). */
 document.title = "Commande v" + APP_VERSION;
 document.getElementById('ver').textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
-/* v9.7 (06/11/2026) \u2014 TEMOIN A L ECRAN, A RETIRER.
-   On cherche pourquoi le pop-up du deroule ne s ouvre pas chez OC. Les mesures
-   Supabase n arrivent plus du tout : on ne sait donc meme pas si shared/deroule.js
-   s execute. Le badge de version le dit maintenant en clair, sans passer par la base. */
-window.addEventListener('load', function () {
-  setTimeout(function () {
-    var v = document.getElementById('ver'); if (!v) return;
-    var d = window.ppDeroule;
-    v.textContent += '  \u00b7  d\u00e9roul\u00e9 : ' + (d ? ('v' + d.version) : 'ABSENT');
-  }, 1200);
-});
 
 const KEY = 'pp_access_code', HDR = 'X-PP-Auth';
 const API = 'https://protoprocess.app.n8n.cloud/webhook/';
@@ -1618,7 +1607,7 @@ async function relier(bouton) {
 </script>
 
 <script src="../shared/retour-accueil.js?v=1.1" defer></script>
-<script src="../shared/deroule.js?v=3.3" data-appli="commande" defer></script>
+<script src="../shared/deroule.js?v=4.0" data-appli="commande" defer></script>
 <script src="https://protoprocess.github.io/achats/shared/pp-aide-claude.js"></script>
 <script>
 /* 03/11/2026 : le bouton d aide vers Claude, pose par le module partage.

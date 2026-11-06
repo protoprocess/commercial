@@ -1,17 +1,18 @@
 /* =============================================================================
    Proto Process — Déroulé guidé en pop-up (appli Commande)
-   Version 3.0 — 06/11/2026 (chantier 174)
-   v3.0 : LE GARDE-FOU DE RECETTE EST RETIRE, ET LE POP-UP EST RESERVE A OC LE TEMPS DU TEST.
-          Depuis le 25/09 le pop-up exigeait la marque pp_accueil_url, posee par l accueil
-          dans le sessionStorage de SON onglet. Le 04/11 le tableau de bord est passe aux
-          tuiles target="_blank" rel="noopener" : le nouvel onglet ne recoit aucune copie du
-          sessionStorage, la marque restait derriere et le pop-up ne s ouvrait plus. Personne
-          ne l a vu pendant deux jours — un garde-fou de periode d essai jamais retire s est
-          transforme en panne au premier changement d acces.
-          Le pop-up est donc desormais le mode normal de l appli Commande, SANS condition
-          d accueil. Une seule condition reste, TEMPORAIRE (decision Olivier du 06/11) :
-          il ne s ouvre que pour OC, le temps d un test sur une vraie commande.
-          >>> A RETIRER apres validation : la constante RESERVE_A et son test ci-dessous.
+   Version 4.0 — 06/11/2026 (chantier 174)
+   v4.0 : OUVERT A TOUTE L EQUIPE, SANS AUCUNE CONDITION (decision Olivier du 06/11).
+          Le pop-up est le mode normal de l appli Commande.
+          Ce qui precede : depuis le 25/09 il exigeait la marque pp_accueil_url, posee par
+          l accueil dans le sessionStorage de SON onglet. Le 04/11 le tableau de bord est
+          passe aux tuiles target="_blank" rel="noopener" : le nouvel onglet ne recoit
+          aucune copie du sessionStorage, la marque restait derriere, le pop-up ne s ouvrait
+          plus et personne ne l a vu pendant deux jours. Un garde-fou de periode d essai
+          jamais retire s etait transforme en panne au premier changement d acces.
+          v3.0 a retire ce garde-fou et reserve le pop-up a OC pour la recette ; v3.1 a 3.3
+          ont servi a trouver pourquoi il ne s affichait pas (bandeau d erreur, rapport
+          d etat, chien de garde). Mouchards retires ici, bandeau d erreur GARDE : l appli
+          appelle ppDeroule.maj() dans un try/catch vide, une panne y serait muette.
           Rappel : ce fichier ne passe AUCUN appel metier. Il lit ses textes dans
           deroule_etapes, note l usage dans deroule_mesures, et deplace les blocs reels de
           l appli dans le pop-up. Son absence n a donc jamais rien empeche de s ecrire.
@@ -32,8 +33,8 @@
 
    Les textes vivent dans la table Supabase deroule_etapes (appli = commande).
 
-   QUI LE VOIT : OC seulement (v3.0, test). Pour les autres, rien ne change :
-   la feuille de route de la page continue de fonctionner comme avant.
+   QUI LE VOIT : tout le monde (v4.0). La feuille de route de la page reste en place
+   derriere : « Quitter (reprendre plus tard) » y ramene.
 
    BRANCHEMENT : commande >= 7.10 appelle, à chaque rendu des étapes,
      window.ppDeroule.maj({ etapes: E, courante, dossier, so, ent, conf })
@@ -42,35 +43,12 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var VERSION = '3.3';
+  var VERSION = '4.0';
   var SB = 'https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1';
   var KEY = 'sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O';
   var appli = (document.currentScript && document.currentScript.getAttribute('data-appli')) || 'commande';
 
   function lire(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-
-  /* TEMPORAIRE (06/11/2026) — pop-up reserve a OC le temps du test sur une vraie commande.
-     Les initiales sont choisies une fois sur le tableau de bord (cle pp_ma_gestion_qui).
-     Pour ouvrir a toute l equipe : supprimer RESERVE_A et les trois lignes qui suivent. */
-  var RESERVE_A = 'OC';
-  var RESERVE_NOM = 'OLIVIER';
-  var qui = (lire('pp_ma_gestion_qui') || '').trim().toUpperCase();
-  var nom = (lire('pp_personne') || '').trim().toUpperCase();
-  /* Deux cles, parce qu elles ne sont pas toujours ecrites ensemble : une arrivee par
-     ?qui=XX sur le tableau de bord pose MOI sans rien memoriser. */
-  var cestLui = (qui === RESERVE_A) || (nom.indexOf(RESERVE_NOM) !== -1);
-  if (RESERVE_A && !cestLui) {
-    window.ppDeroule = { version: VERSION, maj: function () {} };
-    /* on le dit, sinon « bloque » et « jamais charge » se ressemblent dans les mesures */
-    try {
-      fetch(SB + '/deroule_mesures', { method: 'POST', keepalive: true,
-        headers: { apikey: KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({ personne: lire('pp_personne'), appli: appli, evenement: 'bloque',
-          etape: 'v' + VERSION + ' qui=' + qui, dossier: null,
-          session_id: lire('pp_session') || 'x' }) }).catch(function () {});
-    } catch (e) {}
-    return;
-  }
 
   var session = lire('pp_session') || ('s' + Date.now().toString(36));
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -211,37 +189,8 @@
     if (!voile.parentNode) document.body.appendChild(voile);
     if (!modale.parentNode) document.body.appendChild(modale);
     voile.classList.add('on');
-    /* v3.2 : le pop-up demarre, ne plante pas, et ne se voit pas. Il dit donc une fois
-       ce que le navigateur fait reellement de lui. A RETIRER une fois la cause trouvee. */
-    etatUneFois();
   }
 
-  var etatDit = false;
-  function etatUneFois() {
-    if (etatDit) return; etatDit = true;
-    setTimeout(function () {
-      try {
-        var cs = window.getComputedStyle(voile);
-        var r = voile.getBoundingClientRect();
-        var t = [
-          'dans_page=' + (document.body.contains(voile) ? 1 : 0),
-          'classe=' + voile.className,
-          'display=' + cs.display,
-          'visib=' + cs.visibility,
-          'opac=' + cs.opacity,
-          'z=' + cs.zIndex,
-          'pos=' + cs.position,
-          'taille=' + Math.round(r.width) + 'x' + Math.round(r.height),
-          'xy=' + Math.round(r.left) + ',' + Math.round(r.top),
-          'css_tete=' + (css.parentNode ? 1 : 0),
-          'regles=' + ((css.sheet && css.sheet.cssRules && css.sheet.cssRules.length) || 0),
-          'contenu=' + (boite ? boite.innerHTML.length : -1),
-          'fenetre=' + window.innerWidth + 'x' + window.innerHeight
-        ].join(' ');
-        mesure('etat', null, t.slice(0, 400));
-      } catch (e) { try { mesure('etat', null, 'echec:' + (e && e.message)); } catch (x) {} }
-    }, 400);
-  }
 
   function fermer(evt, detail) {
     rendreNoeud(); voile.classList.remove('on'); modale.classList.remove('on'); ouvert = false;
@@ -303,27 +252,9 @@
     } catch (x) {}
   }
 
-  /* v3.3 : CHIEN DE GARDE. Le pop-up marche en banc d essai : charge dans la vraie page,
-     ppDeroule.maj() lui fait un voile plein ecran, visible, avec son contenu. En vrai, rien.
-     La seule chose qu on ne sait pas encore, c est si l appli APPELLE maj(). Douze secondes
-     apres le chargement, si elle ne l a jamais appele, on le dit, avec l etat de la page.
-     A RETIRER une fois la cause trouvee. */
-  var majAppelee = 0;
-  setTimeout(function () {
-    try {
-      var rap = document.getElementById('rapport');
-      mesure('diag', null, 'v' + VERSION
-        + ' maj_appelee=' + majAppelee
-        + ' rapport_visible=' + (rap && rap.classList.contains('visible') ? 1 : 0)
-        + ' blocs_etapes=' + document.querySelectorAll('#pieces .et').length
-        + ' voile=' + (document.getElementById('ppv') ? 1 : 0));
-    } catch (e) {}
-  }, 12000);
-
   window.ppDeroule = {
     version: VERSION,
     maj: function (o) {
-      majAppelee++;
       try { return majReel(o); } catch (e) { panne(e); }
     }
   };
