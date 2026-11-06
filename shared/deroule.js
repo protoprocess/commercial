@@ -42,7 +42,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var VERSION = '3.2';
+  var VERSION = '3.3';
   var SB = 'https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1';
   var KEY = 'sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O';
   var appli = (document.currentScript && document.currentScript.getAttribute('data-appli')) || 'commande';
@@ -59,7 +59,18 @@
   /* Deux cles, parce qu elles ne sont pas toujours ecrites ensemble : une arrivee par
      ?qui=XX sur le tableau de bord pose MOI sans rien memoriser. */
   var cestLui = (qui === RESERVE_A) || (nom.indexOf(RESERVE_NOM) !== -1);
-  if (RESERVE_A && !cestLui) { window.ppDeroule = { version: VERSION, maj: function () {} }; return; }
+  if (RESERVE_A && !cestLui) {
+    window.ppDeroule = { version: VERSION, maj: function () {} };
+    /* on le dit, sinon « bloque » et « jamais charge » se ressemblent dans les mesures */
+    try {
+      fetch(SB + '/deroule_mesures', { method: 'POST', keepalive: true,
+        headers: { apikey: KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ personne: lire('pp_personne'), appli: appli, evenement: 'bloque',
+          etape: 'v' + VERSION + ' qui=' + qui, dossier: null,
+          session_id: lire('pp_session') || 'x' }) }).catch(function () {});
+    } catch (e) {}
+    return;
+  }
 
   var session = lire('pp_session') || ('s' + Date.now().toString(36));
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -292,9 +303,27 @@
     } catch (x) {}
   }
 
+  /* v3.3 : CHIEN DE GARDE. Le pop-up marche en banc d essai : charge dans la vraie page,
+     ppDeroule.maj() lui fait un voile plein ecran, visible, avec son contenu. En vrai, rien.
+     La seule chose qu on ne sait pas encore, c est si l appli APPELLE maj(). Douze secondes
+     apres le chargement, si elle ne l a jamais appele, on le dit, avec l etat de la page.
+     A RETIRER une fois la cause trouvee. */
+  var majAppelee = 0;
+  setTimeout(function () {
+    try {
+      var rap = document.getElementById('rapport');
+      mesure('diag', null, 'v' + VERSION
+        + ' maj_appelee=' + majAppelee
+        + ' rapport_visible=' + (rap && rap.classList.contains('visible') ? 1 : 0)
+        + ' blocs_etapes=' + document.querySelectorAll('#pieces .et').length
+        + ' voile=' + (document.getElementById('ppv') ? 1 : 0));
+    } catch (e) {}
+  }, 12000);
+
   window.ppDeroule = {
     version: VERSION,
     maj: function (o) {
+      majAppelee++;
       try { return majReel(o); } catch (e) { panne(e); }
     }
   };
