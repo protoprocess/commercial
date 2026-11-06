@@ -53,8 +53,13 @@
      Les initiales sont choisies une fois sur le tableau de bord (cle pp_ma_gestion_qui).
      Pour ouvrir a toute l equipe : supprimer RESERVE_A et les trois lignes qui suivent. */
   var RESERVE_A = 'OC';
+  var RESERVE_NOM = 'OLIVIER';
   var qui = (lire('pp_ma_gestion_qui') || '').trim().toUpperCase();
-  if (RESERVE_A && qui !== RESERVE_A) { window.ppDeroule = { version: VERSION, maj: function () {} }; return; }
+  var nom = (lire('pp_personne') || '').trim().toUpperCase();
+  /* Deux cles, parce qu elles ne sont pas toujours ecrites ensemble : une arrivee par
+     ?qui=XX sur le tableau de bord pose MOI sans rien memoriser. */
+  var cestLui = (qui === RESERVE_A) || (nom.indexOf(RESERVE_NOM) !== -1);
+  if (RESERVE_A && !cestLui) { window.ppDeroule = { version: VERSION, maj: function () {} }; return; }
 
   var session = lire('pp_session') || ('s' + Date.now().toString(36));
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }

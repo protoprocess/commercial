@@ -244,8 +244,13 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
 <script>
 /* ============================================================ COMMANDE ==== */
-const APP_VERSION = "9.2";
-const APP_DATE = "26/10/2026";
+const APP_VERSION = "9.3";
+const APP_DATE = "06/11/2026";
+/* v9.3 (06/11/2026) : LES DEUX SCRIPTS PARTAGES PORTENT LEUR NUMERO DANS L ADRESSE
+   (../shared/deroule.js?v=3.0 et ../shared/retour-accueil.js?v=1.1). Sans numero, le
+   navigateur garde en cache la version precedente et une correction peut rester
+   invisible des heures : c est ce qui s est passe au premier essai du pop-up v3.0.
+   A chaque fois qu un de ces fichiers change de version, changer le ?v= ici aussi. */
 /* v9.2 (26/10/2026) : CADENCE INCOMPLETE SIGNALEE A L ECRAN. Le 23/10 sur le PO-1258 QUOBLY, le mail
    client ne portait aucune date ; le formulaire refab pre-remplissait quantite et prix, l envoi partait
    et l ecran affichait « L action n a pas repondu (HTTP 500) » — le vrai motif restait dans n8n.
@@ -1601,8 +1606,8 @@ async function relier(bouton) {
 })();
 </script>
 
-<script src="../shared/retour-accueil.js" defer></script>
-<script src="../shared/deroule.js" data-appli="commande" defer></script>
+<script src="../shared/retour-accueil.js?v=1.1" defer></script>
+<script src="../shared/deroule.js?v=3.0" data-appli="commande" defer></script>
 <script src="https://protoprocess.github.io/achats/shared/pp-aide-claude.js"></script>
 <script>
 /* 03/11/2026 : le bouton d aide vers Claude, pose par le module partage.
