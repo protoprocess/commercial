@@ -42,7 +42,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var VERSION = '3.0';
+  var VERSION = '3.1';
   var SB = 'https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1';
   var KEY = 'sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O';
   var appli = (document.currentScript && document.currentScript.getAttribute('data-appli')) || 'commande';
@@ -195,6 +195,10 @@
       '<button type="button" class="bp" data-a="suiv"' + (peut ? '' : ' disabled') + '>' + (e.manuel ? 'Terminer' : 'Valider et continuer') + '</button></div>';
     var hote = boite.querySelector('.hote');
     if (hote && n > 0) prendreNoeud(n, hote); else rendreNoeud();
+    /* v3.1 : filet. Si le voile n a pas ete monte dans la page (body absent au chargement),
+       le classList.add ci-dessous ne montrerait rien. On le remonte avant d afficher. */
+    if (!voile.parentNode) document.body.appendChild(voile);
+    if (!modale.parentNode) document.body.appendChild(modale);
     voile.classList.add('on');
   }
 
@@ -236,9 +240,36 @@
   });
 
   /* ---------- interface avec l'appli ---------- */
+  /* v3.1 : L APPLI AVALE LES ERREURS DU POP-UP.
+     commande/index.html appelle ppDeroule.maj() dans un try/catch vide : si rendre()
+     leve une exception, le pop-up ne s ouvre pas et RIEN ne le dit — ni a l ecran, ni
+     dans la console de celui qui regarde ailleurs. C est exactement ce qui s est passe
+     le 06/11 : la mesure « debut » partait, le pop-up restait invisible.
+     Le pop-up attrape donc lui-meme, ecrit la panne dans deroule_mesures (evenement
+     « erreur ») et le dit a l ecran. Une aide muette est pire qu une aide absente. */
+  function panne(e) {
+    var msg = (e && (e.message || e)) + '';
+    try { mesure('erreur', null, msg.slice(0, 180)); } catch (x) {}
+    try {
+      var d = document.getElementById('ppd-panne') || document.createElement('div');
+      d.id = 'ppd-panne';
+      d.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:80;'
+        + 'max-width:min(680px,92vw);background:#3a1216;color:#ffd9dc;border:1px solid #7f1d1d;'
+        + 'border-radius:8px;padding:10px 14px;font:13px/1.5 system-ui,sans-serif';
+      d.textContent = 'Le déroulé en pop-up n’a pas pu s’ouvrir (v' + VERSION + ') : ' + msg
+        + ' — la feuille de route de la page reste utilisable, continue avec elle.';
+      if (!d.parentNode && document.body) document.body.appendChild(d);
+    } catch (x) {}
+  }
+
   window.ppDeroule = {
     version: VERSION,
     maj: function (o) {
+      try { return majReel(o); } catch (e) { panne(e); }
+    }
+  };
+
+  function majReel(o) {
       if (!o || !Array.isArray(o.etapes) || !o.etapes.length) return;
       var premier = !ouvert;
       S.E = o.etapes.map(function (e) { return { n: e.n, lib: e.lib, done: !!e.done, bloque: !!e.bloque, manuel: !!e.manuel }; });
@@ -248,10 +279,11 @@
       if (fini) return;
       rendre();
       var s = boite.querySelector('#ppd-verif'); if (s) s.textContent = soConfirmee() ? '' : 'Pas encore confirm\u00e9e dans Odoo.';
-    }
-  };
+  }
+
   fetch(SB + '/deroule_etapes?appli=eq.' + encodeURIComponent(appli) + '&select=n,titre,consigne,conseil,aide&order=n', { headers: { apikey: KEY } })
     .then(function (r) { return r.ok ? r.json() : []; })
-    .then(function (rows) { rows.forEach(function (r) { textes[r.n] = r; }); if (ouvert) rendre(); }).catch(function () {});
+    .then(function (rows) { rows.forEach(function (r) { textes[r.n] = r; }); if (ouvert) { try { rendre(); } catch (e) { panne(e); } } })
+    .catch(function () {});
   mesure('ouverture', null);
 })();
