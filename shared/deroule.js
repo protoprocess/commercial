@@ -1,6 +1,20 @@
 /* =============================================================================
    Proto Process — Déroulé guidé en pop-up (appli Commande)
-   Version 2.1 — 25/09/2026 (chantier 174)
+   Version 3.0 — 06/11/2026 (chantier 174)
+   v3.0 : LE GARDE-FOU DE RECETTE EST RETIRE, ET LE POP-UP EST RESERVE A OC LE TEMPS DU TEST.
+          Depuis le 25/09 le pop-up exigeait la marque pp_accueil_url, posee par l accueil
+          dans le sessionStorage de SON onglet. Le 04/11 le tableau de bord est passe aux
+          tuiles target="_blank" rel="noopener" : le nouvel onglet ne recoit aucune copie du
+          sessionStorage, la marque restait derriere et le pop-up ne s ouvrait plus. Personne
+          ne l a vu pendant deux jours — un garde-fou de periode d essai jamais retire s est
+          transforme en panne au premier changement d acces.
+          Le pop-up est donc desormais le mode normal de l appli Commande, SANS condition
+          d accueil. Une seule condition reste, TEMPORAIRE (decision Olivier du 06/11) :
+          il ne s ouvre que pour OC, le temps d un test sur une vraie commande.
+          >>> A RETIRER apres validation : la constante RESERVE_A et son test ci-dessous.
+          Rappel : ce fichier ne passe AUCUN appel metier. Il lit ses textes dans
+          deroule_etapes, note l usage dans deroule_mesures, et deplace les blocs reels de
+          l appli dans le pop-up. Son absence n a donc jamais rien empeche de s ecrire.
    v2.1 : moins de texte (retour Ariel/Olivier 25/09) — plus de consigne « vérifie… » ni de conseils affichés d'office :
           le titre + le bloc réel de l'appli suffisent ; conseils et aide derrière un bouton « ? ».
 
@@ -18,8 +32,8 @@
 
    Les textes vivent dans la table Supabase deroule_etapes (appli = commande).
 
-   N'APPARAÎT QUE SI ON EST PASSÉ PAR LE NOUVEL ACCUEIL (sessionStorage
-   pp_accueil_url). Sinon rien ne change : la prod reste intacte (recette).
+   QUI LE VOIT : OC seulement (v3.0, test). Pour les autres, rien ne change :
+   la feuille de route de la page continue de fonctionner comme avant.
 
    BRANCHEMENT : commande >= 7.10 appelle, à chaque rendu des étapes,
      window.ppDeroule.maj({ etapes: E, courante, dossier, so, ent, conf })
@@ -28,15 +42,20 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var VERSION = '2.1';
+  var VERSION = '3.0';
   var SB = 'https://gzljssjjrqbxgnxugiqu.supabase.co/rest/v1';
   var KEY = 'sb_publishable_2-umPRDkyFtqcHhaqWAMoA_5IerFc0O';
   var appli = (document.currentScript && document.currentScript.getAttribute('data-appli')) || 'commande';
-  var accueil = null;
-  try { accueil = sessionStorage.getItem('pp_accueil_url'); } catch (e) { accueil = null; }
-  if (!accueil) { window.ppDeroule = { version: VERSION, maj: function () {} }; return; }
 
   function lire(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+  /* TEMPORAIRE (06/11/2026) — pop-up reserve a OC le temps du test sur une vraie commande.
+     Les initiales sont choisies une fois sur le tableau de bord (cle pp_ma_gestion_qui).
+     Pour ouvrir a toute l equipe : supprimer RESERVE_A et les trois lignes qui suivent. */
+  var RESERVE_A = 'OC';
+  var qui = (lire('pp_ma_gestion_qui') || '').trim().toUpperCase();
+  if (RESERVE_A && qui !== RESERVE_A) { window.ppDeroule = { version: VERSION, maj: function () {} }; return; }
+
   var session = lire('pp_session') || ('s' + Date.now().toString(36));
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function mesure(ev, etape, detail) {
