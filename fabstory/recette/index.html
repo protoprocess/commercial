@@ -1856,6 +1856,14 @@ function rendreRapport(){
   h += rfFilHtml(ed);
   h += '<div class="sec-titre">Tableau de conformit\u00e9 \u2014 commentaires libres (r\u00e9serves), lignes ajoutables</div>' + rfTableHtml(ed.lignes, true);
   h += '<div style="margin-top:6px"><button class="btn-s" onclick="FS.rfAjouterLigne()"><i class="ti ti-plus"></i> Ajouter une ligne</button></div>';
+  /* v5.15 : rappel NON bloquant (decision Olivier) : une note visible qui porte un repere signale souvent
+     un ecart de montage -> penser a la reserve dans la conformite. */
+  const notesRep = (RF.fil || []).filter(x => x.type !== 'question_client' && !x.ex_question && x.repere);
+  if(notesRep.length){
+    h += '<div class="rf-alerte" style="margin-top:10px"><i class="ti ti-info-circle"></i> Note visible du client sur ' +
+      notesRep.map(x => '<strong>' + esc(rfNomFil(x)) + '</strong>').join(', ') +
+      ' : pensez \u00e0 la r\u00e9serve dans le tableau de conformit\u00e9 (ex. \u00ab Pr\u00e9sence des composants : sauf ' + esc(notesRep[0].repere) + ' \u2026 \u00bb).</div>';
+  }
   h += '<div id="rf-bloq" style="margin-top:10px"></div>';
   h += '<div class="rf-pied"><span class="hint">Valid\u00e9 par</span><select id="rf-qui">' +
     EQUIPE.map(x => '<option' + (x === qui() ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' +
@@ -2082,6 +2090,18 @@ function ouvrirVolet(id){
     '<div class="tl-texte">' + htmlTexteEntree(e) + '</div>' +
     detEntree(e) + piecesEntree(e);
 
+  /* v5.15 (26/11/2026, decision Olivier, cas entretoises SD5 N01A) : une note VISIBLE du client ne part
+     jamais par mail (seules les questions partent avec « Preparer le mail client »). Deux gestes directs :
+     la transformer en question, ou en informer le client par un brouillon de mail, sans ecrire a cote. */
+  if(e.type === 'note' && e.visible_client && !e.repond_a){
+    h += '<details class="v-sec" open><summary><i class="ti ti-mail-forward"></i> Le client doit-il le savoir ou d\u00e9cider ?</summary>' +
+      '<p class="hint" style="margin:0 0 8px">Une note visible appara\u00eet sur la page du client et au rapport, mais ne part pas par mail.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn-s" onclick="FS.noteEnQuestion(' + e.id + ')"><i class="ti ti-help-circle"></i> En faire une question</button>' +
+      '<button class="btn-s" onclick="FS.noteInformer(' + e.id + ')"><i class="ti ti-mail"></i> Informer le client par mail</button></div>' +
+      '<div id="v-noteq-msg" style="min-height:16px;margin-top:6px"></div></details>';
+  }
+
   if(estQuestion && e.etat === 'en_attente'){
     h += '<details class="v-sec" open><summary><i class="ti ti-corner-down-right"></i> R\u00e9pondre</summary>' +
       '<textarea id="v-rep-texte" rows="3" placeholder="Votre r\u00e9ponse\u2026"></textarea>';
@@ -2304,6 +2324,34 @@ FS.voletNature = async function(){
     choisieId = j.id;
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+/* v5.15 : note visible -> question client (nature changee EN PLACE, etat en_attente), puis choix du modele. */
+FS.noteEnQuestion = async function(id){
+  const e = entree(id); if(!e) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  if(!confirm('Transformer cette note en question client ?\n\nElle partira avec \u00ab Pr\u00e9parer le mail client \u00bb et le client pourra r\u00e9pondre sur sa page. Choisissez ensuite le mod\u00e8le de r\u00e9ponses.')) return;
+  const msg = el('v-noteq-msg'); if(msg) msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, type: 'question_client' });
+    choisieId = j.id || e.id;
+    await recharger(true);
+    FS.remoulerOuvrir(choisieId);
+  }catch(err){ if(msg) msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+/* v5.15 : brouillon de mail d information pour UNE note visible (API v0.27, mode information). */
+FS.noteInformer = async function(id){
+  let ini = qui();
+  if(!ini){
+    ini = (prompt('Vos initiales (d\u00e9cident de la bo\u00eete d\u2019envoi : ' + INITIALES_COMMERCIAL.join(', ') + ' \u2192 commercial, autres \u2192 production) :') || '').trim().toUpperCase();
+    if(!ini) return;
+    setQui(ini);
+  }
+  if(!confirm('Pr\u00e9parer un brouillon dans ' + expediteurPour(ini) + ' pour informer le client de cette note ?\nRien ne part : vous relisez et envoyez depuis Gmail.')) return;
+  const msg = el('v-noteq-msg'); if(msg) msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const r = await postJson(BASE + '/fabstory-mail-client', { produit_id: P.id, initiales: ini, note_id: id });
+    if(msg) msg.innerHTML = '<span class="hint">' + esc(r && r.message ? r.message : 'Brouillon cr\u00e9\u00e9.') + '</span>';
+  }catch(err){ if(msg) msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
 FS.voletVisibilite = async function(nouvelle){
   const e = entree(choisieId); if(!e) return;
