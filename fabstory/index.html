@@ -547,9 +547,10 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.13';
+const APP_VERSION = '5.14';
 const APP_DATE = '26/11/2026';
-/* 5.13 (26/11/2026, decision Olivier) : questions PCB de FineLine branchees comme Ellipse. Le bloc affiche le nom
+/* 5.14 (26/11/2026) : PCB Electronics branche aussi (renvoi avec copie au suivi Odoo de la commande d achat).
+   5.13 (26/11/2026, decision Olivier) : questions PCB de FineLine branchees comme Ellipse. Le bloc affiche le nom
    du fabricant du dossier (Ellipse ou FineLine). Nouvel etat : le client a repondu lui-meme a FineLine (il est en
    copie de leurs mails) -> son fichier remplace celui du bloc et la question est close, sans clic.
    5.12 (26/11/2026, chantier 277, decisions Olivier 25/11) : QUESTIONS DU FABRICANT PCB (EQ Ellipse).
@@ -3655,7 +3656,7 @@ FS.eqRepondre = async function(id){
   if(f.size > 15 * 1024 * 1024){ eqMsg(id, '<span class="err-msg">Fichier trop lourd (15 Mo au plus).</span>'); return; }
   const auteur = auteurOuStop(); if(!auteur) return;
   const fab = eqFabDe(id);
-  if(!confirm('Envoyer « ' + f.name + ' » à ' + fab + ', dans le fil de leur mail ?' + (fab === 'FineLine' ? '\n\nMêmes copies que leur mail (le client inclus).' : '') + '\n\nLe client verra aussi ce fichier sur sa page, pour information.')) return;
+  if(!confirm('Envoyer « ' + f.name + ' » à ' + fab + ', dans le fil de leur mail ?' + (fab === 'FineLine' ? '\n\nMêmes copies que leur mail (le client inclus).' : fab === 'PCB Electronics' ? '\n\nCopie au suivi Odoo de la commande d’achat, comme leur mail.' : '') + '\n\nLe client verra aussi ce fichier sur sa page, pour information.')) return;
   eqBoutons(id, false); eqMsg(id, '<span class="hint"><span class="spin"></span> Dépôt du fichier…</span>');
   try{
     const nomPropre = f.name.replace(/\.{2,}/g, '.');
