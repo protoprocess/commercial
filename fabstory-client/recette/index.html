@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Suivi des projets</title>
+<style>
+  :root {
+    /* Palette FabStory theme clair (v0.9 : l'orange agit, le bleu informe) */
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e3e7ee;
+    --border2: #d2d9e4;
+    --text: #1c2430;
+    --text2: #5a6678;
+    --text3: #8b96a8;
+    --accent: #F8952D;
+    --accent-fonce: #d97c14;
+    --info: #5BC4D8;
+    --info-bg: #EAF7FA;
+    --info-txt: #1B7A8F;
+    --rouge: #c93b3b;
+    --rouge-bg: #fdeeee;
+    --vert: #3B6D11;
+    --vert-bg: #EAF3DE;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+
+  header {
+    background: #0f1117; height: 52px; display: flex; align-items: center;
+    padding: 0 18px; gap: 9px; position: sticky; top: 0; z-index: 10;
+  }
+  .logo-text { display: flex; align-items: center; font-size: 13px; font-weight: 500; }
+  .logo-text .lt { color: #fff; }
+  .logo-text .ls { color: #555; margin: 0 5px; }
+  .logo-text .lo { color: var(--accent); }
+  .ver { margin-left: 12px; color: #6b7280; font-size: 11px; font-family: var(--mono); white-space: nowrap; }
+  .btn-home { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid #5BC4D8; color: #5BC4D8; font-size: 12px; font-weight: 600; text-decoration: none; }
+  .btn-home:hover { background: #5BC4D8; color: #0a0c12; }
+  .btn-imprimer { margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; font-family: var(--sans); cursor: pointer; }
+  .btn-imprimer:hover { border-color: var(--accent); color: var(--accent-fonce); }
+  .portee-case { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; padding: 10px 12px; border: 1px solid #f0d9b8; background: #fdf6ec; border-radius: var(--radius); font-size: 13px; color: #6b4b12; cursor: pointer; }
+  .portee-case input { margin-top: 3px; width: 16px; height: 16px; accent-color: #F2A65A; }
+  .portee-case small { display: block; color: var(--text3); font-size: 11.5px; margin-top: 2px; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 22px 16px 60px; }
+
+  .carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+
+  /* ---- Hero ---- */
+  #hero { margin-bottom: 22px; }
+  .hero-societe { color: #5BC4D8; font-size: 23px; font-weight: 800; letter-spacing: 0.4px; margin-bottom: 7px; }
+  .hero-haut { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+  .hero-ref { font-family: var(--mono); font-size: 20px; font-weight: 700; letter-spacing: 0.2px; }
+  .hero-lib { font-size: 15px; font-weight: 600; color: var(--text2); }
+  .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 11px; font-size: 12px; font-weight: 600; }
+  .badge-indice { background: var(--info-bg); color: var(--info-txt); }
+  #hero { position: relative; }
+  .btn-bom { position: absolute; top: 16px; right: 18px; display: inline-flex; flex-direction: column; align-items: center; gap: 5px; text-decoration: none; padding: 9px 16px; border: 1px solid #cdeaf1; background: transparent; border-radius: var(--radius-lg); }
+  .btn-bom img { width: 36px; height: 36px; object-fit: contain; transition: transform 0.12s ease; }
+  .btn-bom span { font-size: 12px; font-weight: 700; color: var(--info-txt); }
+  .btn-bom:hover { border-color: var(--info); }
+  .btn-bom:hover img { transform: scale(1.1); }
+  .choix-aide { display: none; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: var(--radius); padding: 9px 12px; font-size: 12.5px; margin-bottom: 11px; }
+  .portee-aide { font-size: 11.5px; color: var(--text3); margin: -6px 0 12px; }
+  .lien-signer { font-size: 12px; color: var(--text3); text-decoration: underline; cursor: pointer; }
+  .lien-signer:hover { color: var(--text2); }
+  .fichiers-zone { margin-top: 11px; }
+  .dropzone {
+    border: 1.5px dashed var(--border2); border-radius: var(--radius); padding: 13px;
+    text-align: center; font-size: 12.5px; color: var(--text3); cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  .dropzone.survol { border-color: var(--accent); background: #fff7ef; color: var(--accent-fonce); }
+  .dropzone input[type=file] { display: none; }
+  .fichiers-aide { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+  .fichier-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border2); color: var(--text2); border-radius: 20px; padding: 3px 6px 3px 12px; font-size: 12px; margin: 6px 7px 0 0; }
+  .fichier-chip button { border: none; background: transparent; color: var(--text3); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 5px; }
+  .fichier-chip button:hover { color: var(--rouge); }
+  .piece-lien { display: inline-flex; align-items: center; gap: 5px; background: var(--info-bg); border: 1px solid #cdeaf1; color: var(--info-txt); border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 600; text-decoration: none; margin: 5px 7px 0 0; }
+  .piece-lien:hover { border-color: var(--info); }
+  .piece-tuile { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; width: 128px; padding: 10px 8px; margin: 8px 10px 0 0; border: 1px solid #cdeaf1; border-radius: 10px; background: #fff; text-decoration: none; vertical-align: top; transition: border-color .15s, box-shadow .15s; }
+  .piece-tuile:hover { border-color: var(--info); box-shadow: 0 6px 16px -10px rgba(0,0,0,.25); }
+  .piece-tuile img.mini { width: 108px; height: 82px; object-fit: cover; border-radius: 6px; background: #f2f6f8; }
+  .piece-tuile .picto-type { width: 108px; height: 82px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 15px; font-weight: 700; letter-spacing: .5px; }
+  .piece-tuile .p-nom { font-size: 11.5px; color: #24323a; max-width: 112px; overflow-wrap: break-word; text-align: center; line-height: 1.25; }
+  .piece-tuile .p-taille { font-size: 10.5px; color: #7b8a92; }
+
+  /* Barre de jalons */
+  .jalons { display: flex; align-items: center; margin-top: 18px; }
+  .jalon { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+  .jalon .pt {
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border: 2px solid var(--border2); color: var(--text3); z-index: 1;
+  }
+  .jalon .lbl { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.2; }
+  .jalon:not(:first-child)::before {
+    content: ""; position: absolute; top: 15px; right: 50%; width: 100%; height: 2px; background: var(--border2);
+  }
+  .jalon.fait .pt { background: var(--info-bg); border-color: var(--info); color: var(--info-txt); }
+  .jalon.fait .lbl { color: var(--info-txt); font-weight: 600; }
+  .jalon.fait:not(:first-child)::before { background: var(--info); }
+  .jalon.actuel .pt { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .jalon.actuel .lbl { color: var(--accent-fonce); font-weight: 700; }
+  .jalon.actuel:not(:first-child)::before { background: var(--info); }
+  /* v0.48 : avancement proportionnel dans Fabrication (operations faites / total) */
+  .rx-ou { color: #6b7280; font-size: 11.5px; }
+  .jalons { position: relative; }
+  .prog-fill { position: absolute; top: 15px; left: 0; height: 2px; background: var(--info); pointer-events: none; }
+  .prog-pt { position: absolute; top: 10px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px #fff; z-index: 2; pointer-events: none; }
+  .jalons.attente .pt { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) { .jalons.attente .pt { animation: none; } }
+  .jalons-note { margin-top: 8px; font-size: 11.5px; color: var(--text3); text-align: center; }
+
+  /* ---- v0.52 (ch.171) : Vos fournitures, SOUS la barre d avancement ---- */
+  .fourn { border-color: #f0d9b5; }
+  .fourn-tete { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fourn-tete h2 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .fourn-compte { font-size: 12px; font-weight: 700; padding: 3px 11px; border-radius: 20px; background: #FAEEDA; color: #854F0B; }
+  .fourn-sous { font-size: 12.5px; color: var(--text2); margin: 4px 0 8px; }
+  .fourn-l { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1.2fr) 96px 92px; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .fourn-l.entete { border-top: none; padding: 6px 0 4px; font-size: 11.5px; color: var(--text3); }
+  .fourn-ref { font-family: var(--mono); overflow-wrap: anywhere; }
+  /* v0.56 : fourniture sans reference — on le dit, en retrait, sans imiter une vraie reference */
+  .fourn-ref.sans-ref { font-family: inherit; font-style: italic; color: var(--text3); }
+  .fourn-rep { color: var(--text2); font-size: 12px; overflow-wrap: anywhere; }
+  .fourn-pill { font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 20px; white-space: nowrap; justify-self: start; }
+  .fourn-pill.attendu { background: var(--bg); color: var(--text2); border: 1px solid var(--border2); }
+  .fourn-pill.partiel { background: #FAEEDA; color: #854F0B; }
+  .fourn-pill.recu { background: var(--vert-bg); color: var(--vert); }
+  .fourn-pill.non_cable { background: var(--bg); color: var(--text3); }
+  .fourn-l.off .fourn-ref, .fourn-l.off .fourn-qte { text-decoration: line-through; color: var(--text3); }
+  .fourn-act { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .fourn-act .note { margin-right: auto; font-size: 12.5px; color: var(--text2); }
+  .fourn-btn { background: transparent; border: 1px solid var(--border2); color: var(--text2); border-radius: var(--radius); padding: 6px 12px; font-size: 12.5px; font-family: var(--sans); cursor: pointer; }
+  .fourn-btn:hover { border-color: var(--accent); color: var(--accent-fonce); }
+  .fourn-btn.ok { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .fourn-pli { cursor: pointer; }
+  .fourn-pli:hover { background: var(--bg); }
+  .fourn-lien { color: var(--info-txt); font-weight: 600; font-size: 12px; }
+  @media (max-width: 640px) { .fourn-l { grid-template-columns: minmax(0,1fr) 84px 84px; } .fourn-rep { grid-column: 1 / -1; } .fourn-l.entete .fourn-rep-h { display: none; } }
+  @media print { #fournBloc { display: none !important; } }
+
+  /* ---- Bandeaux d'etat ---- */
+  .bandeau { border-radius: var(--radius); padding: 12px 15px; font-size: 13px; margin-bottom: 18px; }
+  .bandeau-info { background: var(--info-bg); color: var(--info-txt); border: 1px solid #cdeaf1; }
+
+  /* ---- Points a trancher ---- */
+  .sec-titre { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; margin: 26px 0 12px; }
+  .sec-titre .compte { background: var(--rouge); color: #fff; border-radius: 20px; font-size: 12px; padding: 1px 9px; }
+  .sec-titre .compte.zero { background: var(--vert); }
+  .sec-sous { font-size: 12.5px; color: var(--text2); margin: -6px 0 14px; }
+
+  .point { border-left: 4px solid var(--rouge); margin-bottom: 14px; padding: 16px 18px; }
+  .point.resolu { border-left-color: var(--vert); }
+  .point-tete { display: flex; align-items: flex-start; gap: 11px; }
+  .point-ico { flex: none; margin-top: 1px; }
+  .point-corps { flex: 1; min-width: 0; }
+  .badge-so { background: var(--accent); color: #fff; }
+  .comp { font-family: var(--mono); font-size: 12.5px; margin-bottom: 5px; overflow-wrap: anywhere; }
+  .comp .k { color: var(--text2); }
+  .comp .v { color: var(--info-txt); font-weight: 600; }
+  .point-texte { font-size: 13.5px; overflow-wrap: anywhere; line-height: 1.5; }
+  .point-texte p { margin: 0 0 7px; }
+  .point-texte p:last-child { margin-bottom: 0; }
+  .point-texte .lien-inline { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .point-texte .lien-inline:hover { text-decoration: underline; }
+  .liens-doc { display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 4px; }
+  .liens-doc a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+  .liens-doc a:hover { background: var(--accent); color: #fff; }
+  .point-meta { font-size: 11.5px; color: var(--text3); margin-top: 5px; }
+
+  /* ---- v0.54 : panneau de mini-cartes a droite, detail de la question choisie a gauche ---- */
+  .pts-panneau {
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--rouge);
+    border-radius: var(--radius-lg); padding: 14px 14px 8px; margin: 14px 0;
+  }
+  .pts-panneau.fait { border-left-color: var(--vert); }
+  .pts-panneau .sec-titre { margin: 0 0 6px; }
+  .pts-panneau .sec-sous { margin: 0 0 11px; }
+  .pt-mini {
+    border: 1px solid var(--border); border-left: 3px solid var(--rouge); border-radius: var(--radius);
+    padding: 7px 10px; margin-bottom: 7px; cursor: pointer; background: #fff;
+  }
+  .pt-mini:hover { border-color: var(--accent); }
+  .pt-mini.actif { border-color: var(--accent); box-shadow: 0 0 0 2px #FDF0E1; }
+  .pt-mini.resolu { border-left-color: var(--vert); }
+  .pm-comp { font-family: var(--mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+  .pm-comp .v { color: var(--info-txt); font-weight: 600; }
+  .pm-comp .r { color: var(--text2); }
+  .pm-texte { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pm-texte .prop-pp { padding: 0 4px; }
+  .pt-mini.resolu .pm-texte { color: var(--vert); font-weight: 600; }
+  .pm-sep { display: flex; align-items: center; gap: 8px; margin: 13px 0 7px; font-size: 11.5px; font-weight: 700; color: var(--vert); }
+  .pm-sep::after { content: ""; flex: 1; height: 1px; background: var(--border2); }
+  #points .point { display: none; margin: 14px 0; scroll-margin-top: 64px; }
+  #points .point.actif { display: block; }
+  @media screen and (min-width: 980px) {
+    body.avec-points main { max-width: 1240px; }
+    body.avec-points .cols { display: flex; gap: 16px; align-items: flex-start; }
+    body.avec-points .col-princ { flex: 1; min-width: 0; }
+    body.avec-points .pts-panneau {
+      flex: none; width: 350px; margin: 0; position: sticky; top: 66px;
+      max-height: calc(100vh - 82px); overflow-y: auto;
+    }
+  }
+  .prop-pp { font-weight: 700; background: #FDF0E1; color: var(--accent-fonce); padding: 1px 6px; border-radius: 4px; }
+  .rep-tout { display: none; }
+  .rep.deplie .rep-court { display: none; }
+  .rep.deplie .rep-tout { display: inline; }
+  .rep-plus {
+    border: 1px solid var(--border2); background: var(--bg); color: var(--text2); border-radius: 999px;
+    padding: 0 7px; font-size: 11px; font-weight: 600; line-height: 17px; cursor: pointer; font-family: var(--sans);
+    vertical-align: 1px;
+  }
+  .rep-plus:hover { border-color: var(--accent); color: var(--accent-fonce); }
+  @media print { .rep-court { display: none !important; } .rep-tout { display: inline !important; } }
+
+  /* Formulaire de reponse */
+  .rep-form { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 13px; }
+  .rep-lbl { font-size: 12px; font-weight: 600; color: var(--info-txt); margin-bottom: 7px; }
+  .choix-liste { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 11px; }
+  .choix-btn {
+    border: 1px solid var(--border2); background: var(--surface); color: var(--text2);
+    border-radius: 20px; padding: 6px 14px; font-size: 12.5px; cursor: pointer; font-family: var(--sans);
+  }
+  .choix-btn:hover { border-color: var(--accent); color: var(--text); }
+  .choix-btn.sel { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .choix-btn:focus-visible, .portee-btn:focus-visible, .btn-envoyer:focus-visible, textarea:focus-visible, input:focus-visible {
+    outline: 2px solid var(--info-txt); outline-offset: 2px;
+  }
+  textarea, input[type=text] {
+    width: 100%; border: 1px solid var(--border2); border-radius: var(--radius); background: #fcfdfe;
+    padding: 9px 11px; font-size: 13px; font-family: var(--sans); color: var(--text); resize: vertical;
+  }
+  textarea { min-height: 64px; }
+  .portee-liste { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 12px; }
+  .portee-btn {
+    border: 1px solid var(--border); background: var(--bg); color: var(--text2);
+    border-radius: 20px; padding: 4px 12px; font-size: 11.5px; cursor: pointer; font-family: var(--sans);
+  }
+  .portee-btn.sel { background: var(--info-bg); border-color: var(--info); color: var(--info-txt); font-weight: 700; }
+  .rep-bas { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  .rep-bas input { flex: 1; min-width: 170px; width: auto; }
+  .btn-envoyer {
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+    padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--sans);
+  }
+  .btn-envoyer:hover { background: var(--accent-fonce); }
+  .btn-envoyer:disabled { opacity: 0.55; cursor: default; }
+  .rep-erreur { color: var(--rouge); font-size: 12.5px; margin-top: 9px; display: none; }
+  .rep-fait { background: var(--vert-bg); color: var(--vert); border-radius: var(--radius); padding: 10px 13px; font-size: 13px; margin-top: 13px; display: flex; gap: 9px; align-items: flex-start; }
+  .rep-fait .txt { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* ---- Fil ---- */
+  .fil { display: flex; flex-direction: column; gap: 11px; }
+  .entree { padding: 14px 17px; }
+  .entree-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .chip { border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  .chip-etape { background: var(--info-bg); color: var(--info-txt); }
+  .chip-attente { background: var(--rouge-bg); color: var(--rouge); }
+  .chip-resolu { background: var(--vert-bg); color: var(--vert); }
+  .entree-date { font-size: 11.5px; color: var(--text3); margin-left: auto; }
+  .entree-texte { font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .entree.indice-evt { background: var(--info-bg); border-color: #cdeaf1; }
+  .entree.indice-evt .entree-texte { color: var(--info-txt); font-weight: 600; }
+  .reponse-bloc { margin-top: 10px; margin-left: 16px; border-left: 3px solid var(--vert); background: #fbfdf8; border-radius: 0 var(--radius) var(--radius) 0; padding: 10px 13px; }
+  .reponse-de { font-size: 11.5px; color: var(--vert); font-weight: 700; margin-bottom: 3px; }
+  .vide { color: var(--text3); font-size: 13px; text-align: center; padding: 26px 0; }
+
+  /* ---- Conformite (ch.137) ---- */
+  .conf-ligne { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .conf-ligne:last-child { border-bottom: none; }
+  .conf-k { color: var(--text2); flex: none; }
+  .conf-v { text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+  .photos-carte { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .photos-carte figure { margin: 0; }
+  .photos-carte figure[hidden] { display: none; }
+  /* v0.45 (04/09) : cases de taille identique pour les deux faces (aspect-ratio + contain),
+     sinon height:auto laissait chaque photo garder sa hauteur naturelle -> vignettes inegales. */
+  .photos-carte img { width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: contain; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; display: block; }
+  .photos-carte figcaption { text-align: center; font-size: 12px; color: var(--text3); margin-top: 6px; }
+  @media (max-width: 560px) { .photos-carte { grid-template-columns: 1fr; } }
+  .entree-resume, .fil-note-print { display: none; }
+  .fil-metier { font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .fil-metier:first-child { margin-top: 4px; }
+  /* v0.41 (probleme 139) : l historique web est complet, groupe par commande ;
+     le PDF ne garde que la commande en cours (.hors-so masque a l impression). */
+  .fil-so { display: flex; align-items: center; gap: 10px; margin: 22px 0 6px; font-size: 13px; font-weight: 700; color: var(--text2); }
+  .fil-so::after { content: ""; flex: 1; height: 2px; background: var(--border2); }
+  .fil-so.courant { color: var(--accent-fonce); }
+  .fil-so.courant::after { background: var(--accent); }
+  .fil-so .n { font-weight: 400; color: var(--text3); font-size: 12px; }
+  .f08-inspection td, .f08-inspection th { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .f08-inspection .f08-fort { color: var(--pp-blue); }
+  .f08-obs-cell { color: var(--text3); font-size: 11.5px; font-style: italic; }
+  @media print {
+    .f08-inspection td, .f08-inspection th { background: #fff; border-color: #bbb; color: #1a1a1a; }
+    .f08-inspection .f08-fort { color: #1f4e9c; }
+    .f08-obs-cell { color: #888; }
+  }
+  .cartouche { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 16px; }
+  .cart-k { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; }
+  .cart-v { font-weight: 700; color: var(--pp-blue); font-size: 14.5px; }
+  @media print {
+    .cart-k { color: #777; }
+    .cart-v { color: #1f4e9c; }
+  }
+  .f08 { border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; background: #fff; color: #1a1a1a; }
+  .f08 i { color: #555; font-size: 0.92em; }
+  .f08-bandeau { text-align: center; padding: 10px 8px 8px; border-bottom: 1px solid #bbb; }
+  .f08-titre { font-size: 17px; font-weight: 800; color: #1f4e9c; letter-spacing: 0.4px; }
+  .f08-sous { font-size: 12px; } .f08-norme { font-size: 11px; } .f08-form { font-size: 10px; color: #888; }
+  .f08-t { width: 100%; border-collapse: collapse; }
+  .f08-t td, .f08-t th { border: 1px solid #bbb; padding: 6px 8px; font-size: 12px; text-align: left; vertical-align: top; background: #fff; }
+  .f08-t th { background: #f3f4f6; font-weight: 600; }
+  .f08-k { font-weight: 700; font-size: 11.5px; }
+  .f08-fort { font-weight: 700; color: #1f4e9c; }
+  .f08-obs { font-size: 11px; font-weight: 600; color: #1f4e9c; }
+  .f08-phrase { border: 1px solid #bbb; border-top: none; padding: 8px 10px; font-size: 11.5px; line-height: 1.45; }
+  .f08-signature td { height: 46px; }
+  .f08-surv { border: 1px solid #bbb; border-top: none; padding: 8px 10px 20px; font-size: 11.5px; }
+  .f08 .conf-visa-img { max-width: 46mm; max-height: 18mm; display: block; margin-top: 2px; }
+  .conf-declaration { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin: 12px 0 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .conf-visa { align-items: center; }
+  .conf-visa-img { max-width: 170px; max-height: 80px; width: auto; height: auto; display: block; }
+
+  /* ---- Operations (ch.137) ---- */
+  .op-ligne { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .op-ligne:last-child { border-bottom: none; }
+  .op-point { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--border2); }
+  .op-point.fait { background: var(--green); }
+  .op-nom { flex: 1; }
+  .op-etat { font-size: 12px; color: var(--text3); flex: none; }
+
+  /* ---- Onglets Historique / Rapport (ch.137) ---- */
+  .onglets { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin: 28px 0 0; }
+  .onglet { background: none; border: none; padding: 10px 14px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--text3); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+  .onglet:hover { color: var(--text); }
+  .onglet.active { color: var(--accent-fonce); border-bottom-color: var(--accent); }
+  .panneau { display: none; }
+  .panneau.active { display: block; }
+  .panneau .sec-titre:first-child { margin-top: 18px; }
+
+  /* ---- Page entiere en refus / chargement ---- */
+  #chargement, #refus { text-align: center; padding: 70px 20px; color: var(--text2); }
+  #refus h1 { font-size: 17px; margin-bottom: 9px; color: var(--text); }
+  #refus p { font-size: 13.5px; max-width: 420px; margin: 0 auto; }
+
+  footer { text-align: center; color: var(--text3); font-size: 11px; padding: 26px 0 34px; font-family: var(--mono); }
+
+  @media (max-width: 560px) {
+    .jalon .lbl { font-size: 10px; }
+    .hero-ref { font-size: 17px; }
+    main { padding: 14px 10px 50px; }
+    .carte { padding: 15px; }
+  }
+
+  /* ---- Impression (ch.137) : la vue ecran devient le rapport telechargeable.
+     On masque tout ce qui est interactif ou transitoire (formulaires, boutons,
+     questions encore ouvertes) et on garde l identite + l historique complet. ---- */
+  /* ---- Impression : elements reserves au papier, invisibles a l ecran ---- */
+  .print-entete, .print-pied, .insp-entete { display: none; }
+
+  /* ---- Impression (ch.137, composition validee 01/09) : la vue ecran devient
+     un document A4. Ordre papier : identite -> photos -> historique ->
+     inspection -> conformite (seule sur sa page). ---- */
+  @media print {
+    @page { size: A4; margin: 16mm 14mm 18mm; }
+    html, body { background: #fff; }
+    body { font-size: 11pt; color: #111; padding-bottom: 0; }
+    header, .btn-imprimer, .btn-bom, #bandeauLecture, #pointsTitre, #pointsSous, #points, #ptsPanneau,
+    .rep-form, .onglets, .vide, footer#pied { display: none !important; }
+    main { max-width: none; padding: 0; }
+    /* Ordre papier : les blocs sont deplaces dans le DOM par JS (beforeprint) --
+       aucun flex/display:contents ici, Safari les paginait mal. */
+    .panneau { display: block !important; }
+    /* En-tete de document */
+    .print-entete { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 2px solid #F07B1F; }
+    .print-entete img.print-logo { width: 44mm; height: auto; object-fit: contain; }
+    .print-entete img.print-certif { width: 12mm; height: auto; object-fit: contain; }
+    .print-entete-txt { flex: 1; }
+    .print-titre { font-size: 16pt; font-weight: 700; letter-spacing: 0.2px; }
+    .print-sous { font-size: 10pt; color: #555; margin-top: 2px; }
+    .print-date { font-size: 9pt; color: #777; text-align: right; }
+    /* Pied de page repete */
+    .print-pied { display: block; font-size: 8pt; color: #888; text-align: center; margin-top: 14px; padding-top: 6px; border-top: 1px solid #ddd; }
+    /* Cartes et sections */
+    .carte { box-shadow: none; border: 1px solid #ddd; border-radius: 4px; padding: 12px 14px; margin-bottom: 10px; page-break-inside: avoid; }
+    .sec-titre { font-size: 12pt; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
+    .sec-titre .compte { display: none; }
+    #hero { border: none; padding: 0 0 6px; }
+    .hero-societe { font-size: 12pt; }
+    .hero-ref { font-size: 15pt; }
+    .jalons, .jalons-note { display: none !important; }
+    .jalons-note { font-size: 9.5pt; }
+    /* Photos : les deux faces cote a cote, hauteur plafonnee pour tenir en page 1 */
+    .photos-carte { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+    .photos-carte img { width: 100%; height: 66mm; aspect-ratio: auto; object-fit: contain; margin: 0 auto; border: 1px solid #ddd; }
+    .photos-carte figcaption { font-size: 9pt; color: #555; }
+    /* Historique compact, sections metier ; questions resolues resumees */
+    .entree-plein { display: none !important; }
+    .entree-resume { display: block !important; }
+    .entree-hors-rapport, .hors-so, .fil-so { display: none !important; }
+    .fil-note-print { display: block !important; font-size: 8.5pt; color: #777; font-style: italic; margin-top: 8px; }
+    .fil-metier { font-size: 9.5pt; color: #444; margin: 12px 0 5px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
+    .entree { padding: 8px 12px; font-size: 10pt; page-break-inside: avoid; }
+    .entree-texte, .point-texte { font-size: 10pt; }
+    .reponse-bloc { page-break-inside: avoid; }
+    .chip { font-size: 8.5pt; }
+    .liens-doc, .piece-tuile { display: none !important; }
+    /* Inspection : page a elle, avec son en-tete F08 */
+    #inspectionBloc { page-break-before: always; }
+    .insp-entete { display: flex !important; }
+    #inspectionBloc .sec-titre { display: none; }
+    .op-ligne { padding: 5px 0; font-size: 10pt; }
+    .op-point { width: 7px; height: 7px; }
+    .op-point.fait { background: #3B6D11; }
+    .op-point:not(.fait) { background: #bbb; }
+    .op-etat { color: #444; }
+    /* Conformite : le certificat commence sur une page neuve */
+    #conformiteBloc { page-break-before: always; }
+    .conf-ligne { padding: 6px 0; font-size: 10pt; }
+    .conf-declaration { font-size: 9.5pt; color: #333; }
+    .f08-t td, .f08-t th, .f08-phrase, .f08-surv { font-size: 9pt; }
+    .f08 { border-radius: 0; }
+    .conf-visa-img { max-width: 62mm; max-height: 28mm; }
+    /* v0.58 : rapport non fige -> rien d autre que l avis (Ctrl+P compris) */
+    body.rapport-provisoire main > *:not(#printProvisoire) { display: none !important; }
+    body.rapport-provisoire #printProvisoire { display: block !important; font-size: 13pt; padding: 30mm 10mm; text-align: center; }
+  }
+  #printProvisoire { display: none; }
+</style>
+</head>
+<body class="rapport-provisoire">
+<header>
+  <!-- v0.13 : picto = retour a l espace client, titre = retour a la liste des cartes -->
+  <a href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Votre espace client Proto Process" style="display:flex;align-items:center;text-decoration:none">
+    <img src="../../shared/picto-pp.png" alt="Proto Process" width="24" height="24"
+         style="object-fit:contain" onerror="this.style.display='none'"></a>
+  <a href="https://protoprocess-main-16873066.dev.odoo.com/my/fabrication" title="Toutes vos cartes en fabrication" style="text-decoration:none">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Suivi des projets</span></span></a>
+  <a class="btn-home" id="btnHome" href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Retour \u00e0 votre espace client Proto Process">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11.5L12 4l9 7.5M5.5 10v9h13v-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Espace client</a>
+  <button type="button" class="btn-imprimer" id="btnImprimer" style="display:none" title="Télécharger le rapport de fabrication en PDF">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V4h12v5M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Télécharger le rapport</button>
+  <span class="ver" id="verBadge"></span>
+</header>
+
+<main>
+  <div id="printProvisoire"></div>
+  <div id="chargement">Chargement de votre suivi&hellip;</div>
+
+  <div id="refus" style="display:none">
+    <h1>Ce lien n&rsquo;est pas ou plus valide</h1>
+    <p>Le lien de suivi que vous avez ouvert n&rsquo;est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.</p>
+  </div>
+
+  <div id="contenu" style="display:none">
+    <div class="print-entete">
+      <img class="print-logo" src="/brand/logo-pp-rect-noir.png" alt="Proto Process" onerror="this.style.display='none'">
+      <div class="print-entete-txt">
+        <div class="print-titre" id="printTitre">Rapport de fabrication</div>
+        <div class="print-sous" id="printSous"></div>
+      </div>
+      <img class="print-certif" src="/brand/certifs/afaq-9001.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
+      <img class="print-certif" src="/brand/certifs/ipc-a-610.png" alt="IPC-A-610" onerror="this.style.display='none'">
+      <div class="print-date" id="printDate"></div>
+    </div>
+    <div class="cols" id="cols">
+    <div class="col-princ" id="colPrinc">
+    <section id="hero" class="carte">
+      <a class="btn-bom" id="btnBom" style="display:none" target="_blank" rel="noopener">
+        <span>Voir la BOM</span>
+        <img src="../../shared/picto-bom.png?v=3" alt="" width="36" height="36" onerror="this.style.display='none'">
+      </a>
+      <div class="hero-societe" id="heroSociete"></div>
+      <div class="hero-haut">
+        <span class="hero-ref" id="heroRef"></span>
+        <span class="hero-lib" id="heroLib"></span>
+        <span class="badge badge-indice" id="heroIndice" style="display:none"></span>
+      </div>
+      <div class="jalons attente" id="jalons"></div>
+      <div class="jalons-note" id="jalonsNote">Statut de fabrication en cours de lecture&hellip;</div>
+    </section>
+
+    <section id="fournBloc" class="carte fourn" style="display:none;margin-top:14px"></section>
+
+    <div class="bandeau bandeau-info" id="bandeauLecture" style="display:none">
+      Ce lien est en lecture seule : le suivi reste consultable, mais les r&eacute;ponses en ligne sont ferm&eacute;es. Contactez Proto Process pour toute question.
+    </div>
+
+    <div id="points"></div>
+
+    <div class="onglets" id="onglets" role="tablist">
+      <button type="button" class="onglet active" data-panneau="panHistorique" role="tab">Historique</button>
+      <button type="button" class="onglet" data-panneau="panRapport" role="tab">Rapport de fabrication</button>
+    </div>
+
+    <div class="panneau active" id="panHistorique">
+      <div class="sec-titre"><span>Historique de votre carte</span></div>
+      <div class="fil" id="fil"></div>
+    </div>
+
+    <div class="panneau" id="panRapport">
+      <div class="vide" id="rapportVide">Le rapport de fabrication se remplira au fil de la production de votre carte.</div>
+
+      <div id="cartoucheBloc" style="display:none">
+        <div class="carte cartouche">
+          <div class="cart-item"><span class="cart-k" id="cartLOrder"></span><span class="cart-v" id="cartVOrder"></span></div>
+          <div class="cart-item"><span class="cart-k" id="cartLRefClient"></span><span class="cart-v" id="cartVRefClient"></span></div>
+          <div class="cart-item"><span class="cart-k" id="cartLQte"></span><span class="cart-v" id="cartVQte"></span></div>
+          <div class="cart-item"><span class="cart-k" id="cartLSerie"></span><span class="cart-v" id="cartVSerie"></span></div>
+        </div>
+      </div>
+
+      <div id="photosBloc" style="display:none">
+        <div class="sec-titre"><span>Photos de la carte</span></div>
+        <div class="carte photos-carte">
+          <figure><img id="photoDessus" alt=""><figcaption id="photoDessusCap">Dessus</figcaption></figure>
+          <figure><img id="photoDessous" alt=""><figcaption id="photoDessousCap">Dessous</figcaption></figure>
+        </div>
+      </div>
+
+      <div id="inspectionBloc" style="display:none">
+        <div class="print-entete insp-entete" id="inspEntete">
+          <img class="print-logo" src="/brand/logo-pp-rect-noir.png" alt="Proto Process" onerror="this.style.display='none'">
+          <div class="print-entete-txt">
+            <div class="print-titre">Rapport d’inspection avant emballage</div>
+            <div class="print-sous" id="inspSous"></div>
+          </div>
+          <img class="print-certif" src="/brand/certifs/afaq-9001.png" alt="AFAQ ISO 9001" onerror="this.style.display='none'">
+          <img class="print-certif" src="/brand/certifs/ipc-a-610.png" alt="IPC-A-610" onerror="this.style.display='none'">
+          <div class="print-date" id="inspDate"></div>
+        </div>
+        <div class="sec-titre"><span>Inspection avant emballage</span></div>
+        <div class="carte" id="inspectionZone"></div>
+      </div>
+
+      <div id="conformiteBloc" style="display:none">
+        <div class="sec-titre"><span>Conformité</span></div>
+        <div class="carte" id="conformiteZone"></div>
+      </div>
+    </div>
+    </div><!-- /col-princ -->
+    <!-- v0.54 : panneau des questions en attente (a droite sur grand ecran, au-dessus du detail sinon) -->
+    <aside class="pts-panneau" id="ptsPanneau" style="display:none">
+      <div class="sec-titre" id="pointsTitre" style="display:none">
+        <span id="pointsIco"></span>
+        <span>En attente de votre r&eacute;ponse</span>
+        <span class="compte" id="pointsCompte"></span>
+      </div>
+      <div class="sec-sous" id="pointsSous" style="display:none">Votre r&eacute;ponse d&eacute;bloque directement la pr&eacute;paration de votre carte.</div>
+      <div id="ptsListe"></div>
+    </aside>
+    </div><!-- /cols -->
+  </div>
+</main>
+
+<footer id="pied"></footer>
+<div class="print-pied" id="printPied"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   FABSTORY — VUE CLIENT PAR LIEN A JETON (chantiers 61 / 95 / 106)
+   Page publique : AUCUNE cle d'acces ici, le jeton de l'URL est le seul
+   secret et il est valide cote serveur. Tout ce que cette page recoit a
+   deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
+   ========================================================================= */
+const APP_NAME = "FabStory Client";
+const APP_VERSION = "0.58";
+const APP_DATE = "26/11/2026";
+/* v0.57 (26/11/2026, chantier 277 : questions du fabricant PCB) : un fichier joint par PP a une
+   question ou une note (fiche_de_vie.photos) qui n est pas une image (le .xls d Ellipse a remplir)
+   s affichait comme une miniature d image cassee. Il prend maintenant la tuile typee XLS / PDF des
+   pieces jointes ; le clic le telecharge comme avant. Rien d autre ne change. */
+/* v0.56 (22/10/2026, constate sur SO2604-232) : une fourniture client sans MPN ni IPN affichait
+   « — » (ou « - ») en colonne Reference. Ce tiret n'est pas une reference : c'est la case IPN vide
+   de l'onglet Analyse BOM d'Achats PP, qui descendait jusque dans la feuille achat puis dans la
+   table des fournitures (corrige a la source en Achats PP 15.40). Cote client il ressemblait a une
+   reference mal recopiee. La colonne affiche desormais « sans reference » / « no part number », en
+   gris ; les reperes restent en colonne 2 et ne sont pas repetes. Rien n'est modifie en base. */
+/* v0.55 (01/10/2026, decision Olivier : « du moment qu on voit qu on a repondu et qu on avance ») :
+   dans le panneau, une question repondue DESCEND en bas de la liste, en vert, sous un petit titre
+   « Repondu (n) ». Le haut de la liste ne contient plus que ce qui reste a faire ; rien ne disparait. */
+/* v0.54 (01/10/2026, retour Olivier sur la 0.53 : « je voulais les cartes repliees en haut a droite,
+   comme la vue interne ») : les questions en attente sont des MINI-CARTES dans un PANNEAU A DROITE
+   (meme principe que « En attente de reponse » de FabStory interne) ; le detail et le formulaire
+   de la question choisie s affichent a gauche, sous l identite de la carte. Sur ecran etroit le
+   panneau passe au-dessus du detail. Changer de question ne perd aucune saisie en cours. Apres
+   envoi, la mini-carte passe au vert avec la reponse et la question suivante s affiche.
+   Remplace les cartes depliables de la 0.53 ; le reste de la 0.53 est conserve. */
+/* v0.53 (01/10/2026, chantier FabStory lisibilite, decisions Olivier) :
+   (1) VUE CARTE : chaque question en attente est une carte compacte (composant, raison,
+       proposition PP) ; le reste du texte, la datasheet, les pieces et le formulaire de reponse
+       ne s ouvrent qu au clic. Une seule carte ouverte a la fois (les saisies en cours sont
+       conservees). Apres envoi, la carte se replie en vert et la suivante s ouvre.
+   (2) « Proposition PP : » en gras surligne, partout (points et historique).
+   (3) REPERES limites a 3 (« D101, D106, D111 +23 ») dans la ligne Rep ET dans la phrase ;
+       le clic sur +N deplie la liste complete ; a l impression la liste est toujours complete.
+   (4) Le choix « Accepter l equivalent propose par PP » est masque quand la question ne porte
+       aucune proposition (modeles rupture / obsolete / MOQ sans equivalent PP).
+   (5) Resume apres envoi : le choix retenu est affiche (il manquait pour les questions a modele).
+   (6) Version + date visibles dans l en-tete. */
+const API = "https://protoprocess.app.n8n.cloud/webhook";
+
+document.getElementById("btnImprimer").addEventListener("click", function () {
+  /* v0.58 : pas de PDF tant que le rapport n est pas fige (decision Olivier 26/11) */
+  if (!RAPPORT_FIGE) { alert(t("rapport_provisoire")); return; }
+  window.print();
+});
+
+/* ch.137 v0.27b : ordre papier par deplacement des blocs dans le DOM, juste
+   avant l impression (beforeprint), remis en place apres (afterprint). Plus
+   robuste que le reordonnancement CSS, qui faisait tourner Safari en boucle. */
+(function () {
+  let ordreEcran = null;
+  function avant() {
+    const contenu = document.getElementById("colPrinc") || document.getElementById("contenu");   /* v0.54 : colonne principale */
+    const hist = document.getElementById("panHistorique"), rap = document.getElementById("panRapport");
+    if (!contenu || !hist || !rap || ordreEcran) return;
+    ordreEcran = { photos: document.getElementById("photosBloc"), photosSuivant: null, cart: document.getElementById("cartoucheBloc"), cartSuivant: null };
+    const ph = ordreEcran.photos, ca = ordreEcran.cart;
+    ordreEcran.photosSuivant = ph ? ph.nextSibling : null;
+    ordreEcran.cartSuivant = ca ? ca.nextSibling : null;
+    /* cartouche F08 puis photos, juste apres le hero */
+    if (ca) contenu.insertBefore(ca, document.getElementById("hero").nextSibling);
+    if (ph) contenu.insertBefore(ph, ca ? ca.nextSibling : document.getElementById("hero").nextSibling);
+    /* historique avant le rapport : deja le cas dans le DOM */
+  }
+  function apres() {
+    if (!ordreEcran) return;
+    const rap = document.getElementById("panRapport");
+    if (ordreEcran.photos && rap) rap.insertBefore(ordreEcran.photos, ordreEcran.photosSuivant);
+    if (ordreEcran.cart && rap) rap.insertBefore(ordreEcran.cart, ordreEcran.cartSuivant);
+    ordreEcran = null;
+  }
+  window.addEventListener("beforeprint", avant);
+  window.addEventListener("afterprint", apres);
+  if (window.matchMedia) {
+    const mq = window.matchMedia("print");
+    mq.addEventListener ? mq.addEventListener("change", function (e) { e.matches ? avant() : apres(); })
+                        : mq.addListener(function (e) { e.matches ? avant() : apres(); });
+  }
+})();
+
+/* ch.137 : onglets Historique / Rapport de fabrication. Un seul panneau
+   visible a l ecran ; a l impression la CSS force tous les panneaux
+   (le PDF reste complet quel que soit l onglet ouvert). */
+document.querySelectorAll(".onglet").forEach(function (b) {
+  b.addEventListener("click", function () {
+    document.querySelectorAll(".onglet").forEach(function (x) { x.classList.toggle("active", x === b); });
+    document.querySelectorAll(".panneau").forEach(function (p) { p.classList.toggle("active", p.id === b.getAttribute("data-panneau")); });
+  });
+});
+
+/* Le message "vide" du rapport ne s affiche que si ni Operations ni
+   Conformite n a de contenu (carte sans SO connu). */
+function majRapportVide() {
+  const vide = document.getElementById("rapportVide");
+  if (!vide) return;
+  const ops = document.getElementById("inspectionBloc");
+  const conf = document.getElementById("conformiteBloc");
+  const ph = document.getElementById("photosBloc");
+  const cart = document.getElementById("cartoucheBloc");
+  const unVisible = (ops && ops.style.display !== "none") || (conf && conf.style.display !== "none") || (ph && ph.style.display !== "none") || (cart && cart.style.display !== "none");
+  vide.style.display = unVisible ? "none" : "block";
+}
+document.getElementById("verBadge").textContent = "v" + APP_VERSION + " \u2014 " + APP_DATE;
+document.getElementById("pied").textContent = APP_NAME + " v" + APP_VERSION + " — " + APP_DATE + " · Proto Process";
+document.title = "Suivi des projets · " + APP_NAME + " v" + APP_VERSION;
+
+const params = new URLSearchParams(location.search);
+const JETON = (params.get("jeton") || "").trim();
+const SO_AVANT = (params.get("so") || "").trim();
+/* v0.41 (probleme 139, decision Olivier 02/09) : SO cible = &so= du lien, sinon le SO
+   courant rendu par le statut. A l ECRAN l historique est complet, groupe par commande
+   (SO cible en tete). Dans le PDF, seule la commande en cours reste (.hors-so masque).
+   Sans aucun SO connu (devis) : un seul groupe, pas de titre, rien de masque. */
+let SO_CIBLE = SO_AVANT || "";
+let INSPECTION_PTS = null, RX_LIEN = null; /* v0.47 (ch.163) : cliches RX */
+/* v0.58 (26/11/2026, decision Olivier) : rapport fige de cette carte (avec la photo du fil).
+   Sans rapport fige : impression refusee (« rapport en cours de finalisation »). */
+let RAPPORT_FIGE = null, STATUT_LU = false;
+
+/* ch.148 (01/09) : langue de la page. Priorite : ?lang=fr|en (tests, surcharge),
+   sinon produits.langue (miroir de la langue du client Odoo, synchronise chaque
+   nuit), sinon fr. Fixee AVANT le premier rendu du contenu : pas de clignotement.
+   Le contenu saisi (questions, choix, reponses) reste dans sa langue d origine. */
+let LANG = (/^(fr|en)$/i.test(params.get("lang") || "")) ? params.get("lang").toLowerCase() : "fr";
+const LANG_FORCEE = LANG !== "fr" || /^(fr|en)$/i.test(params.get("lang") || "");
+const T = {
+  fr: {
+    titre_onglet: "Suivi des projets", btn_home: "Espace client", btn_home_title: "Retour \u00e0 votre espace client Proto Process",
+    btn_print: "T\u00e9l\u00e9charger le rapport", btn_print_title: "T\u00e9l\u00e9charger le rapport de fabrication en PDF",
+    chargement: "Chargement de votre suivi\u2026",
+    fourn_titre: "Vos fournitures", fourn_sous: "Composants que vous nous fournissez. La fabrication d\u00e9marre quand tout est re\u00e7u.",
+    fourn_compte: "{r} re\u00e7ue(s) sur {n} attendue(s)", fourn_ref: "R\u00e9f\u00e9rence", fourn_rep: "Rep\u00e8res", fourn_qte: "Re\u00e7u / attendu", fourn_etat: "\u00c9tat",
+    fourn_attendu: "Attendu", fourn_partiel: "Partiel", fourn_recu: "Re\u00e7u", fourn_nc: "Non c\u00e2bl\u00e9",
+    fourn_btn: "Ne pas c\u00e2bler", fourn_confirmer: "Confirmer", fourn_annuler: "Annuler",
+    fourn_question: "La carte sera livr\u00e9e sans ce composant. Confirmer ?",
+    fourn_decide: "D\u00e9cision du {d} : vous ne fournirez pas ce composant, la carte sera livr\u00e9e sans.",
+    fourn_deplier: "cliquer pour d\u00e9plier", fourn_replier: "cliquer pour replier", fourn_recues: "{n} fourniture(s) re\u00e7ue(s)",
+    fourn_reperes_n: "{n} rep\u00e8res", fourn_sans_ref: "sans r\u00e9f\u00e9rence",
+    fourn_err: "La d\u00e9cision n\u2019a pas pu \u00eatre enregistr\u00e9e. R\u00e9essayez, ou contactez Proto Process.",
+    refus_titre: "Ce lien n\u2019est pas ou plus valide",
+    refus_texte: "Le lien de suivi que vous avez ouvert n\u2019est plus actif. Pour recevoir un nouveau lien, contactez votre interlocuteur Proto Process.",
+    refus_indispo: "Le suivi est momentan\u00e9ment indisponible. R\u00e9essayez dans quelques minutes.",
+    bandeau_lecture: "Ce lien est en lecture seule : le suivi reste consultable, mais les r\u00e9ponses en ligne sont ferm\u00e9es. Contactez Proto Process pour toute question.",
+    voir_bom: "Voir la BOM",
+    repondu: "R\u00e9pondu", tous_reperes: "Voir tous les rep\u00e8res",
+    points_titre: "En attente de votre r\u00e9ponse", points_sous: "Votre r\u00e9ponse d\u00e9bloque directement la pr\u00e9paration de votre carte.",
+    points_fait: "Tous les points sont trait\u00e9s \u2014 merci\u00a0!",
+    onglet_historique: "Historique", onglet_rapport: "Rapport de fabrication",
+    so_en_cours: "Commande en cours \u2014", so_sans: "Historique ant\u00e9rieur (sans commande rattach\u00e9e)",
+    resume_cable: "\u00c9quivalent {P} mont\u00e9 en lieu et place de {R}{X} \u2014 valid\u00e9 par vos soins le {D}.",
+    resume_pas_cable: "{R}{X} non mont\u00e9 \u2014 d\u00e9cision valid\u00e9e par vos soins le {D}.",
+    cart_order: "Commande", cart_ref_client: "Votre commande", cart_qte: "Quantit\u00e9s", cart_serie: "N\u00b0 de s\u00e9rie", form_f08: "Formulaire F08/B", insp_page_titre: "Rapport d\u2019inspection avant emballage",
+    resume_rep: "rep. ", fil_note_print: "Le d\u00e9tail des \u00e9changes reste consultable dans votre historique en ligne.",
+    rapport_provisoire: "Le rapport de fabrication est en cours de finalisation. Il sera disponible au d\u00e9part de vos cartes.",
+    historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
+    historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
+    rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
+    inspection_titre: "Inspection avant emballage", insp_col_item: "Points inspect\u00e9s", insp_col_conf: "Conformit\u00e9", insp_col_comment: "Commentaires", conformite_titre: "Conformit\u00e9", photos_titre: "Photos de la carte", photo_dessus: "Dessus", photo_dessous: "Dessous", rx_lien: "T\u00e9l\u00e9charger les clich\u00e9s RX", rx_ou: "Clich\u00e9s RX disponibles 15 jours depuis votre espace client : portail.proto-process.fr \u2192 Suivi de fabrication \u2192 cette carte.",
+    statut_lecture: "Statut de fabrication en cours de lecture\u2026", statut_indispo: "Statut de fabrication indisponible pour le moment.",
+    statut_actuel: "Statut actuel : ", commande: "commande", indice: "Indice ",
+    jalon_devis: "Devis", jalon_preparation: "Pr\u00e9paration", jalon_fabrication: "Fabrication", jalon_expediee: "Exp\u00e9di\u00e9e",
+    chip_attente: "En attente", chip_resolu: "R\u00e9solu", votre_commande: "Votre commande ", chip_commande: "Commande ",
+    rep: "Rep", ref_mpn: "Ref/MPN", question_posee: "Question pos\u00e9e le ",
+    vous: "Vous", fiche_produit: "fiche produit", voir_datasheet: "Voir datasheet",
+    votre_reponse: "Votre r\u00e9ponse\u00a0:", comm_facultatif: "Commentaire (facultatif)", commentaire: "Commentaire",
+    comm_obligatoire: "Commentaire (obligatoire pour ce choix)", ecrire_reponse: "\u00c9crivez votre r\u00e9ponse ici",
+    joindre: "Joindre des fichiers\u00a0:", dropzone: "Cliquez ici ou glissez-d\u00e9posez vos fichiers",
+    fichiers_aide: "Facultatif \u2014 3 fichiers max, 5\u00a0Mo chacun (PDF, image, Excel, CSV). Utile pour une datasheet ou une r\u00e9f\u00e9rence propos\u00e9e.",
+    portee_decochee: "Case d\u00e9coch\u00e9e\u00a0: votre r\u00e9ponse vaut pour cette commande seulement.",
+    portee_titre: "Port\u00e9e de la d\u00e9cision\u00a0:",
+    signer: "Signer ma r\u00e9ponse (facultatif)", votre_nom: "Votre nom", envoyer: "Envoyer la r\u00e9ponse", envoi: "Envoi\u2026", fichier: "Fichier ",
+    err_choix: "Choisissez une r\u00e9ponse avant d\u2019envoyer.",
+    err_comm: "Ce choix demande un commentaire \u2014 \u00e9crivez-le dans le champ pr\u00e9vu.",
+    err_envoi: "L\u2019envoi n\u2019a pas abouti. V\u00e9rifiez votre connexion puis r\u00e9essayez.",
+    err_format: " n\u2019est pas un format accept\u00e9 (PDF, image, Excel, CSV).", err_taille: " d\u00e9passe 5\u00a0Mo.", err_nb: "3 fichiers maximum par r\u00e9ponse.",
+    autre: "Autre", fichier_joint: " fichier joint.", fichiers_joints: " fichiers joints.",
+    non_joint: "\u26a0 Non joint : ", non_joint_fin: " \u2014 vous pouvez l\u2019envoyer par mail.",
+    rep_enregistree: "R\u00e9ponse enregistr\u00e9e.", atelier_informe: "L\u2019atelier Proto Process en est inform\u00e9 \u2014 merci\u00a0!",
+    conforme: "Conforme", a_controler: "\u00c0 contr\u00f4ler",
+    c_declaration: "N\u00b0 de d\u00e9claration", c_client: "Client", c_designation: "D\u00e9signation", c_serie: "N\u00b0 de s\u00e9rie / lot",
+    c_observations: "Observations", c_rohs: "Conforme \u00e0 la directive Europ\u00e9enne 2011/65/EC & 2015/863/UE (RoHS)",
+    c_fait_par: "Fait par", c_date: "Date", c_visa: "Visa", a: " \u00e0 ",
+    c_declaration_texte: "Nous d\u00e9clarons que la fourniture cit\u00e9e est conforme aux exigences du contrat et que, apr\u00e8s v\u00e9rifications et essais, elle r\u00e9pond en tout point aux exigences sp\u00e9cifi\u00e9es, aux normes et r\u00e8glements applicables, sauf exceptions, r\u00e9serves ou d\u00e9rogations \u00e9num\u00e9r\u00e9es dans la pr\u00e9sente d\u00e9claration de conformit\u00e9.",
+    titre_rapport: "Rapport de fabrication", print_edite: "\u00c9dit\u00e9 le ", print_page: "Rapport de fabrication",
+    insp: { presence_composants: "Pr\u00e9sence des composants / BOM", polarite: "Polarit\u00e9 / sens des composants", plaquage: "Plaquage des composants",
+      alignement_connecteurs: "Alignement des connecteurs", aspect_soudures: "Aspect des soudures et remont\u00e9es", controle_rx: "Contr\u00f4le RX",
+      aspect_general: "Aspect g\u00e9n\u00e9ral (rayures PCB, composants endommag\u00e9s\u2026)", proprete: "Propret\u00e9 (soudure traversants\u2026)",
+      etiquetage_pp: "\u00c9tiquetage N\u00b0 de s\u00e9rie PP", etiquetage_client: "\u00c9tiquetage sp\u00e9cifique client",
+      apres_lavage: "Pr\u00e9sence des \u00e9l\u00e9ments mont\u00e9s apr\u00e8s lavage (fusible, piles, cavaliers\u2026)", assemblage: "Assemblage (face avant, visserie\u2026)",
+      tropicalisation: "Tropicalisation", programmation: "Programmation", modifications: "Aspect des modifications demand\u00e9es (reprises filaires\u2026)",
+      controle_final: "Contr\u00f4le final", test_fonctionnel: "Test fonctionnel" }
+  },
+  en: {
+    titre_onglet: "Project tracking", btn_home: "Customer portal", btn_home_title: "Back to your Proto Process customer portal",
+    btn_print: "Download the report", btn_print_title: "Download the production report as PDF",
+    chargement: "Loading your tracking\u2026",
+    fourn_titre: "Your supplied parts", fourn_sous: "Components you supply to us. Production starts once everything is received.",
+    fourn_compte: "{r} received out of {n} expected", fourn_ref: "Part number", fourn_rep: "Designators", fourn_qte: "Received / expected", fourn_etat: "Status",
+    fourn_attendu: "Expected", fourn_partiel: "Partial", fourn_recu: "Received", fourn_nc: "Not fitted",
+    fourn_btn: "Do not fit", fourn_confirmer: "Confirm", fourn_annuler: "Cancel",
+    fourn_question: "The board will be delivered without this component. Confirm?",
+    fourn_decide: "Decision of {d}: you will not supply this component, the board will be delivered without it.",
+    fourn_deplier: "click to expand", fourn_replier: "click to collapse", fourn_recues: "{n} part(s) received",
+    fourn_reperes_n: "{n} designators", fourn_sans_ref: "no part number",
+    fourn_err: "The decision could not be saved. Try again, or contact Proto Process.",
+    refus_titre: "This link is not valid, or no longer valid",
+    refus_texte: "The tracking link you opened is no longer active. To receive a new link, please contact your Proto Process contact person.",
+    refus_indispo: "Tracking is temporarily unavailable. Please try again in a few minutes.",
+    bandeau_lecture: "This link is read-only: tracking remains available, but online replies are closed. Contact Proto Process for any question.",
+    voir_bom: "View BOM",
+    repondu: "Replied", tous_reperes: "Show all designators",
+    points_titre: "Awaiting your reply", points_sous: "Your reply directly unblocks the preparation of your board.",
+    points_fait: "All points are settled \u2014 thank you!",
+    onglet_historique: "History", onglet_rapport: "Production report",
+    so_en_cours: "Current order \u2014", so_sans: "Earlier history (no linked order)",
+    resume_cable: "Equivalent {P} fitted in place of {R}{X} \u2014 approved by you on {D}.",
+    resume_pas_cable: "{R}{X} not fitted \u2014 decision approved by you on {D}.",
+    cart_order: "Order", cart_ref_client: "Your order", cart_qte: "Quantities", cart_serie: "Serial N\u00b0", form_f08: "Formulaire F08/B", insp_page_titre: "Pre-packing inspection report",
+    resume_rep: "des. ", fil_note_print: "The full exchanges remain available in your online history.",
+    rapport_provisoire: "The production report is being finalised. It will be available when your boards ship.",
+    historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
+    historique_vide: "Production events for your board will appear here as manufacturing progresses.",
+    rapport_vide: "The production report will fill in as your board is manufactured.",
+    inspection_titre: "Pre-packing inspection", insp_col_item: "Inspected items", insp_col_conf: "Conformity", insp_col_comment: "Comments", conformite_titre: "Certificate of conformity", photos_titre: "Board photos", photo_dessus: "Top side", photo_dessous: "Bottom side", rx_lien: "Download X-ray images", rx_ou: "X-ray images available for 15 days from your customer portal: portail.proto-process.fr \u2192 Manufacturing tracking \u2192 this board.",
+    statut_lecture: "Reading production status\u2026", statut_indispo: "Production status unavailable for now.",
+    statut_actuel: "Current status: ", commande: "order", indice: "Revision ",
+    jalon_devis: "Quotation", jalon_preparation: "Preparation", jalon_fabrication: "Production", jalon_expediee: "Shipped",
+    chip_attente: "Pending", chip_resolu: "Settled", votre_commande: "Your order ", chip_commande: "Order ",
+    rep: "Des.", ref_mpn: "Ref/MPN", question_posee: "Question asked on ",
+    vous: "You", fiche_produit: "product page", voir_datasheet: "View datasheet",
+    votre_reponse: "Your reply:", comm_facultatif: "Comment (optional)", commentaire: "Comment",
+    comm_obligatoire: "Comment (required for this choice)", ecrire_reponse: "Write your reply here",
+    joindre: "Attach files:", dropzone: "Click here or drag and drop your files",
+    fichiers_aide: "Optional \u2014 3 files max, 5\u00a0MB each (PDF, image, Excel, CSV). Useful for a datasheet or a proposed reference.",
+    portee_decochee: "Unchecked: your reply applies to this order only.",
+    portee_titre: "Scope of the decision:",
+    signer: "Sign my reply (optional)", votre_nom: "Your name", envoyer: "Send reply", envoi: "Sending\u2026", fichier: "File ",
+    err_choix: "Choose a reply before sending.",
+    err_comm: "This choice requires a comment \u2014 please write it in the field provided.",
+    err_envoi: "Sending failed. Check your connection and try again.",
+    err_format: " is not an accepted format (PDF, image, Excel, CSV).", err_taille: " exceeds 5\u00a0MB.", err_nb: "3 files maximum per reply.",
+    autre: "Other", fichier_joint: " file attached.", fichiers_joints: " files attached.",
+    non_joint: "\u26a0 Not attached: ", non_joint_fin: " \u2014 you can send it by email.",
+    rep_enregistree: "Reply recorded.", atelier_informe: "The Proto Process workshop has been notified \u2014 thank you!",
+    conforme: "Compliant", a_controler: "To be checked",
+    c_declaration: "Statement n\u00b0", c_client: "Customer", c_designation: "Designation", c_serie: "Serial or batch number",
+    c_observations: "Observations", c_rohs: "Compliance with European Directive 2011/65/EC & 2015/863/UE (RoHS)",
+    c_fait_par: "Issued by", c_date: "Date", c_visa: "Stamp", a: " to ",
+    c_declaration_texte: "This is to certify that, unless otherwise provided for and stated hereafter, the supplies described herein fully comply with the contract requirements, that they have been inspected and tested and have been found in every respect in compliance with the relevant requirements as well as with the applicable standards and regulations in force.",
+    titre_rapport: "Production report", print_edite: "Issued on ", print_page: "Production report",
+    insp: { presence_composants: "Presence of components / BOM", polarite: "Polarity / components direction", plaquage: "Components seating",
+      alignement_connecteurs: "Connectors alignment", aspect_soudures: "Soldering appearance", controle_rx: "X-ray inspection",
+      aspect_general: "General appearance (PCB scratches, damaged components\u2026)", proprete: "Cleanliness (THT soldering\u2026)",
+      etiquetage_pp: "PP serial labeling", etiquetage_client: "Customer specific labeling",
+      apres_lavage: "Presence of elements assembled after washing (fuse, batteries, jumpers\u2026)", assemblage: "Assembly (front panel, screws\u2026)",
+      tropicalisation: "Conformal coating", programmation: "Programming", modifications: "Requested modifications appearance (wired reworks\u2026)",
+      controle_final: "Final control", test_fonctionnel: "Functional test" }
+  }
+};
+function t(k) { const d = T[LANG] || T.fr; return (k in d) ? d[k] : (T.fr[k] || k); }
+function tInsp(code, libelle) { const d = (T[LANG] || T.fr).insp || {}; return d[code] || T.fr.insp[code] || libelle || code; }
+function texteDernier(el, texte) {
+  if (!el) return;
+  const n = el.childNodes[el.childNodes.length - 1];
+  if (n && n.nodeType === 3) n.nodeValue = texte; else el.appendChild(document.createTextNode(texte));
+}
+/* Applique la langue a tout ce qui est ecrit en dur dans le HTML. Appele une
+   fois la langue connue (fiche chargee), et tout de suite si ?lang= est fourni. */
+function traduireStatique() {
+  const pp = document.getElementById("printProvisoire"); if (pp) pp.textContent = t("rapport_provisoire"); /* v0.58 */
+  document.documentElement.lang = LANG;
+  const q = function (s) { return document.querySelector(s); };
+  if (q(".logo-text .lo")) q(".logo-text .lo").textContent = t("titre_onglet");
+  texteDernier(document.getElementById("btnHome"), t("btn_home"));
+  document.getElementById("btnHome").title = t("btn_home_title");
+  texteDernier(document.getElementById("btnImprimer"), t("btn_print"));
+  document.getElementById("btnImprimer").title = t("btn_print_title");
+  document.getElementById("chargement").textContent = t("chargement");
+  if (q("#refus h1")) q("#refus h1").textContent = t("refus_titre");
+  if (q("#refus p")) q("#refus p").textContent = t("refus_texte");
+  document.getElementById("bandeauLecture").textContent = t("bandeau_lecture");
+  if (q("#btnBom span")) q("#btnBom span").textContent = t("voir_bom");
+  if (q("#pointsTitre span:nth-child(2)")) q("#pointsTitre span:nth-child(2)").textContent = t("points_titre");
+  document.getElementById("pointsSous").textContent = t("points_sous");
+  if (q(".onglet[data-panneau=panHistorique]")) q(".onglet[data-panneau=panHistorique]").textContent = t("onglet_historique");
+  if (q(".onglet[data-panneau=panRapport]")) q(".onglet[data-panneau=panRapport]").textContent = t("onglet_rapport");
+  if (q("#panHistorique .sec-titre span")) q("#panHistorique .sec-titre span").textContent = t("historique_titre");
+  document.getElementById("rapportVide").textContent = t("rapport_vide");
+  if (q("#inspectionBloc .sec-titre span")) q("#inspectionBloc .sec-titre span").textContent = t("inspection_titre");
+  const ie = document.getElementById("inspEntete");
+  if (ie) ie.querySelector(".print-titre").textContent = t("insp_page_titre");
+  if (q("#photosBloc .sec-titre span")) q("#photosBloc .sec-titre span").textContent = t("photos_titre");
+  document.getElementById("photoDessusCap").textContent = t("photo_dessus");
+  document.getElementById("photoDessousCap").textContent = t("photo_dessous");
+  if (q("#conformiteBloc .sec-titre span")) q("#conformiteBloc .sec-titre span").textContent = t("conformite_titre");
+  document.getElementById("jalonsNote").textContent = t("statut_lecture");
+  document.title = t("titre_onglet") + " \u00b7 " + APP_NAME + " v" + APP_VERSION;
+}
+if (LANG_FORCEE) traduireStatique();
+
+/* Choix fermes du chantier 106, libelles revus par Olivier le 08/08. Le
+   systeme generique de choix PAR question (bibliotheque Pb->Soluce) est le
+   chantier 111. Codes alignes avec le workflow FabStory - Client (public) :
+   commentaire OBLIGATOIRE pour alternative_ok, autre et libre — sans lui,
+   PP ne saurait pas QUELLE alternative le client propose. */
+const CHOIX_FERMES_FR = [
+  { code: "je_fournis", label: "Je fournis ce composant", commentaireObligatoire: false,
+    aide: "Vous nous exp\u00e9diez le composant\u00a0; la fabrication reprend \u00e0 r\u00e9ception." },
+  { code: "alternative_ok", label: "Alternative(s) possible(s)", commentaireObligatoire: true,
+    aide: "Indiquez en commentaire la ou les r\u00e9f\u00e9rences que vous proposez \u2014 ou \u00ab\u00a0OK pour la r\u00e9f\u00e9rence propos\u00e9e\u00a0\u00bb si nous vous en avons sugg\u00e9r\u00e9 une." },
+  { code: "attendre", label: "Attendre stock / disponibilit\u00e9", commentaireObligatoire: false,
+    aide: "Nous commandons d\u00e8s le retour en stock chez nos distributeurs\u00a0; le d\u00e9lai de livraison peut glisser d\u2019autant." },
+  { code: "cabler_sans", label: "Ne pas c\u00e2bler", commentaireObligatoire: false,
+    aide: "La carte est assembl\u00e9e sans ce composant, l\u2019emplacement reste libre." },
+  { code: "chiffrage_broker", label: "Chiffrage broker", commentaireObligatoire: false,
+    aide: "Nous recherchons la r\u00e9f\u00e9rence via un r\u00e9seau de brokers et vous soumettons un chiffrage avant toute commande." },
+  { code: "autre", label: "Autre\u2026", commentaireObligatoire: true,
+    aide: "D\u00e9crivez votre r\u00e9ponse dans le champ de commentaire." }
+];
+const CHOIX_FERMES_EN = [
+  { code: "je_fournis", label: "I will supply this component", commentaireObligatoire: false,
+    aide: "You ship the component to us; manufacturing resumes on receipt." },
+  { code: "alternative_ok", label: "Alternative(s) possible", commentaireObligatoire: true,
+    aide: "Indicate in the comment the reference(s) you propose \u2014 or \u201cOK for the proposed reference\u201d if we suggested one." },
+  { code: "attendre", label: "Wait for stock / availability", commentaireObligatoire: false,
+    aide: "We order as soon as it is back in stock at our distributors; the delivery date may slip accordingly." },
+  { code: "cabler_sans", label: "Do not assemble", commentaireObligatoire: false,
+    aide: "The board is assembled without this component, the location is left empty." },
+  { code: "chiffrage_broker", label: "Broker quotation", commentaireObligatoire: false,
+    aide: "We search for the reference through a broker network and submit a quotation before any order." },
+  { code: "autre", label: "Other\u2026", commentaireObligatoire: true,
+    aide: "Describe your reply in the comment field." }
+];
+/* Les CODES sont ceux du workflow, quelle que soit la langue ; seuls les libelles changent. */
+const CHOIX_FERMES = (LANG === "en") ? CHOIX_FERMES_EN : CHOIX_FERMES_FR;
+/* Portees renommees le 08/08 (retour Olivier), chacune avec son sous-entendu
+   explicite — l aide change avec la selection, comme pour les choix. */
+const PORTEES = (LANG === "en") ? [
+  { code: "so", label: "For this order only",
+    aide: "Applies to this order. On re-order, the question may be asked again if the case arises." },
+  { code: "carte", label: "For this project / this board",
+    aide: "Recorded for this board: also applies to its future re-orders. The question will be asked again if it arises on another product." },
+  { code: "client", label: "All projects / all boards",
+    aide: "Definitive rule for all your boards, whatever the product: the question will not be asked again." }
+] : [
+  { code: "so", label: "Pour cette commande uniquement",
+    aide: "Vaut pour cette commande. En cas de re-commande, la question pourra \u00eatre repos\u00e9e si le cas se repr\u00e9sente." },
+  { code: "carte", label: "Pour ce projet / cette carte",
+    aide: "Enregistr\u00e9 pour cette carte\u00a0: vaut aussi pour ses futures re-commandes. La question sera repos\u00e9e si elle se pr\u00e9sente sur un autre produit." },
+  { code: "client", label: "Tous les projets / toutes les cartes",
+    aide: "R\u00e8gle d\u00e9finitive pour l\u2019ensemble de vos cartes, quel que soit le produit\u00a0: la question ne sera plus pos\u00e9e." }
+];
+const JALONS = [
+  { code: "devis",       cle: "jalon_devis" },
+  { code: "preparation", cle: "jalon_preparation" },
+  { code: "fabrication", cle: "jalon_fabrication" },
+  { code: "expediee",    cle: "jalon_expediee" }
+];
+
+/* Icones en SVG EMBARQUE uniquement : la police d'icones ne charge pas chez
+   tous les utilisateurs (constat FabStory v0.4), et cette page est publique. */
+function svgCroix(taille) {
+  return '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="10" fill="#fdeeee" stroke="#c93b3b" stroke-width="2"/>' +
+    '<path d="M9 9l6 6M15 9l-6 6" stroke="#c93b3b" stroke-width="2.2" stroke-linecap="round"/></svg>';
+}
+function svgCoche(taille) {
+  return '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="10" fill="#EAF3DE" stroke="#3B6D11" stroke-width="2"/>' +
+    '<path d="M8 12.5l2.6 2.6L16 9.5" stroke="#3B6D11" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function svgPoint() {
+  return '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>';
+}
+function svgTrombone() {
+  return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M21 12.5l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-8.8 8.8a1.8 1.8 0 01-2.6-2.6l8-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+/* Pictos des jalons : SVG monochromes embarques (decision 08/08) — ils prennent
+   la couleur de l etat via currentColor, ce que les pictos PNG de la banque
+   (polychromes) ne permettent pas. */
+function svgJalon(code) {
+  const t = 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const D = {
+    devis: '<path d="M7 3h7l4 4v14H7z" ' + t + '/><path d="M14 3v4h4M10.5 12h5M10.5 15.5h5" ' + t + '/>',
+    preparation: '<circle cx="12" cy="12" r="3.2" ' + t + '/><path d="M12 4.5v2.3M12 17.2v2.3M4.5 12h2.3M17.2 12h2.3M6.7 6.7l1.6 1.6M15.7 15.7l1.6 1.6M17.3 6.7l-1.6 1.6M8.3 15.7l-1.6 1.6" ' + t + '/>',
+    fabrication: '<rect x="7.5" y="7.5" width="9" height="9" rx="1" ' + t + '/><path d="M10 7.5V4.5M14 7.5V4.5M10 19.5v-3M14 19.5v-3M7.5 10h-3M7.5 14h-3M19.5 10h-3M19.5 14h-3" ' + t + '/>',
+    expediee: '<path d="M12 3.5l7.5 4.2v8.6L12 20.5l-7.5-4.2V7.7z" ' + t + '/><path d="M4.5 7.7l7.5 4.2 7.5-4.2M12 11.9v8.6" ' + t + '/>'
+  };
+  return '<svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">' + (D[code] || '') + '</svg>';
+}
+function fmtTaille(o) {
+  if (!o && o !== 0) return "";
+  if (o < 1024) return o + " o";
+  if (o < 1048576) return Math.round(o / 1024) + " ko";
+  return (o / 1048576).toFixed(1).replace(".", ",") + " Mo";
+}
+function lienPiece(id) {
+  return API + "/fabstory-client-piece?jeton=" + encodeURIComponent(JETON) + "&id=" + encodeURIComponent(id);
+}
+function htmlPieces(pieces) {
+  /* v0.12 : pieces bien visibles (demande Olivier 25/08). Images = vraie
+     miniature chargee depuis le proxy (le lien porte le jeton, une balise img
+     suffit) ; autres types = grosse icone typee. Tout ouvre le fichier. */
+  if (!pieces || !pieces.length) return "";
+  const IMAGES = ["png", "jpg", "jpeg", "webp", "gif"];
+  const TYPES = { pdf: ["PDF", "#FCEBEB", "#A32D2D"], xlsx: ["XLSX", "#EAF3DE", "#3B6D11"],
+                  xls: ["XLS", "#EAF3DE", "#3B6D11"], csv: ["CSV", "#EAF3DE", "#3B6D11"] };
+  let h = "<div>";
+  pieces.forEach(function (p) {
+    const ext = String(p.nom || "").split(".").pop().toLowerCase();
+    const url = lienPiece(p.id);
+    let visuel;
+    if (IMAGES.indexOf(ext) >= 0) {
+      visuel = '<img class="mini" src="' + esc(url) + '" alt="" loading="lazy">';
+    } else {
+      const t = TYPES[ext] || [ext.toUpperCase().slice(0, 5) || "DOC", "#eef2f5", "#4a5a64"];
+      visuel = '<span class="picto-type" style="background:' + t[1] + ';color:' + t[2] + '">' + t[0] + "</span>";
+    }
+    h += '<a class="piece-tuile" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      visuel + '<span class="p-nom">' + esc(p.nom) + '</span>' +
+      '<span class="p-taille">' + esc(fmtTaille(p.taille)) + "</span></a>";
+  });
+  return h + "</div>";
+}
+function htmlPhotosEntree(e) {
+  /* v0.51 (17/09, demande Olivier) : photos prises EN INTERNE avec une question ou
+     une note (fiche_de_vie.photos) — jusqu ici invisibles cote client. Meme tuile
+     que les pieces ; le lien porte le jeton + id d entree + index, le serveur
+     verifie l appartenance a la carte et visible_client avant de signer l URL. */
+  if (!e || !Array.isArray(e.photos) || !e.photos.length) return "";
+  let h = "<div>";
+  e.photos.forEach(function (chemin, i) {
+    const nom = String(chemin || "").split("/").pop().replace(/^[a-z0-9]{8}-/i, "");
+    const url = API + "/fabstory-client-photo?jeton=" + encodeURIComponent(JETON) + "&fiche=" + e.id + "&n=" + i;
+    /* v0.57 : image = miniature ; autre fichier (.xls du fabricant, PDF) = tuile typee, comme htmlPieces */
+    const ext = nom.split(".").pop().toLowerCase();
+    const TYPES = { pdf: ["PDF", "#FCEBEB", "#A32D2D"], xlsx: ["XLSX", "#EAF3DE", "#3B6D11"],
+                    xls: ["XLS", "#EAF3DE", "#3B6D11"], csv: ["CSV", "#EAF3DE", "#3B6D11"] };
+    let visuel;
+    if (["png", "jpg", "jpeg", "webp", "gif", "heic", "heif"].indexOf(ext) >= 0) {
+      visuel = '<img class="mini" src="' + esc(url) + '" alt="" loading="lazy">';
+    } else {
+      const t = TYPES[ext] || [ext.toUpperCase().slice(0, 5) || "DOC", "#eef2f5", "#4a5a64"];
+      visuel = '<span class="picto-type" style="background:' + t[1] + ';color:' + t[2] + '">' + t[0] + "</span>";
+    }
+    h += '<a class="piece-tuile" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      visuel + '<span class="p-nom">' + esc(nom) + "</span></a>";
+  });
+  return h + "</div>";
+}
+const EXT_OK = ["pdf", "png", "jpg", "jpeg", "webp", "gif", "xlsx", "xls", "csv"];
+function lireFichierB64(fichier) {
+  return new Promise(function (res, rej) {
+    const lecteur = new FileReader();
+    lecteur.onload = function () { res(String(lecteur.result).split(",")[1] || ""); };
+    lecteur.onerror = function () { rej(new Error("lecture")); };
+    lecteur.readAsDataURL(fichier);
+  });
+}
+
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+/* v0.53 : reperes limites a 3 a l ecran (« D101, D106, D111 +23 »). Le clic sur +N deplie
+   la liste ; a l impression la liste complete est toujours sortie (CSS print). */
+function listeReperes(txt) {
+  return String(txt == null ? "" : txt).split(/\s*[,;\n]+\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
+}
+function htmlReperes(txt) {
+  const l = listeReperes(txt);
+  if (l.length <= 3) return esc(txt);
+  const tout = esc(l.join(", "));
+  return '<span class="rep"><span class="rep-court">' + esc(l.slice(0, 3).join(", ")) +
+    ' <button type="button" class="rep-plus" title="' + tout + '" aria-label="' + esc(t("tous_reperes")) + '">+' + (l.length - 3) + '</button></span>' +
+    '<span class="rep-tout">' + tout + '</span></span>';
+}
+document.addEventListener("click", function (ev) {
+  const b = ev.target && ev.target.closest ? ev.target.closest(".rep-plus") : null;
+  if (!b) return;
+  ev.preventDefault();
+  const r = b.closest(".rep");
+  if (r) r.classList.add("deplie");
+});
+/* v0.16 : texte client en paragraphes, URL brute -> lien "fiche produit" (jamais
+   affichee en clair), sans changer le texte enregistre.
+   v0.53 : la liste de reperes repetee dans la phrase est raccourcie comme la ligne Rep,
+   et « Proposition PP : » est mis en avant. Rend un tableau de paragraphes (HTML). */
+function parasTexteClient(texte, repere) {
+  const brut = String(texte == null ? "" : texte);
+  const paras = brut.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+  const repEsc = (repere && listeReperes(repere).length > 3) ? esc(String(repere).trim()) : "";
+  return paras.map(function (l) {
+    let h = esc(l).replace(/\s*[\u2014\u2013-]?\s*(https?:\/\/[^\s<]+?)([.,;:!?]?)(?=\s|$)/g, function (m, url, fin) {
+      return ' (<a class="lien-inline" href="' + url + '" target="_blank" rel="noopener">' + t("fiche_produit") + '</a>)' + fin;
+    });
+    if (repEsc && h.indexOf(repEsc) >= 0) h = h.split(repEsc).join(htmlReperes(repere));
+    h = h.replace(/(Proposition\s+PP\s*:)/g, '<span class="prop-pp">$1</span>');
+    return h;
+  });
+}
+function htmlTexteClient(texte, repere) {
+  return parasTexteClient(texte, repere).map(function (h) { return "<p>" + h + "</p>"; }).join("");
+}
+/* v0.53 : une question sans proposition PP ne doit pas offrir « Accepter l equivalent
+   propose par PP » (les modeles gardaient ce choix meme quand la proposition etait vide). */
+function sansProposition(e) {
+  const p = e && e.enveloppe && e.enveloppe.proposition;
+  if (p && String(p).trim()) return false;
+  return !/Proposition\s+PP/i.test(String((e && e.texte) || ""));
+}
+function choixSansObjet(e, c) {
+  if (!c || !sansProposition(e)) return false;
+  return /propos[\u00e9e]e?\s+par\s+PP|proposed\s+by\s+PP/i.test(String(c.libelle || "")) ||
+    /c[\u00e2a]blons\s{2,}[\u00e0a]\s+la\s+place/i.test(String(c.aide || ""));
+}
+function svgLienExt() {
+  return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function htmlLiensDoc(e) {
+  const l = (e && e.enveloppe && e.enveloppe.liens) || {};
+  /* v0.17 (Olivier 31/08) : UN bouton, la datasheet en direct ; la fiche produit
+     reste accessible par le lien "fiche produit" dans le texte. */
+  if (!l.datasheet) return "";
+  return '<div class="liens-doc"><a href="' + esc(l.datasheet) + '" target="_blank" rel="noopener">' + svgLienExt() + t("voir_datasheet") + '</a></div>';
+}
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString(LANG === "en" ? "en-GB" : "fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+let DONNEES = null;
+
+/* ------------------------------------------------------------------ */
+/* Chargement en deux temps : le journal d'abord (rapide), le statut  */
+/* Odoo ensuite (~4 s) — le client n'attend jamais devant une page    */
+/* blanche pendant l'interrogation de l'ERP.                          */
+/* ------------------------------------------------------------------ */
+async function charger() {
+  if (!JETON) { montrerRefus(); return; }
+  let r;
+  try {
+    const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) +
+      (SO_AVANT ? "&so=" + encodeURIComponent(SO_AVANT) : ""));
+    r = await rep.json();
+  } catch (e) {
+    montrerRefus(t("refus_indispo"));
+    return;
+  }
+  if (!r || !r.ok) { montrerRefus(); return; }
+  DONNEES = r;
+  if (!LANG_FORCEE && r.produit && (r.produit.langue === "en" || r.produit.langue === "fr")) LANG = r.produit.langue;
+  traduireStatique();
+  document.getElementById("chargement").style.display = "none";
+  document.getElementById("contenu").style.display = "block";
+  rendreHero(r);
+  rendrePoints(r);
+  rendreFil(r);
+  chargerPhotos();
+  await chargerStatut();
+  chargerRx();
+  /* Le bouton n apparait qu une fois le VRAI statut charge (pas juste le
+     contenu principal) : sinon une impression trop rapide fige "Statut de
+     fabrication en cours de lecture..." dans le PDF au lieu du jalon reel. */
+  document.getElementById("btnImprimer").style.display = "inline-flex";
+}
+
+
+/* ---------------------- v0.52 (ch.171) : Vos fournitures ---------------------- */
+/* Bloc SOUS la barre d avancement : fournitures client du SO courant, lu dans le meme
+   appel que le journal (DONNEES.fournitures, lignes masquees deja exclues en SQL).
+   Visible tant qu une fourniture est attendue ou partielle ; jamais si la carte est
+   expediee. Lignes recues repliees. « Ne pas cabler » = decision enregistree dans le
+   fil et au rapport de fabrication, puis appliquee aux achats par Proto Process. */
+let STATUT_CODE = null;
+let fournDeplie = false;
+let fournEdition = null;
+function fournListe() {
+  const l = (DONNEES && Array.isArray(DONNEES.fournitures)) ? DONNEES.fournitures : [];
+  if (!SO_CIBLE || STATUT_CODE === "expediee") return [];
+  return l.filter(function (x) { return String(x.so || "").toUpperCase() === String(SO_CIBLE).toUpperCase(); });
+}
+function fournReperes(txt) {
+  const tt = String(txt || "").split(/[,;\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+  if (tt.length <= 4) return tt.join(", ");
+  return tt.slice(0, 4).join(", ") + " \u2026 (" + t("fourn_reperes_n").replace("{n}", tt.length) + ")";
+}
+/* v0.56 (22/10/2026, SO2604-232) : une fourniture sans MPN ni IPN affichait « — » ou « - » en
+   colonne Reference — le tiret vient de la case IPN vide d'Achats PP (corrige a la source en 15.40),
+   et cote client il ressemblait a une reference qu'on aurait mal recopiee. On dit ce qui est vrai :
+   cette fourniture n'a pas de reference. Les reperes restent en colonne 2, ils ne sont pas repetes ici. */
+function fournRefTexte(l) {
+  const r = String(l && l.ref != null ? l.ref : "").trim();
+  if (!r || /^[-–—_.\s]+$/.test(r) || /^(n\/?a|na|none|null)$/i.test(r)) return null;
+  return r;
+}
+function fournLigne(l) {
+  const etat = l.etat;
+  const lib = t("fourn_" + ({ attendu: "attendu", partiel: "partiel", recu: "recu", non_cable: "nc" }[etat] || "attendu"));
+  let act = "";
+  if (etat === "non_cable") {
+    act = '<div class="fourn-act"><span class="note">' + esc(t("fourn_decide").replace("{d}", l.decision_le ? fmtDate(l.decision_le) : "")) + "</span></div>";
+  } else if (fournEdition === l.id) {
+    act = '<div class="fourn-act"><span class="note">' + esc(t("fourn_question")) + "</span>" +
+      '<button type="button" class="fourn-btn" onclick="fournAnnuler()">' + esc(t("fourn_annuler")) + "</button>" +
+      '<button type="button" class="fourn-btn ok" onclick="fournConfirmer(' + l.id + ')">' + esc(t("fourn_confirmer")) + "</button>" +
+      '<span class="rep-erreur" id="fourn-err" style="margin:0"></span></div>';
+  } else if (etat !== "recu" && DONNEES && DONNEES.repondable !== false && (l.recu || 0) === 0) {
+    act = '<div class="fourn-act"><button type="button" class="fourn-btn" onclick="fournDemander(' + l.id + ')">' + esc(t("fourn_btn")) + "</button></div>";
+  }
+  return '<div class="fourn-l' + (etat === "non_cable" ? " off" : "") + '">' +
+    (fournRefTexte(l)
+      ? '<span class="fourn-ref">' + esc(fournRefTexte(l)) + "</span>"
+      : '<span class="fourn-ref sans-ref">' + esc(t("fourn_sans_ref")) + "</span>") +
+    '<span class="fourn-rep" title="' + esc(l.reperes || "") + '">' + esc(fournReperes(l.reperes)) + "</span>" +
+    '<span class="fourn-qte">' + Math.round(l.recu || 0) + " / " + Math.round(l.attendu || 0) + "</span>" +
+    '<span class="fourn-pill ' + etat + '">' + esc(lib) + "</span>" + act + "</div>";
+}
+function rendreFournitures() {
+  const bloc = document.getElementById("fournBloc");
+  if (!bloc) return;
+  const ls = fournListe();
+  const ouvertes = ls.filter(function (l) { return l.etat === "attendu" || l.etat === "partiel"; });
+  if (!ls.length || !ouvertes.length) { bloc.style.display = "none"; bloc.innerHTML = ""; return; }
+  const recues = ls.filter(function (l) { return l.etat === "recu"; });
+  const comptees = ls.filter(function (l) { return l.etat !== "non_cable"; });
+  const autres = ls.filter(function (l) { return l.etat !== "recu"; });
+  let h = '<div class="fourn-tete"><h2>' + esc(t("fourn_titre")) + "</h2>" +
+    '<span class="fourn-compte">' + esc(t("fourn_compte").replace("{r}", recues.length).replace("{n}", comptees.length)) + "</span></div>" +
+    '<p class="fourn-sous">' + esc(t("fourn_sous")) + "</p>" +
+    '<div class="fourn-l entete"><span>' + esc(t("fourn_ref")) + '</span><span class="fourn-rep-h">' + esc(t("fourn_rep")) + "</span><span>" + esc(t("fourn_qte")) + "</span><span>" + esc(t("fourn_etat")) + "</span></div>";
+  h += autres.map(fournLigne).join("");
+  if (recues.length) {
+    h += '<div class="fourn-l fourn-pli" onclick="fournPlier()"><span>' + (fournDeplie ? "\u25be" : "\u25b8") + " " + esc(t("fourn_recues").replace("{n}", recues.length)) + "</span>" +
+      '<span class="fourn-lien">' + esc(fournDeplie ? t("fourn_replier") : t("fourn_deplier")) + "</span><span></span>" +
+      '<span class="fourn-pill recu">' + esc(t("fourn_recu")) + "</span></div>";
+    if (fournDeplie) h += recues.map(fournLigne).join("");
+  }
+  bloc.innerHTML = h;
+  bloc.style.display = "block";
+}
+function fournPlier() { fournDeplie = !fournDeplie; rendreFournitures(); }
+function fournDemander(id) { fournEdition = id; rendreFournitures(); }
+function fournAnnuler() { fournEdition = null; rendreFournitures(); }
+async function fournConfirmer(id) {
+  const btn = document.querySelector(".fourn-btn.ok");
+  if (btn) btn.disabled = true;
+  let r = null;
+  try {
+    const rep = await fetch(API + "/fabstory-client-reponse", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jeton: JETON, fourniture_id: id, auteur: "" })
+    });
+    r = await rep.json();
+  } catch (e) { r = null; }
+  if (!r || !r.ok) {
+    if (btn) btn.disabled = false;
+    const z = document.getElementById("fourn-err");
+    if (z) { z.textContent = (r && r.motif) ? r.motif : t("fourn_err"); z.style.display = "block"; }
+    return;
+  }
+  const l = (DONNEES.fournitures || []).find(function (x) { return x.id === id; });
+  if (l) { l.etat = "non_cable"; l.decision_le = new Date().toISOString(); }
+  fournEdition = null;
+  rendreFournitures();
+  /* Le fil est recharge pour montrer la decision enregistree (question + rapport). */
+  try { const rep2 = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + (SO_CIBLE ? "&so=" + encodeURIComponent(SO_CIBLE) : "")); const d2 = await rep2.json(); if (d2 && d2.ok) { d2.fournitures = DONNEES.fournitures; DONNEES = d2; rendrePoints(d2); rendreFil(d2); } } catch (e) { /* sans gravite */ }
+}
+
+function montrerRefus(message) {
+  document.getElementById("chargement").style.display = "none";
+  const refus = document.getElementById("refus");
+  refus.style.display = "block";
+  if (message) refus.querySelector("p").textContent = message;
+}
+
+async function chargerStatut() {
+  try {
+    const rep = await fetch(API + "/fabstory-client?jeton=" + encodeURIComponent(JETON) + "&partie=statut");
+    const r = await rep.json();
+    /* v0.40 : sans &so= dans le lien, le SO courant vient du statut -> on re-filtre. */
+    if (!SO_CIBLE && r && r.ok && r.so) {
+      SO_CIBLE = String(r.so).trim();
+      if (DONNEES) { rendrePoints(DONNEES); rendreFil(DONNEES); }
+    }
+    rendreJalons(r && r.ok ? r.statut : null, r && r.so ? r.so : null, false, r && r.ok ? r.operations : null);
+    rendreInspection(r && r.ok ? r.inspection : null);
+    if (r && r.ok && r.conformite) { r.conformite.so = r.conformite.so || r.so || ""; if (r.conformite.qte == null) r.conformite.qte = r.qte_cmd; }
+    rendreCartouche(r && r.ok ? r : null);
+    rendreConformite(r && r.ok ? r.conformite : null);
+    STATUT_CODE = (r && r.ok) ? (r.statut || null) : null;
+    RAPPORT_FIGE = (r && r.ok && r.rapport_fige) ? r.rapport_fige : null; STATUT_LU = true;
+    document.body.classList.toggle("rapport-provisoire", !RAPPORT_FIGE);
+    if (DONNEES) rendreFil(DONNEES);
+    rendreFournitures();
+  } catch (e) {
+    rendreJalons(null, null);
+    rendreInspection(null);
+    rendreConformite(null);
+  }
+}
+
+/* ch.137 : photos de la carte (dessus/dessous), prises a l atelier. Servies
+   par le jeton via une redirection vers un lien signe (1 h) : jamais d URL de
+   stockage dans la page. Une face sans photo repond 404 -> figure masquee ;
+   aucune photo -> section absente. */
+function chargerPhotos() {
+  const bloc = document.getElementById("photosBloc");
+  let visibles = 0;
+  ["Dessus", "Dessous"].forEach(function (F) {
+    const img = document.getElementById("photo" + F);
+    const fig = img.parentElement;
+    fig.hidden = true;
+    img.onload = function () { fig.hidden = false; visibles++; bloc.style.display = "block"; majRapportVide(); };
+    img.onerror = function () { fig.hidden = true; };
+    img.src = API + "/fabstory-client-photo?jeton=" + encodeURIComponent(JETON) + "&face=" + F.toLowerCase() + "&t=" + Date.now();
+  });
+}
+
+/* v0.47 (ch.163) : cliches RX partages par PP, telechargeables 15 j via jeton.
+   S il y en a, un lien apparait dans la ligne Controle RX du tableau d inspection
+   (page RX minimaliste servie par le meme workflow). SO connu apres chargerStatut. */
+async function chargerRx() {
+  try {
+    if (!SO_CIBLE) return;
+    var r = await fetch(API + "/fabstory-client-rx?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO_CIBLE));
+    var j = await r.json();
+    if (j && j.ok && j.cliches && j.cliches.length) {
+      /* v0.49 : lien ABSOLU, sinon il est mort dans le PDF imprime. */
+      RX_LIEN = location.origin + location.pathname.replace(/[^\/]*$/, "") + "rx.html?jeton=" + encodeURIComponent(JETON) + "&so=" + encodeURIComponent(SO_CIBLE);
+      /* v0.50 : meme sans point d inspection, des cliches existent -> la ligne doit apparaitre. */
+      rendreInspection(INSPECTION_PTS || []);
+    }
+  } catch (e) { /* pas de cliche = rien a montrer */ }
+}
+
+/* v0.46 (04/09, ch.163) : quand un rapport est FIGE cote PP, le serveur envoie les
+   lignes figees (avec commentaires et lignes ajoutees) et les n de serie du LOT ;
+   la page n a rien a decider, elle affiche ce qu elle recoit. */
+/* ch.137 (spec Olivier 01/09) : INSPECTION AVANT EMBALLAGE -- les points de
+   controle du F08/B, sans les lignes inutiles. La liste est calculee cote
+   serveur a partir des operations cochees sur le projet Odoo ; l etat est
+   "Conforme" des que le CONTROLE FINAL est fait, sinon "A controler". Les
+   anomalies vivent dans le fil (notes FabStory), pas ici. */
+function rendreInspection(pts) {
+  const bloc = document.getElementById("inspectionBloc");
+  const zone = document.getElementById("inspectionZone");
+  if (!bloc || !zone) return;
+  pts = (pts || []).slice();
+  /* v0.50 (retour Olivier 10/09) : la ligne Controle RX depend du projet Odoo, elle
+     n y est pas toujours. Si des cliches ont ete deposes, on l AJOUTE : les cliches
+     ne doivent jamais etre invisibles au client faute de ligne ou les accrocher. */
+  if (RX_LIEN && !pts.some(function (p) { return p && p.code === "controle_rx"; })) {
+    /* conforme volontairement non coche : les cliches prouvent le controle, pas sa conclusion. */
+    pts.push({ code: "controle_rx", conforme: false, commentaire: "" });
+  }
+  if (!pts.length) { bloc.style.display = "none"; majRapportVide(); return; }
+  INSPECTION_PTS = pts; /* v0.47 (ch.163) : conserve pour re-rendre avec le lien RX quand il arrive. */
+  /* Presentation au format du formulaire F08/B : tableau borde
+     Points inspectes | Ok | Commentaires. X dans Ok quand le controle final
+     est pointe ; sinon l etat "a controler" en commentaire. Ligne Controle RX :
+     si des cliches RX sont partages (RX_LIEN), un lien de telechargement est ajoute. */
+  zone.innerHTML = '<table class="f08-t f08-inspection"><tr>' +
+    '<th>' + esc(t("insp_col_item")) + '</th>' +
+    '<th style="width:16%; text-align:center">' + esc(t("insp_col_conf")) + '</th>' +
+    '<th style="width:28%">' + esc(t("insp_col_comment")) + '</th></tr>' +
+    pts.map(function (p) {
+      var obs = esc(p.commentaire || "");
+      if (p.code === "controle_rx" && RX_LIEN) {
+        /* v0.49 (retour Olivier 10/09) : sur papier le lien ne suffit pas ; on ecrit
+           OU et COMBIEN DE TEMPS les cliches sont disponibles. */
+        obs += (obs ? '<br>' : '') + '<a href="' + esc(RX_LIEN) + '" target="_blank" rel="noopener">' + esc(t("rx_lien")) + '</a>' +
+               '<br><span class="rx-ou">' + esc(t("rx_ou")) + '</span>';
+      }
+      return '<tr><td>' + esc(tInsp(p.code, p.libelle)) + '</td>' +
+        '<td style="text-align:center" class="f08-fort">' + (p.conforme ? esc(t("conforme")) : "") + '</td>' +
+        '<td class="f08-obs-cell">' + obs + '</td></tr>';
+    }).join("") + '</table>';
+  bloc.style.display = "block";
+  majRapportVide();
+}
+
+/* ch.137 (F08/B) : cartouche d en-tete du rapport, comme la page 1 du
+   formulaire : Order / Customer / Project / Quantities + Serial N. Affiche
+   des qu un SO est connu. */
+function rendreCartouche(r) {
+  const bloc = document.getElementById("cartoucheBloc");
+  if (!bloc) return;
+  const p = (DONNEES && DONNEES.produit) || {};
+  if (!r || !r.so) { bloc.style.display = "none"; majRapportVide(); return; }
+  document.getElementById("cartLOrder").textContent = t("cart_order");
+  document.getElementById("cartVOrder").textContent = r.so;
+  document.getElementById("cartLRefClient").textContent = r.client_order_ref ? t("cart_ref_client") : "";
+  document.getElementById("cartVRefClient").textContent = r.client_order_ref || "";
+  document.getElementById("cartLQte").textContent = t("cart_qte");
+  document.getElementById("cartVQte").textContent = (r.qte_cmd != null ? r.qte_cmd : "");
+  const c = r.conformite || {};
+  const plage = c.n_serie_debut ? (c.n_serie_debut === c.n_serie_fin ? c.n_serie_debut : c.n_serie_debut + t("a") + c.n_serie_fin) : "";
+  document.getElementById("cartLSerie").textContent = plage ? t("cart_serie").replace(" :", "").replace(":", "") : "";
+  document.getElementById("cartVSerie").textContent = plage;
+  
+  bloc.style.display = "block";
+  majRapportVide();
+}
+
+/* ch.137 : section Conformite, calculee cote serveur (N de serie, N de
+   declaration) a partir du SO + de la quantite deja lus pour le statut.
+   N apparait que si Odoo a bien rendu ces informations (carte non rattachee
+   a un SO connu = section absente, pas de ligne a moitie remplie). */
+function rendreConformite(c) {
+  const bloc = document.getElementById("conformiteBloc");
+  const zone = document.getElementById("conformiteZone");
+  if (!bloc || !zone) return;
+  if (!c) { bloc.style.display = "none"; majRapportVide(); return; }
+  const p = (DONNEES && DONNEES.produit) || {};
+  const plage = (c.n_serie_debut === c.n_serie_fin)
+    ? c.n_serie_debut
+    : (c.n_serie_debut + t("a") + c.n_serie_fin);
+  const auj = new Date();
+  const dateFr = String(auj.getDate()).padStart(2, "0") + "/" + String(auj.getMonth() + 1).padStart(2, "0") + "/" + auj.getFullYear();
+  /* Mise en forme calquee sur le formulaire F08/B (bilingue par nature :
+     identique quelle que soit la langue de la page). Le N/date de BL n est
+     pas encore remonte du statut : case laissee vide, comme sur le papier. */
+  const so = c.so || "";
+  const K = function (fr, en) { return '<div class="f08-k">' + fr + '<br><i>' + en + '</i></div>'; };
+  zone.innerHTML =
+    '<div class="f08">' +
+    '<div class="f08-bandeau"><div class="f08-titre">D\u00c9CLARATION DE CONFORMIT\u00c9</div>' +
+    '<div class="f08-sous"><i>CERTIFICATE OF CONFORMITY</i></div>' +
+    '<div class="f08-norme"><i>(NF L 00-015C)</i></div>' +
+    '<div class="f08-form">Formulaire F08/B</div></div>' +
+    '<table class="f08-t"><tr>' +
+    '<td style="width:22%">' + K("Client :", "Customer:") + '</td>' +
+    '<td style="width:45%" class="f08-fort">' + esc(p.nom_client || "") + '</td>' +
+    '<td style="width:33%">' + K("N\u00b0 de la d\u00e9claration :", "Statement n\u00b0:") + '<div class="f08-fort">' + esc(c.n_declaration || "") + '</div></td>' +
+    '</tr><tr>' +
+    '<td>' + K("Commande :", "Order:") + '</td>' +
+    '<td class="f08-fort">' + esc(so) + '</td>' +
+    '<td>' + K("N\u00b0 et date du bordereau de livraison :", "Number and date of delivery note:") + (c.bl && c.bl.nom ? '<div class="f08-fort">' + esc(c.bl.nom + " \u2014 " + c.bl.date) + '</div>' : '') + '</td>' +
+    '</tr></table>' +
+    '<table class="f08-t f08-produits"><tr>' +
+    '<th>' + K("D\u00e9nomination", "Designation") + '</th>' +
+    '<th>' + K("R\u00e9f\u00e9rence ou type", "Reference or type") + '</th>' +
+    '<th>' + K("N\u00b0 de s\u00e9rie ou de lot", "Serial or batch number") + '</th>' +
+    '<th style="width:9%">' + K("Quantit\u00e9", "Qty") + '</th>' +
+    '<th style="width:24%">' + K("Observations", "Observations") + '</th>' +
+    '</tr><tr>' +
+    '<td>Carte \u00e9lectronique<br><i>Electronic board</i></td>' +
+    '<td class="f08-fort">' + esc(p.libelle_carte || p.ref_carte || p.cle_produit || "") + '</td>' +
+    '<td class="f08-fort">' + esc(plage || "") + '</td>' +
+    '<td class="f08-fort" style="text-align:center">' + esc(String(c.qte != null ? c.qte : "")) + '</td>' +
+    '<td class="f08-obs">Conforme \u00e0 la directive Europ\u00e9enne 2011/65/EC &amp; 2015/863/UE (RoHS)<br><i>Compliance of European Directive 2011/65/EC &amp; 2015/863/UE (RoHS)</i></td>' +
+    '</tr></table>' +
+    '<div class="f08-phrase"><b>Nous d\u00e9clarons que la fourniture cit\u00e9e est conforme aux exigences du contrat et que, apr\u00e8s v\u00e9rifications et essais, elle r\u00e9pond en tout point aux exigences sp\u00e9cifi\u00e9es, aux normes et r\u00e8glements applicables, sauf exceptions, r\u00e9serves ou d\u00e9rogations \u00e9num\u00e9r\u00e9es dans la pr\u00e9sente d\u00e9claration de conformit\u00e9.</b><br>' +
+    '<i>This is to certify that unless otherwise provided for and stated hereafter, the supplies described herein fully comply with the contract requirements, that they have been inspected and tested and have been found in every respect in compliance with the relevant requirements as well as with the applicable standards and regulations in force.</i></div>' +
+    '<table class="f08-t f08-signature"><tr>' +
+    '<td rowspan="2" style="width:38%">' + K("Responsable Qualit\u00e9 Fournisseur", "Supplier Quality Manager") + '</td>' +
+    '<td style="width:28%">' + K("Fait par :", "") + '<div class="f08-fort">' + esc(c.fait_par || "") + '</div></td>' +
+    '<td style="width:14%">' + K("Date :", "") + '<div class="f08-fort">' + esc(dateFr) + '</div></td>' +
+    '<td style="width:20%">' + K("Visa :", "") +
+    '<img src="../../shared/visa-pp.png" alt="Visa Proto Process" class="conf-visa-img" onerror="this.style.display=\'none\'"></td>' +
+    '</tr></table>' +
+    '<div class="f08-surv">' + K("R\u00e9serv\u00e9 \u00e0 l\u2019organisme de surveillance \u2014 Nom et fonction, date :", "Inspection body only \u2014 Name and title, date:") + '<div class="f08-vide"></div></div>' +
+    '</div>';
+  bloc.style.display = "block";
+  majRapportVide();
+}
+
+/* ------------------------------ Hero ------------------------------ */
+function rendreHero(r) {
+  const p = r.produit || {};
+  document.getElementById("heroSociete").textContent = p.nom_client || "";
+  document.getElementById("heroRef").textContent = p.ref_carte || p.cle_produit || "";
+  document.getElementById("heroLib").textContent = p.libelle_carte || "";
+  /* Nom de fichier PDF a l impression = document.title cote navigateur.
+     On le rend identifiable (client + ref carte) des que la carte est connue,
+     plutot que de laisser le titre generique de l onglet au chargement. */
+  const refPourTitre = p.ref_carte || p.cle_produit || "";
+  if (p.nom_client || refPourTitre) {
+    document.title = [p.nom_client, refPourTitre, t("titre_rapport")].filter(Boolean).join(" ");
+  }
+  /* En-tete et pied du document imprime (ch.137). */
+  const auj = new Date();
+  const dateEdit = String(auj.getDate()).padStart(2, "0") + "/" + String(auj.getMonth() + 1).padStart(2, "0") + "/" + auj.getFullYear();
+  document.getElementById("printTitre").textContent = t("titre_rapport");
+  document.getElementById("printSous").textContent = [p.nom_client, refPourTitre, p.libelle_carte, r.indice_courant ? (t("indice") + r.indice_courant) : null].filter(Boolean).join("  \u00b7  ");
+  document.getElementById("printDate").innerHTML = esc(t("print_edite") + dateEdit) + '<div>' + esc(t("form_f08")) + '</div>';
+  /* En-tete P2 = STRICTEMENT celui de P1, seul l intitule change. */
+  document.getElementById("inspSous").textContent = document.getElementById("printSous").textContent;
+  document.getElementById("inspDate").innerHTML = document.getElementById("printDate").innerHTML;
+  document.getElementById("printPied").textContent = "Proto Process \u00b7 766 chemin des Houches, 74500 Maxilly-sur-L\u00e9man \u00b7 +33 (0)4 50 92 19 54 \u00b7 " + t("print_page") + " " + [p.nom_client, refPourTitre].filter(Boolean).join(" ");
+  if (r.indice_courant) {
+    const b = document.getElementById("heroIndice");
+    b.textContent = t("indice") + r.indice_courant;
+    b.style.display = "inline-flex";
+  }
+  /* Lien BOM (Luminovo) : uniquement si c est une vraie URL — un texte libre
+     donnerait un lien mort, plus trompeur qu un bouton absent. */
+  const bom = String(p.dossier_luminovo || "").trim();
+  if (/^https?:\/\//i.test(bom)) {
+    const a = document.getElementById("btnBom");
+    a.href = bom;
+    a.style.display = "inline-flex";
+  }
+  rendreJalons(null, null, true);
+  if (r.repondable === false) document.getElementById("bandeauLecture").style.display = "block";
+}
+
+function rendreJalons(statut, so, enAttente, operations) {
+  const conteneur = document.getElementById("jalons");
+  const note = document.getElementById("jalonsNote");
+  const idx = JALONS.findIndex(function (j) { return j.code === statut; });
+  conteneur.classList.toggle("attente", !!enAttente);
+  let html = "", progHtml = "";
+  /* v0.51 (17/09) : la barre d avancement est ajoutee APRES les jalons. Placee
+     avant, "Devis" n etait plus :first-child et recevait un segment de liaison
+     vers la gauche, dans le vide (meme bug que FabStory interne v4.29). */
+  /* v0.48 (decision Olivier 09/09) : dans Fabrication, le point avance au prorata
+     des operations faites (liste deja fournie par le statut). Hors Fabrication :
+     barre inchangee. */
+  if (statut === "fabrication" && Array.isArray(operations) && operations.length && idx >= 0 && idx < JALONS.length - 1) {
+    const n = JALONS.length;
+    const faites = operations.filter(function (o) { return o && o.fait; }).length;
+    const p = Math.max(0, Math.min(1, faites / operations.length));
+    const c0 = (idx + 0.5) / n * 100, c1 = (idx + 1.5) / n * 100;
+    const pos = c0 + p * (c1 - c0);
+    progHtml += '<div class="prog-fill" style="width:' + pos.toFixed(2) + '%"></div>';
+    if (p > 0) progHtml += '<div class="prog-pt" style="left:' + pos.toFixed(2) + '%"></div>';
+  }
+  JALONS.forEach(function (j, i) {
+    let cls = "jalon";
+    if (idx >= 0) {
+      if (i < idx) cls += " fait";
+      else if (i === idx) cls += " actuel";
+    }
+    html += '<div class="' + cls + '"><span class="pt">' + svgJalon(j.code) + '</span><span class="lbl">' + esc(j.label) + "</span></div>";
+  });
+  conteneur.innerHTML = html + progHtml;
+  if (enAttente) { note.textContent = t("statut_lecture"); return; }
+  if (idx < 0) { note.textContent = t("statut_indispo"); return; }
+  note.textContent = t("statut_actuel") + t(JALONS[idx].cle) + (so ? " (" + t("commande") + " " + so + ")" : "");
+}
+
+/* -------------------------- Points a trancher --------------------- */
+function rendrePoints(r) {
+  const attente = (r.entrees || []).filter(function (e) { return e.a_repondre; });
+  /* Les points de la commande du lien (&so=) passent en tete (decision 07/08). */
+  attente.sort(function (a, b) {
+    const aSo = SO_AVANT && a.so_canonique === SO_AVANT ? 0 : 1;
+    const bSo = SO_AVANT && b.so_canonique === SO_AVANT ? 0 : 1;
+    if (aSo !== bSo) return aSo - bSo;
+    return new Date(a.cree_le) - new Date(b.cree_le);
+  });
+  const titre = document.getElementById("pointsTitre");
+  const panneau = document.getElementById("ptsPanneau");
+  const zone = document.getElementById("points");
+  const liste = document.getElementById("ptsListe");
+  zone.innerHTML = "";
+  liste.innerHTML = "";
+  if (!attente.length) {
+    titre.style.display = "none";
+    panneau.style.display = "none";
+    document.body.classList.remove("avec-points");
+    return;
+  }
+  titre.style.display = "flex";
+  panneau.style.display = "block";
+  panneau.classList.remove("fait");
+  document.body.classList.add("avec-points");
+  document.getElementById("pointsSous").style.display = "block";
+  document.getElementById("pointsIco").innerHTML = svgCroix(20);
+  document.getElementById("pointsCompte").textContent = String(attente.length);
+  attente.forEach(function (e) {
+    zone.appendChild(construirePoint(e));
+    liste.appendChild(construireMini(e));
+  });
+  placerPanneau();
+  choisirPoint(attente[0].id, false);
+}
+
+/* v0.54 : PANNEAU de mini-cartes (comme « En attente de reponse » de FabStory interne).
+   Grand ecran : colonne de droite. Ecran etroit : juste au-dessus du detail de la question. */
+const MQ_LARGE = window.matchMedia ? window.matchMedia("(min-width: 980px)") : null;
+function placerPanneau() {
+  const panneau = document.getElementById("ptsPanneau");
+  const cols = document.getElementById("cols");
+  const zone = document.getElementById("points");
+  if (!panneau || !cols || !zone) return;
+  if (MQ_LARGE && MQ_LARGE.matches) { if (panneau.parentNode !== cols) cols.appendChild(panneau); }
+  else if (panneau.nextSibling !== zone) zone.parentNode.insertBefore(panneau, zone);
+}
+if (MQ_LARGE) {
+  MQ_LARGE.addEventListener ? MQ_LARGE.addEventListener("change", placerPanneau) : MQ_LARGE.addListener(placerPanneau);
+}
+/* v0.55 : une mini-carte repondue descend sous le titre « Repondu (n) », en bas de la liste. */
+function rangerRepondu(mini) {
+  const liste = document.getElementById("ptsListe");
+  if (!liste || !mini) return;
+  let sep = document.getElementById("ptsSep");
+  if (!sep) {
+    sep = document.createElement("div");
+    sep.className = "pm-sep";
+    sep.id = "ptsSep";
+    liste.appendChild(sep);
+  }
+  liste.appendChild(mini);
+  sep.textContent = t("repondu") + " (" + liste.querySelectorAll(".pt-mini.resolu").length + ")";
+}
+function resumeMini(e) {
+  const lignes = String(e.texte == null ? "" : e.texte).split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+  const prop = lignes.filter(function (l) { return /^Proposition\s+PP\s*:/i.test(l); })[0];
+  let txt = prop || lignes[0] || "";
+  /* l URL eventuelle n a rien a faire dans une ligne de resume */
+  txt = txt.replace(/\s*[\u2014\u2013-]?\s*https?:\/\/\S+/g, "").replace(/\s+\.$/, ".");
+  return esc(txt).replace(/(Proposition\s+PP\s*:)/, '<span class="prop-pp">$1</span>');
+}
+function construireMini(e) {
+  const mini = document.createElement("div");
+  mini.className = "pt-mini";
+  mini.dataset.id = e.id;
+  mini.setAttribute("role", "button");
+  mini.tabIndex = 0;
+  const reps = listeReperes(e.repere);
+  const repCourt = reps.length > 3 ? reps.slice(0, 3).join(", ") + " +" + (reps.length - 3) : reps.join(", ");
+  const comp = (e.mpn || repCourt)
+    ? '<div class="pm-comp">' + (e.mpn ? '<span class="v">' + esc(e.mpn) + "</span>" : "") +
+      (e.mpn && repCourt ? '<span class="r"> \u00b7 </span>' : "") +
+      (repCourt ? '<span class="r">' + esc(repCourt) + "</span>" : "") + "</div>"
+    : "";
+  mini.innerHTML = comp + '<div class="pm-texte">' + resumeMini(e) + "</div>";
+  mini.title = String(e.texte || "").split(/\n+/)[0];
+  const aller = function () { choisirPoint(e.id, true); };
+  mini.addEventListener("click", aller);
+  mini.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); aller(); } });
+  return mini;
+}
+/* Afficher une question : ne detruit rien, une saisie commencee ailleurs est conservee. */
+function choisirPoint(id, defiler) {
+  let cible = null;
+  document.querySelectorAll("#points .point").forEach(function (b) {
+    const oui = String(b.dataset.id) === String(id);
+    b.classList.toggle("actif", oui);
+    if (oui) cible = b;
+  });
+  document.querySelectorAll("#ptsListe .pt-mini").forEach(function (m) {
+    m.classList.toggle("actif", String(m.dataset.id) === String(id));
+  });
+  if (defiler && cible && !(MQ_LARGE && MQ_LARGE.matches) && cible.scrollIntoView) {
+    cible.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function construirePoint(e) {
+  const bloc = document.createElement("div");
+  bloc.className = "carte point";
+  bloc.dataset.id = e.id;
+  const soBadge = (SO_AVANT && e.so_canonique === SO_AVANT)
+    ? '<span class="badge badge-so">' + t("votre_commande") + esc(e.so_canonique) + "</span>"
+    : (e.so_canonique ? '<span class="chip chip-etape">' + t("chip_commande") + esc(e.so_canonique) + "</span>" : "");
+  const comp = (e.repere || e.mpn)
+    ? '<div class="comp">' +
+      (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>&emsp;" : "") +
+      (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + htmlReperes(e.repere) + "</span>" : "") +
+      "</div>"
+    : "";
+  bloc.innerHTML =
+    '<div class="point-tete">' +
+      '<span class="point-ico">' + svgCroix(24) + "</span>" +
+      '<div class="point-corps">' +
+        (soBadge ? '<div style="margin-bottom:7px">' + soBadge + "</div>" : "") +
+        comp +
+        '<div class="point-texte">' + htmlTexteClient(e.texte, e.repere) + "</div>" + htmlLiensDoc(e) +
+        htmlPhotosEntree(e) + htmlPieces(e.pieces) +
+        '<div class="point-meta">' + t("question_posee") + esc(fmtDate(e.cree_le)) +
+          (e.etape_libelle ? " \u00b7 " + esc(e.etape_libelle) : "") + "</div>" +
+        construireFormulaire(e) +
+      "</div>" +
+    "</div>";
+  if (DONNEES.repondable !== false) brancherFormulaire(bloc, e);
+  return bloc;
+}
+
+function aEnveloppe(e) {
+  return !!(e && e.enveloppe && Array.isArray(e.enveloppe.choix) && e.enveloppe.choix.length);
+}
+function construireFormulaire(e) {
+  if (DONNEES.repondable === false) return "";
+  let html = '<div class="rep-form">';
+  if (aEnveloppe(e)) {
+    /* v0.15 (ch.61 point 2) : ENVELOPPE figee par FabStory v4 (ch.111) — les choix
+       sont ceux de la question, l aide s affiche sous le choix selectionne, la
+       portee est UNE case (decision Olivier 31/08 : "valable pour toujours" ou rien). */
+    html += '<div class="rep-lbl">' + t("votre_reponse") + '</div><div class="choix-liste">';
+    e.enveloppe.choix.forEach(function (c, i) {
+      if (choixSansObjet(e, c)) return;   /* v0.53 : pas de proposition PP -> pas ce choix (l indice i reste celui de l enveloppe) */
+      html += '<button type="button" class="choix-btn" data-env="' + i + '">' + esc(c.libelle) + "</button>";
+    });
+    html += "</div>";
+    html += '<div class="choix-aide"></div>';
+    html += '<textarea class="rep-comm" placeholder="' + esc(t("comm_facultatif")) + '"></textarea>';
+  } else if (e.choix_fermes) {
+    html += '<div class="rep-lbl">' + t("votre_reponse") + '</div><div class="choix-liste">';
+    CHOIX_FERMES.forEach(function (c) {
+      html += '<button type="button" class="choix-btn" data-choix="' + c.code + '">' + esc(c.label) + "</button>";
+    });
+    html += "</div>";
+    html += '<div class="choix-aide"></div>';
+    html += '<textarea class="rep-comm" placeholder="' + esc(t("commentaire")) + '"></textarea>';
+  } else {
+    html += '<div class="rep-lbl">' + t("votre_reponse") + '</div>' +
+      '<textarea class="rep-comm" placeholder="' + esc(t("ecrire_reponse")) + '"></textarea>';
+  }
+  html += '<div class="fichiers-zone">' +
+    '<div class="rep-lbl">' + t("joindre") + '</div>' +
+    '<div class="dropzone" role="button" tabindex="0">' +
+      esc(t("dropzone")) +
+      '<input type="file" class="rep-fichiers" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.xls,.csv">' +
+    '</div>' +
+    '<div class="fichiers-liste"></div>' +
+    '<div class="fichiers-aide">' + esc(t("fichiers_aide")) + '</div>' +
+    '</div>';
+  if (aEnveloppe(e)) {
+    if (e.enveloppe.portee && e.enveloppe.portee.libelle) {
+      html += '<label class="portee-case"><input type="checkbox" class="portee-toujours">' +
+        '<span>' + esc(e.enveloppe.portee.libelle) +
+        '<small>' + esc(t("portee_decochee")) + '</small></span></label>';
+    }
+  } else {
+    html += '<div class="rep-lbl" style="margin-top:11px">' + t("portee_titre") + '</div>' +
+      '<div class="portee-liste">';
+    PORTEES.forEach(function (p, i) {
+      html += '<button type="button" class="portee-btn' + (i === 0 ? " sel" : "") + '" data-portee="' + p.code + '">' + esc(p.label) + "</button>";
+    });
+    html += "</div>" +
+      '<div class="portee-aide">' + esc(PORTEES[0].aide) + '</div>';
+  }
+  /* Signature repliee (decision 08/08) : le destinataire du mail est connu de
+     PP, le nom ne sert que si le lien a circule en interne chez le client.
+     Le jour ou le lien saura QUI le porte (portail client, ou destinataire
+     attache au SO en seance relances), ce champ se pre-remplira tout seul. */
+  html += '<div class="rep-bas">' +
+    '<a class="lien-signer" role="button" tabindex="0">' + esc(t("signer")) + '</a>' +
+    '<input type="text" class="rep-nom" maxlength="80" placeholder="' + esc(t("votre_nom")) + '" style="display:none">' +
+    '<button type="button" class="btn-envoyer">' + esc(t("envoyer")) + '</button>' +
+    "</div>" +
+    '<div class="rep-erreur"></div>' +
+  "</div>";
+  return html;
+}
+
+function brancherFormulaire(bloc, e) {
+  const form = bloc.querySelector(".rep-form");
+  if (!form) return;
+  let choixSel = (e.choix_fermes || aEnveloppe(e)) ? null : "libre";
+  form.querySelectorAll(".choix-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      form.querySelectorAll(".choix-btn").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      let def;
+      if (aEnveloppe(e)) {
+        const c = e.enveloppe.choix[parseInt(b.dataset.env, 10)];
+        choixSel = c ? c.libelle : null;
+        def = c ? { aide: c.aide || "", commentaireObligatoire: !!c.commentaire_obligatoire } : null;
+      } else {
+        choixSel = b.dataset.choix;
+        def = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+      }
+      const aide = form.querySelector(".choix-aide");
+      if (aide && def) {
+        aide.textContent = def.aide || "";
+        aide.style.display = def.aide ? "block" : "none";
+      }
+      const zone = form.querySelector(".rep-comm");
+      if (def && def.commentaireObligatoire) {
+        zone.placeholder = t("comm_obligatoire");
+        zone.focus();
+      } else {
+        zone.placeholder = t("comm_facultatif");
+      }
+    });
+  });
+  form.querySelectorAll(".portee-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      form.querySelectorAll(".portee-btn").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      const def = PORTEES.find(function (p) { return p.code === b.dataset.portee; });
+      const aide = form.querySelector(".portee-aide");
+      if (aide && def) aide.textContent = def.aide;
+    });
+  });
+  const lienSigner = form.querySelector(".lien-signer");
+  if (lienSigner) {
+    lienSigner.addEventListener("click", function () {
+      lienSigner.style.display = "none";
+      const champ = form.querySelector(".rep-nom");
+      champ.style.display = "block";
+      champ.focus();
+    });
+  }
+  /* Glisser-deposer (demande 08/08) : la liste vit en memoire sur le formulaire
+     (form._fichiers) — l input ne sert que de declencheur au clic. Les
+     controles format/taille sont faits a l AJOUT, pas seulement a l envoi. */
+  const zone = form.querySelector(".dropzone");
+  if (zone) {
+    form._fichiers = [];
+    const champ = zone.querySelector(".rep-fichiers");
+    const liste = form.querySelector(".fichiers-liste");
+    const erreurZone = form.querySelector(".rep-erreur");
+    const dessiner = function () {
+      liste.innerHTML = "";
+      form._fichiers.forEach(function (f, i) {
+        const chip = document.createElement("span");
+        chip.className = "fichier-chip";
+        chip.innerHTML = svgTrombone() + " " + esc(f.name) +
+          ' <span style="color:var(--text3)">(' + esc(fmtTaille(f.size)) + ')</span>' +
+          '<button type="button" aria-label="Retirer" data-i="' + i + '">\u00d7</button>';
+        chip.querySelector("button").addEventListener("click", function () {
+          form._fichiers.splice(i, 1);
+          dessiner();
+        });
+        liste.appendChild(chip);
+      });
+    };
+    const ajouter = function (nouveaux) {
+      erreurZone.style.display = "none";
+      for (let i = 0; i < nouveaux.length; i++) {
+        const f = nouveaux[i];
+        const ext = (f.name.lastIndexOf(".") > 0) ? f.name.slice(f.name.lastIndexOf(".") + 1).toLowerCase() : "";
+        if (EXT_OK.indexOf(ext) < 0) {
+          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb" + t("err_format")); continue;
+        }
+        if (f.size > 5242880) {
+          montrerErreur(erreurZone, "\u00ab\u00a0" + f.name + "\u00a0\u00bb" + t("err_taille")); continue;
+        }
+        if (form._fichiers.length >= 3) {
+          montrerErreur(erreurZone, t("err_nb")); break;
+        }
+        form._fichiers.push(f);
+      }
+      dessiner();
+    };
+    zone.addEventListener("click", function () { champ.click(); });
+    zone.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); champ.click(); } });
+    champ.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    champ.addEventListener("change", function () {
+      ajouter(Array.prototype.slice.call(champ.files || []));
+      champ.value = "";
+    });
+    ["dragenter", "dragover"].forEach(function (t) {
+      zone.addEventListener(t, function (ev) { ev.preventDefault(); zone.classList.add("survol"); });
+    });
+    ["dragleave", "drop"].forEach(function (t) {
+      zone.addEventListener(t, function (ev) { ev.preventDefault(); zone.classList.remove("survol"); });
+    });
+    zone.addEventListener("drop", function (ev) {
+      const dt = ev.dataTransfer;
+      if (dt && dt.files && dt.files.length) ajouter(Array.prototype.slice.call(dt.files));
+    });
+  }
+  form.querySelector(".btn-envoyer").addEventListener("click", function () {
+    envoyerReponse(bloc, e, form, choixSel);
+  });
+}
+
+async function envoyerReponse(bloc, e, form, choixSel) {
+  const erreur = form.querySelector(".rep-erreur");
+  erreur.style.display = "none";
+  const commentaire = (form.querySelector(".rep-comm").value || "").trim();
+  if (!choixSel) { montrerErreur(erreur, t("err_choix")); return; }
+  const env = aEnveloppe(e);
+  const defChoix = env
+    ? (function () { const c = e.enveloppe.choix.find(function (x) { return x.libelle === choixSel; }); return c ? { commentaireObligatoire: !!c.commentaire_obligatoire } : null; })()
+    : CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+  const commObligatoire = (choixSel === "libre") || (defChoix && defChoix.commentaireObligatoire);
+  if (commObligatoire && !commentaire) {
+    montrerErreur(erreur, t("err_comm")); return;
+  }
+  const porteeBtn = form.querySelector(".portee-btn.sel");
+  const portee = porteeBtn ? porteeBtn.dataset.portee : "so";
+  const nom = (form.querySelector(".rep-nom").value || "").trim();
+  /* Fichiers : la liste geree par la dropzone (controles deja faits a l ajout).
+     Garde ceinture-bretelles conservee sur le nombre. */
+  const fichiers = Array.isArray(form._fichiers) ? form._fichiers.slice(0, 3) : [];
+  const bouton = form.querySelector(".btn-envoyer");
+  bouton.disabled = true;
+  bouton.textContent = t("envoi");
+  let r;
+  try {
+    const rep = await fetch(API + "/fabstory-client-reponse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(env
+        ? { jeton: JETON, question_id: e.id, choix_libelle: choixSel, commentaire: commentaire,
+            portee_toujours: !!(form.querySelector(".portee-toujours") && form.querySelector(".portee-toujours").checked), auteur: nom }
+        : { jeton: JETON, question_id: e.id, choix: choixSel, commentaire: commentaire, portee: portee, auteur: nom })
+    });
+    r = await rep.json();
+  } catch (err) { r = null; }
+  if (!r || !r.ok) {
+    bouton.disabled = false;
+    bouton.textContent = t("envoyer");
+    montrerErreur(erreur, (r && r.motif) ? r.motif :
+      t("err_envoi"));
+    return;
+  }
+  /* Upload des pieces APRES la reponse, une par une : un echec de piece ne
+     remet jamais en cause la reponse deja enregistree. */
+  const jointes = [];
+  const ratees = [];
+  for (let i = 0; i < fichiers.length; i++) {
+    const f = fichiers[i];
+    bouton.textContent = t("fichier") + (i + 1) + "/" + fichiers.length + "\u2026";
+    try {
+      const b64 = await lireFichierB64(f);
+      const repP = await fetch(API + "/fabstory-client-piece", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jeton: JETON, reponse_id: r.id, nom: f.name, contenu: b64 })
+      });
+      const rp = await repP.json();
+      if (rp && rp.ok) jointes.push({ id: rp.id, nom: rp.nom, taille: rp.taille });
+      else ratees.push(f.name);
+    } catch (err) { ratees.push(f.name); }
+  }
+  /* Croix rouge -> coche verte, sans recharger la page. */
+  bloc.classList.add("resolu");
+  bloc.querySelector(".point-ico").innerHTML = svgCoche(24);
+  const choixObj = CHOIX_FERMES.find(function (c) { return c.code === choixSel; });
+  /* v0.53 : pour une question a modele, choixSel EST le libelle du choix (il n etait pas repris). */
+  const resume = (choixSel === "libre") ? commentaire
+    : (choixSel === "autre") ? (t("autre") + " \u2014 " + commentaire)
+    : (choixObj ? choixObj.label : (env ? choixSel : "")) + (commentaire ? " \u2014 " + commentaire : "");
+  let bilanPieces = "";
+  if (jointes.length) bilanPieces += "\n" + jointes.length + (jointes.length > 1 ? t("fichiers_joints") : t("fichier_joint"));
+  if (ratees.length) bilanPieces += "\n" + t("non_joint") + ratees.join(", ") + t("non_joint_fin");
+  form.outerHTML = '<div class="rep-fait">' + svgCoche(20) +
+    '<span class="txt"><strong>' + esc(t("rep_enregistree")) + '</strong>\n' + esc(resume) + esc(bilanPieces) +
+    "\n" + esc(t("atelier_informe")) + "</span></div>" +
+    (jointes.length ? htmlPieces(jointes) : "");
+  majCompte();
+  /* v0.54 : la mini-carte passe au vert avec la reponse ; la question suivante s affiche.
+     Si une piece n a pas pu etre jointe, on reste sur la question pour que l avertissement soit lu. */
+  const mini = document.querySelector('#ptsListe .pt-mini[data-id="' + e.id + '"]');
+  if (mini) {
+    mini.classList.add("resolu");
+    const lt = mini.querySelector(".pm-texte");
+    if (lt) lt.textContent = "\u2713 " + t("repondu") + (resume ? " : " + resume : "");
+    rangerRepondu(mini);
+  }
+  if (!ratees.length) {
+    const suivant = document.querySelector("#points .point:not(.resolu)");
+    if (suivant) choisirPoint(suivant.dataset.id, true);
+  }
+}
+
+function montrerErreur(zone, message) {
+  zone.textContent = message;
+  zone.style.display = "block";
+}
+
+function majCompte() {
+  const restants = document.querySelectorAll(".point:not(.resolu)").length;
+  const compte = document.getElementById("pointsCompte");
+  compte.textContent = String(restants);
+  compte.classList.toggle("zero", restants === 0);
+  if (restants === 0) {
+    document.getElementById("pointsIco").innerHTML = svgCoche(20);
+    document.getElementById("pointsSous").textContent = t("points_fait");
+    const pn = document.getElementById("ptsPanneau"); if (pn) pn.classList.add("fait");
+  }
+}
+
+/* ------------------------------- Fil ------------------------------ */
+function rendreFil(r) {
+  const fil = document.getElementById("fil");
+  const entrees = (r.entrees || []).slice();
+  /* Les questions encore ouvertes vivent dans la section du haut ;
+     le fil raconte le reste, reponses rangees SOUS leur question. */
+  const parId = {};
+  entrees.forEach(function (e) { parId[e.id] = e; });
+  const racines = entrees.filter(function (e) {
+    if (e.a_repondre) return false;
+    if (e.repond_a && parId[e.repond_a]) return false;
+    return true;
+  });
+  const reponsesDe = {};
+  entrees.forEach(function (e) {
+    if (e.repond_a && parId[e.repond_a]) {
+      (reponsesDe[e.repond_a] = reponsesDe[e.repond_a] || []).push(e);
+    }
+  });
+  if (!racines.length) {
+    fil.innerHTML = '<div class="vide">' + esc(t("historique_vide")) + '</div>';
+    return;
+  }
+  /* v0.41 (probleme 139, decision Olivier 02/09) : l historique WEB est complet,
+     groupe par COMMANDE (SO cible en tete, autres SO par recence, sans commande en
+     dernier). Le PDF ne garde que la commande en cours : les autres groupes portent
+     .hors-so (masque a l impression). Sans SO cible connu : un seul groupe, sans titre. */
+  const cleSo = function (e) { return e.so_canonique || ""; };
+  const recence = {};
+  racines.forEach(function (e) {
+    const k = cleSo(e), d = new Date(e.cree_le).getTime();
+    if (!recence[k] || d > recence[k]) recence[k] = d;
+  });
+  const rangSo = function (k) {
+    if (SO_CIBLE && k === SO_CIBLE) return 0;
+    if (k === "") return 2;
+    return 1;
+  };
+  /* ch.137 (01/09, spec Olivier) : le fil est decoupe en 4 sections METIER
+     (BOM / PCB / Assemblage / Reclamation), portees par ref_etapes cote API ;
+     dans une section, ordre chronologique (plus recent en premier). */
+  const METIERS = ["BOM", "PCB", "ASSEMBLAGE", "RECLAMATION"];
+  racines.sort(function (a, b) {
+    const ka = cleSo(a), kb = cleSo(b);
+    const ra = rangSo(ka), rb = rangSo(kb);
+    if (ra !== rb) return ra - rb;
+    if (ka !== kb) return (recence[kb] || 0) - (recence[ka] || 0);
+    const ma = METIERS.indexOf(a.metier), mb = METIERS.indexOf(b.metier);
+    if (ma !== mb) return (ma < 0 ? 9 : ma) - (mb < 0 ? 9 : mb);
+    return new Date(b.cree_le) - new Date(a.cree_le);
+  });
+  const nbSo = Object.keys(recence).length;
+  /* v0.42 : des qu un SO courant est connu, les titres de groupe s affichent toujours
+     (meme un seul groupe) -- sinon on ne voit pas que l historique est ANTERIEUR. */
+  const multi = !!SO_CIBLE || nbSo > 1 || (nbSo === 1 && !recence.hasOwnProperty(""));
+  const compte = {};
+  racines.forEach(function (e) { compte[cleSo(e)] = (compte[cleSo(e)] || 0) + 1; });
+  fil.innerHTML = "";
+  let soCourantGrp = null;
+  let metierCourant = null;
+  const notePrint = document.createElement("div");
+  notePrint.className = "fil-note-print";
+  notePrint.textContent = t("fil_note_print");
+  racines.forEach(function (e) {
+    const k = cleSo(e);
+    const horsSo = !!(SO_CIBLE && k !== SO_CIBLE);
+    if (multi && k !== soCourantGrp) {
+      soCourantGrp = k;
+      metierCourant = null;
+      const sep = document.createElement("div");
+      sep.className = "fil-so" + ((SO_CIBLE && k === SO_CIBLE) ? " courant" : "");
+      sep.innerHTML = esc(k ? ((SO_CIBLE && k === SO_CIBLE) ? t("so_en_cours") + " " + k : t("commande") + " " + k) : t("so_sans")) +
+        ' <span class="n">(' + compte[k] + ")</span>";
+      fil.appendChild(sep);
+    }
+    const m = METIERS.indexOf(e.metier) >= 0 ? e.metier : "ASSEMBLAGE";
+    if (m !== metierCourant) {
+      metierCourant = m;
+      const titre = document.createElement("div");
+      titre.className = "fil-metier" + (horsSo ? " hors-so" : "");
+      titre.textContent = t("metier_" + m.toLowerCase());
+      fil.appendChild(titre);
+    }
+    const bloc = document.createElement("div");
+    bloc.className = "carte entree" + (e.type === "indice" ? " indice-evt" : "") + (horsSo ? " hors-so" : "");
+    const chips = [];
+    if (e.etape_libelle) chips.push('<span class="chip chip-etape">' + esc(e.etape_libelle) + "</span>");
+    if (e.so_canonique) chips.push('<span class="chip chip-etape">' + esc(e.so_canonique) + "</span>");
+    if (e.type === "question_client") {
+      chips.push(e.etat === "en_attente"
+        ? '<span class="chip chip-attente">' + t("chip_attente") + '</span>'
+        : '<span class="chip chip-resolu">' + t("chip_resolu") + '</span>');
+    }
+    const comp = (e.repere || e.mpn)
+      ? '<div class="comp">' +
+        (e.repere ? '<span class="k">' + t("rep") + '&nbsp;:</span> <span class="v">' + htmlReperes(e.repere) + "</span>&emsp;" : "") +
+        (e.mpn ? '<span class="k">' + t("ref_mpn") + '&nbsp;:</span> <span class="v">' + esc(e.mpn) + "</span>" : "") +
+        "</div>"
+      : "";
+    let plein = '<div class="entree-tete">' + chips.join("") +
+      '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
+      comp + '<div class="entree-texte point-texte">' + htmlTexteClient(e.texte, e.repere) + "</div>" + htmlLiensDoc(e) +
+      htmlPhotosEntree(e) + htmlPieces(e.pieces);
+    (reponsesDe[e.id] || []).forEach(function (rep) {
+      plein += '<div class="reponse-bloc">' +
+        '<div class="reponse-de">' + esc(rep.auteur || (rep.emetteur === "client" ? t("vous") : "Proto Process")) +
+        " \u00b7 " + esc(fmtDate(rep.cree_le)) + "</div>" +
+        '<div class="entree-texte">' + esc(rep.texte) + "</div>" +
+        htmlPhotosEntree(rep) + htmlPieces(rep.pieces) + "</div>";
+    });
+    /* ch.137 (01/09, demande Olivier) : dans le PDF, une question resolue a
+       choix fermes est remplacee par sa CONCLUSION en une ligne, construite
+       depuis les donnees structurees (PROPOSITION / mpn / repere + choix
+       retenu). L ecran garde tout. Sans donnees structurees : texte complet. */
+    /* v0.58 : rapport fige avec photo du fil -> le PDF suit la photo (ligne relue au figer, ou entree
+       imprimee telle quelle, ou retiree). Une entree absente de la photo (posterieure au figer) est retiree. */
+    let resume;
+    const photo = (RAPPORT_FIGE && Array.isArray(RAPPORT_FIGE.fil)) ? RAPPORT_FIGE.fil : null;
+    if (photo && !horsSo) {
+      const snap = photo.find(function (x) { return x && x.id === e.id; });
+      resume = (!snap || !snap.imprimer) ? { cacher: true } : (snap.ligne ? { texte: snap.ligne } : null);
+    } else {
+      resume = resumeImprime(e, reponsesDe[e.id] || []);
+    }
+    if (resume && resume.cacher) {
+      bloc.classList.add("entree-hors-rapport");
+      bloc.innerHTML = plein;
+    } else if (resume && resume.texte) {
+      bloc.innerHTML = '<div class="entree-plein">' + plein + "</div>" +
+        '<div class="entree-resume">' + '<div class="entree-tete">' + chips.join("") +
+        '<span class="entree-date">' + esc(fmtDate(e.cree_le)) + "</span></div>" +
+        '<div class="entree-texte">' + esc(resume.texte) + "</div></div>";
+    } else {
+      bloc.innerHTML = plein;
+    }
+    fil.appendChild(bloc);
+  });
+  fil.appendChild(notePrint);
+}
+
+/* Conclusion d une question resolue a choix fermes, pour le PDF (ch.137,
+   formulations ACTEES par Olivier le 01/09) :
+   - equivalent accepte  -> "Equivalent P monte en lieu et place de R (rep. X)
+                            -- valide par vos soins le D."
+   - ne pas cabler       -> "R (rep. X) non monte -- decision validee par vos
+                            soins le D."
+   - fourni par le client / attente reappro -> SANS OBJET sur un rapport de
+     fabrication : l entree est RETIREE du PDF (elle reste a l ecran).
+   Retour {texte: ...} pour resumer, {cacher: true} pour retirer, null pour
+   laisser tel quel. */
+function resumeImprime(e, reponses) {
+  if (!e || e.type !== "question_client" || e.etat !== "resolu") return null;
+  /* Une ligne redigee en interne (pop-up "Voir le rapport client") gagne
+     toujours sur le resume automatique. */
+  if (e.ligne_rapport) return { texte: e.ligne_rapport };
+  /* v0.44 (ch.111, 03/09) : marque explicite "ne pas imprimer" posee depuis le
+     pop-up interne -- gagne sur toute tentative de resume automatique. */
+  if (e.rapport_ignore) return { cacher: true };
+  const repClient = reponses.filter(function (x) { return x.emetteur === "client"; })[0];
+  if (!e.enveloppe || !Array.isArray(e.enveloppe.choix)) return { cacher: true };
+  if (!repClient || !repClient.texte) return { cacher: true };
+  /* v0.25 (ch.111, 03/09) : la formulation vient de pb_soluce (cle
+     formulation_rapport, copiee sur chaque choix de l enveloppe a l envoi de
+     la question) -- generique a TOUS les modeles Mx, plus de phrases en dur
+     par modele. Le choix retenu est identifie par son libelle, present tel
+     quel dans le texte de la reponse client. Anciennes questions (envoyees
+     avant le 03/09, enveloppe sans formulation_rapport) : aucune ligne
+     n est imprimee, comme pour toute reponse libre -- 3-4 fiches concernees,
+     reprises au cas par cas via ligne_rapport si besoin (regle actee 01/09,
+     inchangee). */
+  const norm = function (s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); };
+  const rtxt = norm(repClient.texte);
+  const choix = e.enveloppe.choix.find(function (c) { return c.libelle && rtxt.indexOf(norm(c.libelle)) >= 0; });
+  if (!choix || !choix.formulation_rapport) return { cacher: true };
+  const vars = {
+    "{REF}": e.mpn || "",
+    "{PROPOSITION}": e.enveloppe.proposition || "",
+    "{REPERE}": e.repere || "",
+    "{DATE}": fmtDate(repClient.cree_le)
+  };
+  /* Si une variable utilisee par la formulation n est pas renseignee (ex.
+     M2 choix 1 : reference suggeree par le client en texte libre, jamais
+     structuree dans enveloppe.proposition), on se tait plutot que d imprimer
+     un trou -- la ligne se redige alors a la main (pop-up "Voir le rapport
+     client", champ ligne_rapport, prioritaire de toute facon). */
+  const manquant = Object.keys(vars).some(function (k) { return choix.formulation_rapport.indexOf(k) >= 0 && !vars[k]; });
+  if (manquant) return { cacher: true };
+  let texte = choix.formulation_rapport;
+  Object.keys(vars).forEach(function (k) { texte = texte.split(k).join(vars[k]); });
+  return { texte: texte };
+}
+
+charger();
+</script>
+</body>
+</html>
