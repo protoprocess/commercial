@@ -572,8 +572,12 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.56";
-const APP_DATE = "22/10/2026";
+const APP_VERSION = "0.57";
+const APP_DATE = "26/11/2026";
+/* v0.57 (26/11/2026, chantier 277 : questions du fabricant PCB) : un fichier joint par PP a une
+   question ou une note (fiche_de_vie.photos) qui n est pas une image (le .xls d Ellipse a remplir)
+   s affichait comme une miniature d image cassee. Il prend maintenant la tuile typee XLS / PDF des
+   pieces jointes ; le clic le telecharge comme avant. Rien d autre ne change. */
 /* v0.56 (22/10/2026, constate sur SO2604-232) : une fourniture client sans MPN ni IPN affichait
    « — » (ou « - ») en colonne Reference. Ce tiret n'est pas une reference : c'est la case IPN vide
    de l'onglet Analyse BOM d'Achats PP, qui descendait jusque dans la feuille achat puis dans la
@@ -989,9 +993,19 @@ function htmlPhotosEntree(e) {
   e.photos.forEach(function (chemin, i) {
     const nom = String(chemin || "").split("/").pop().replace(/^[a-z0-9]{8}-/i, "");
     const url = API + "/fabstory-client-photo?jeton=" + encodeURIComponent(JETON) + "&fiche=" + e.id + "&n=" + i;
+    /* v0.57 : image = miniature ; autre fichier (.xls du fabricant, PDF) = tuile typee, comme htmlPieces */
+    const ext = nom.split(".").pop().toLowerCase();
+    const TYPES = { pdf: ["PDF", "#FCEBEB", "#A32D2D"], xlsx: ["XLSX", "#EAF3DE", "#3B6D11"],
+                    xls: ["XLS", "#EAF3DE", "#3B6D11"], csv: ["CSV", "#EAF3DE", "#3B6D11"] };
+    let visuel;
+    if (["png", "jpg", "jpeg", "webp", "gif", "heic", "heif"].indexOf(ext) >= 0) {
+      visuel = '<img class="mini" src="' + esc(url) + '" alt="" loading="lazy">';
+    } else {
+      const t = TYPES[ext] || [ext.toUpperCase().slice(0, 5) || "DOC", "#eef2f5", "#4a5a64"];
+      visuel = '<span class="picto-type" style="background:' + t[1] + ';color:' + t[2] + '">' + t[0] + "</span>";
+    }
     h += '<a class="piece-tuile" href="' + esc(url) + '" target="_blank" rel="noopener">' +
-      '<img class="mini" src="' + esc(url) + '" alt="" loading="lazy">' +
-      '<span class="p-nom">' + esc(nom) + "</span></a>";
+      visuel + '<span class="p-nom">' + esc(nom) + "</span></a>";
   });
   return h + "</div>";
 }

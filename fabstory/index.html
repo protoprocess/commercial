@@ -547,8 +547,16 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.11';
-const APP_DATE = '22/10/2026';
+const APP_VERSION = '5.12';
+const APP_DATE = '26/11/2026';
+/* 5.12 (26/11/2026, chantier 277, decisions Olivier 25/11) : QUESTIONS DU FABRICANT PCB (EQ Ellipse).
+   Le mail « EQ of P6xx… » d Ellipse est lu par n8n (PP — Questions fabricant PCB (EQ) v1.0) : le .xls
+   est depose sur la carte et un bloc « Questions du fabricant PCB » s affiche en haut de la carte.
+   Deux chemins, toujours par FabStory : PP repond (fichier recharge, renvoye a Ellipse d un clic,
+   visible du client pour info) ou le client repond (question client avec le fichier ; sa reponse
+   revient ici et PP la renvoie a Ellipse d un clic, apres relecture). Jamais d envoi tout seul.
+   Carte non retrouvee par le sujet du mail : ?eq=ID ouvre le choix de la carte. Le bloc n appelle
+   n8n que si la carte porte une entree d Ellipse (aucun appel en plus sur les autres cartes). */
 /* 5.11 (22/10/2026, constate sur SO2604-232) : une fourniture client sans MPN ni IPN affichait
    « — » en colonne Reference. Ce tiret vient de la case IPN vide d'Achats PP (corrige a la source
    en 15.40) : ce n'est pas une reference. On affiche « sans reference » en gris, les reperes
@@ -1289,7 +1297,7 @@ function rendreFiche(){
     htmlIndice() + htmlLien() +
     '<span class="hero-cli">' + esc(P.nom_client || P.code_client || '') + '</span>' +
     (P.libelle_carte ? '<span class="hero-lib">' + esc(P.libelle_carte) + '</span>' : '') +
-    '</div>' + htmlStatut() + '</div>' + htmlFournitures();
+    '</div>' + htmlStatut() + '</div>' + htmlFournitures() + '<div id="zone-eq"></div>';
 
   html += htmlBandeauNotifier();
 
@@ -1358,6 +1366,7 @@ function rendreFiche(){
   z.innerHTML = html;
   brancherSaisie();
   majAside();
+  chargerEQ();   /* 5.12 : seulement si la carte porte une entree d Ellipse */
 }
 function miniAttente(a){
   const comp = [];
@@ -3534,11 +3543,218 @@ FS.lotCreer = async function(){
 };
 function titreModeleLot(code){ const r = LOT_RAISONS.find(x => x[0] === code); return r ? r[1] : code; }
 
+/* ===== 5.12 (26/11/2026, chantier 277) : QUESTIONS DU FABRICANT PCB (EQ Ellipse) =========
+   Un bloc par mail Ellipse, en haut de la carte. Etats : a_traiter (deux chemins), chez_client
+   (attente puis « Renvoyer a Ellipse » sur le fichier du client), envoye (une ligne, rien a faire).
+   Workflow n8n : PP — Questions fabricant PCB (EQ) v1.0 (x7qiiI20ihNNNiBq), routes fabstory-eq,
+   fabstory-eq-action, fabstory-eq-piece. Rien ne part chez Ellipse sans un clic, confirme. */
+(function(){
+  const css = document.createElement('style');
+  css.textContent =
+    '.eq-bloc .eq-tete{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}' +
+    '.eq-bloc h2{margin:0}' +
+    '.eq-pill{font-size:12px;padding:2px 10px;border-radius:var(--radius);font-weight:500}' +
+    '.eq-pill.a{background:var(--amber-bg);color:var(--amber-badge)}' +
+    '.eq-pill.b{background:var(--info-bg);color:var(--info-txt)}' +
+    '.eq-fic{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px}' +
+    '.eq-fic a.btn-s{text-decoration:none;display:inline-flex;align-items:center;gap:5px}' +
+    '.eq-choix{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}' +
+    '@media (max-width:640px){.eq-choix{grid-template-columns:1fr}}' +
+    '.eq-ch{border:1px solid var(--border);border-radius:var(--radius);padding:11px;background:var(--surface)}' +
+    '.eq-ch b{display:block;font-size:13.5px;margin-bottom:4px}' +
+    '.eq-ch p{font-size:12.5px;color:var(--text2);margin:0 0 9px}' +
+    '.eq-ch input[type=file]{font-size:12.5px;margin:0 0 8px;width:100%}' +
+    '.eq-ok{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}' +
+    '.eq-msg{min-height:16px;font-size:12.5px;margin-top:8px}';
+  document.head.appendChild(css);
+})();
+let EQ_DOSSIERS = [];
+let EQ_CHOIX = null;
+const EQ_AUTEUR_ELLIPSE = 'Ellipse (fabricant PCB)';
+function carteAEQ(){ return ((FICHE && FICHE.entrees) || []).some(e => e && e.auteur === EQ_AUTEUR_ELLIPSE); }
+function eqNomCourt(n){ n = String(n || ''); return n.length > 46 ? n.slice(0, 30) + '…' + n.slice(-12) : n; }
+async function chargerEQ(){
+  const z = el('zone-eq'); if(!z || !P) return;
+  if(!carteAEQ()){ z.innerHTML = ''; EQ_DOSSIERS = []; return; }
+  const pid = P.id;
+  try{
+    const j = await getJson(BASE + '/fabstory-eq?produit=' + encodeURIComponent(pid));
+    if(!P || P.id !== pid) return;
+    EQ_DOSSIERS = (j && j.dossiers) || [];
+    const zz = el('zone-eq'); if(zz) zz.innerHTML = EQ_DOSSIERS.map(htmlEQ).join('');
+  }catch(e){
+    const zz = el('zone-eq');
+    if(zz) zz.innerHTML = '<div class="card"><p class="err-msg" style="margin:0">Questions du fabricant PCB indisponibles : ' + esc(e.message) + '</p></div>';
+  }
+}
+function htmlEQ(d){
+  const titre = '<h2><i class="ti ti-file-spreadsheet"></i> Questions du fabricant PCB</h2>';
+  const fichier = '<button class="btn-s" onclick="FS.ouvrirPiece(\'' + esc(d.chemin) + '\')" title="' + esc(d.nom_fichier) + '"><i class="ti ti-download"></i> ' + esc(eqNomCourt(d.nom_fichier)) + '</button>';
+  const mail = '<a class="btn-s" href="' + esc(d.lien_mail) + '" target="_blank" rel="noopener"><i class="ti ti-mail"></i> Voir le mail d’Ellipse</a>';
+  if(d.statut === 'envoye'){
+    return '<div class="card eq-bloc" style="padding:10px 16px"><div class="eq-ok"><i class="ti ti-circle-check" style="color:var(--green)"></i>' +
+      'Questions du fabricant PCB : renvoyées à Ellipse le ' + fjour(d.envoye_le) + (d.envoye_par ? ' par ' + esc(d.envoye_par) : '') +
+      (d.mode === 'pp' ? ' (réponse PP)' : ' (réponse du client)') + '</div></div>';
+  }
+  if(d.statut === 'a_traiter'){
+    return '<div class="card eq-bloc" id="eq-' + d.id + '"><div class="eq-tete">' + titre + '<span class="eq-pill a">À traiter</span></div>' +
+      '<div class="eq-fic">' + fichier + mail + '</div>' +
+      '<div class="eq-choix">' +
+        '<div class="eq-ch"><b>On répond nous-mêmes</b><p>Remplir le fichier, le recharger. Le client le verra pour info.</p>' +
+          '<input type="file" id="eq-f-' + d.id + '" accept=".xls,.xlsx">' +
+          '<button class="btn" onclick="FS.eqRepondre(' + d.id + ')"><i class="ti ti-send"></i> Envoyer à Ellipse</button></div>' +
+        '<div class="eq-ch"><b>Le client doit répondre</b><p>Le fichier part sur sa page FabStory comme question.</p>' +
+          '<button class="btn-s" onclick="FS.eqAuClient(' + d.id + ')"><i class="ti ti-user"></i> Envoyer au client</button></div>' +
+      '</div><div class="eq-msg" id="eq-m-' + d.id + '"></div></div>';
+  }
+  if(d.statut === 'chez_client'){
+    const reps = d.reponses_client || [];
+    const pieces = [];
+    reps.forEach(r => (r.pieces || []).forEach(p => pieces.push(p)));
+    const xls = pieces.filter(p => /\.xlsx?$/i.test(p.nom || ''));
+    let corps, pill;
+    if(xls.length){
+      const p = xls[xls.length - 1];
+      pill = '<span class="eq-pill b">Réponse du client reçue</span>';
+      corps = '<div class="eq-fic" style="margin:0">' +
+        '<button class="btn-s" onclick="FS.eqOuvrirPiece(' + p.id + ')" title="' + esc(p.nom) + '"><i class="ti ti-download"></i> ' + esc(eqNomCourt(p.nom)) + '</button>' +
+        '<button class="btn" onclick="FS.eqEnvoyerEllipse(' + d.id + ',' + p.id + ')"><i class="ti ti-send"></i> Renvoyer à Ellipse</button></div>';
+    } else if(reps.length){
+      pill = '<span class="eq-pill a">Chez le client</span>';
+      corps = '<p class="hint" style="margin:0">Le client a répondu sans recharger de fichier Excel' +
+        (pieces.length ? ' (fichiers joints : ' + pieces.map(p => esc(p.nom)).join(', ') + ')' : '') +
+        '. Voir sa réponse dans le fil, et le relancer si le fichier manque.</p>';
+    } else {
+      pill = '<span class="eq-pill a">Chez le client</span>';
+      corps = '<p class="hint" style="margin:0">En attente du client' + (d.question_le ? ' depuis le ' + fjour(d.question_le) : '') +
+        '. Le prévenir avec « Préparer le mail client », comme pour une autre question.</p>';
+    }
+    return '<div class="card eq-bloc" id="eq-' + d.id + '"><div class="eq-tete">' + titre + pill + '</div>' + corps +
+      '<div class="eq-msg" id="eq-m-' + d.id + '"></div></div>';
+  }
+  return '';
+}
+function eqMsg(id, html){ const m = el('eq-m-' + id); if(m) m.innerHTML = html; }
+function eqBoutons(id, actif){ const b = el('eq-' + id); if(b) b.querySelectorAll('button,input').forEach(x => { x.disabled = !actif; }); }
+FS.eqRepondre = async function(id){
+  const champ = el('eq-f-' + id);
+  const f = champ && champ.files && champ.files[0];
+  if(!f){ eqMsg(id, '<span class="err-msg">Choisissez d’abord le fichier rempli.</span>'); return; }
+  if(!/\.xlsx?$/i.test(f.name)){ eqMsg(id, '<span class="err-msg">Le fichier doit être un Excel (.xls ou .xlsx).</span>'); return; }
+  if(f.size > 15 * 1024 * 1024){ eqMsg(id, '<span class="err-msg">Fichier trop lourd (15 Mo au plus).</span>'); return; }
+  const auteur = auteurOuStop(); if(!auteur) return;
+  if(!confirm('Envoyer « ' + f.name + ' » à Ellipse, dans le fil de leur mail ?\n\nLe client verra aussi ce fichier sur sa page, pour information.')) return;
+  eqBoutons(id, false); eqMsg(id, '<span class="hint"><span class="spin"></span> Dépôt du fichier…</span>');
+  try{
+    const nomPropre = f.name.replace(/\.{2,}/g, '.');
+    const j = await postJson(BASE + '/fiche-de-vie-piece', { produit_id: P.id, nom: nomPropre });
+    const up = await fetch(j.url, { method: 'PUT', headers: { 'Content-Type': j.type }, body: f });
+    if(!up.ok) throw new Error('Dépôt refusé par le stockage (' + up.status + ').');
+    eqMsg(id, '<span class="hint"><span class="spin"></span> Envoi à Ellipse…</span>');
+    await postJson(BASE + '/fabstory-eq-action', { action: 'repondre', eq_id: id, chemin: j.chemin, nom: nomPropre, auteur: auteur });
+    await recharger(true);
+  }catch(e){
+    eqBoutons(id, true); eqMsg(id, '<span class="err-msg">Non envoyé : ' + esc(e.message) + '</span>');
+  }
+};
+FS.eqAuClient = async function(id){
+  const auteur = auteurOuStop(); if(!auteur) return;
+  if(!confirm('Mettre le fichier sur la page FabStory du client, comme question ?\n\nEnsuite, prévenir le client avec « Préparer le mail client ».')) return;
+  eqBoutons(id, false); eqMsg(id, '<span class="hint"><span class="spin"></span> Envoi…</span>');
+  try{
+    await postJson(BASE + '/fabstory-eq-action', { action: 'au_client', eq_id: id, auteur: auteur });
+    await recharger(true);
+  }catch(e){
+    eqBoutons(id, true); eqMsg(id, '<span class="err-msg">Non fait : ' + esc(e.message) + '</span>');
+  }
+};
+FS.eqEnvoyerEllipse = async function(id, pieceId){
+  const auteur = auteurOuStop(); if(!auteur) return;
+  if(!confirm('Renvoyer le fichier du client à Ellipse, dans le fil de leur mail ?\n\nOuvrez-le avant pour vérifier qu’il est bien rempli.')) return;
+  eqBoutons(id, false); eqMsg(id, '<span class="hint"><span class="spin"></span> Envoi à Ellipse…</span>');
+  try{
+    await postJson(BASE + '/fabstory-eq-action', { action: 'envoyer_ellipse', eq_id: id, piece_id: pieceId, auteur: auteur });
+    await recharger(true);
+  }catch(e){
+    eqBoutons(id, true); eqMsg(id, '<span class="err-msg">Non envoyé : ' + esc(e.message) + '</span>');
+  }
+};
+FS.eqOuvrirPiece = async function(pieceId){
+  try{
+    const j = await getJson(BASE + '/fabstory-eq-piece?piece=' + encodeURIComponent(pieceId));
+    if(!j || j.ok !== true || !j.b64) throw new Error('Fichier introuvable.');
+    const bin = atob(String(j.b64).replace(/\s+/g, ''));
+    const octets = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) octets[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([octets], { type: j.mime || 'application/octet-stream' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = j.nom || 'fichier.xls';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+  }catch(e){ alert('Fichier indisponible : ' + e.message); }
+};
+/* Carte non retrouvee par le sujet du mail : lien ?eq=ID du mail interne. La liste part des cartes
+   deja chargees (PRODUITS), filtrees sur le code client du sujet ; la recherche couvre toutes les cartes. */
+async function ouvrirChoixCarteEQ(eqId){
+  const z = el('ecran-cartes');
+  let d = null;
+  try{
+    const j = await getJson(BASE + '/fabstory-eq?eq=' + encodeURIComponent(eqId));
+    d = ((j && j.dossiers) || [])[0] || null;
+  }catch(e){
+    z.innerHTML = '<div class="card"><p class="err-msg" style="margin:0">Questions du fabricant indisponibles : ' + esc(e.message) + '</p></div>';
+    return;
+  }
+  if(!d){ z.innerHTML = '<div class="card"><p class="err-msg" style="margin:0">Dossier introuvable.</p></div>'; return; }
+  if(d.statut !== 'a_rattacher' && d.produit_id){ history.replaceState(null, '', '?produit=' + d.produit_id); await ouvrirFiche(Number(d.produit_id)); return; }
+  EQ_CHOIX = d;
+  rendreChoixCarteEQ('');
+}
+function rendreChoixCarteEQ(txt){
+  const d = EQ_CHOIX; const z = el('ecran-cartes'); if(!d || !z) return;
+  const f = (txt || '').trim().toLowerCase();
+  const duClient = d.code_client ? PRODUITS.filter(p => p.code_client === d.code_client) : [];
+  const base = f ? PRODUITS : duClient;
+  const liste = base.filter(p => !f || [p.cle_produit, p.ref_carte, p.libelle_carte, p.nom_client, p.code_client]
+    .some(v => String(v || '').toLowerCase().includes(f))).slice(0, 60);
+  let h = '<div class="card eq-bloc"><div class="eq-tete"><h2><i class="ti ti-file-spreadsheet"></i> Sur quelle carte poser ces questions ?</h2></div>' +
+    '<p class="hint" style="margin:0 0 10px">' + esc(d.sujet) + (d.code_client ? ' · client ' + esc(d.code_client) : '') + '</p>' +
+    '<div class="eq-fic"><a class="btn-s" href="' + esc(d.lien_mail) + '" target="_blank" rel="noopener"><i class="ti ti-mail"></i> Voir le mail d’Ellipse</a></div>' +
+    '<input type="text" id="eq-cherche" placeholder="Rechercher une carte (référence, libellé, client)…" value="' + esc(txt) + '" ' +
+    'oninput="rendreChoixCarteEQDiff(this.value)" style="margin:0 0 10px">';
+  if(!liste.length){
+    h += '<p class="hint" style="margin:0">' + (f ? 'Aucune carte ne correspond.' : 'Aucune carte connue pour ce client : cherchez-la par sa référence.') + '</p>';
+  } else {
+    h += liste.map(p => '<div class="carte-item" style="cursor:default">' +
+      '<div><div class="ref">' + esc(p.cle_produit || p.ref_carte) + '</div><div class="lib">' + esc(p.libelle_carte || '') + '</div></div>' +
+      '<div class="cli">' + esc(p.nom_client || p.code_client || '') +
+      ' <button class="btn-s" style="margin-left:8px" onclick="FS.eqRattacher(' + d.id + ',' + p.id + ')">C’est cette carte</button></div></div>').join('');
+  }
+  h += '<div class="eq-msg" id="eq-m-choix"></div></div>';
+  z.innerHTML = h;
+  const c = el('eq-cherche'); if(f && c){ c.focus(); c.setSelectionRange(c.value.length, c.value.length); }
+}
+let _teq = null;
+function rendreChoixCarteEQDiff(v){ clearTimeout(_teq); _teq = setTimeout(function(){ rendreChoixCarteEQ(v); }, 140); }
+FS.eqRattacher = async function(eqId, pid){
+  const p = PRODUITS.find(x => x.id === pid) || {};
+  const auteur = auteurOuStop(); if(!auteur) return;
+  if(!confirm('Poser les questions du fabricant sur la carte ' + (p.cle_produit || p.ref_carte || pid) + ' ?')) return;
+  const m = el('eq-m-choix'); if(m) m.innerHTML = '<span class="hint"><span class="spin"></span> Rattachement…</span>';
+  try{
+    await postJson(BASE + '/fabstory-eq-action', { action: 'rattacher', eq_id: eqId, produit_id: pid, auteur: auteur });
+    history.replaceState(null, '', '?produit=' + pid);
+    await ouvrirFiche(pid);
+  }catch(e){ if(m) m.innerHTML = '<span class="err-msg">' + esc(e.message) + '</span>'; }
+};
+
 /* ================================================================ BOOT ==== */
 (async function(){
   await chargerCartes();
   const qs = new URLSearchParams(location.search);
   const pid = parseInt(qs.get('produit'), 10);
+  const eqId = parseInt(qs.get('eq'), 10);   /* 5.12 : lien du mail interne « Choisir la carte » */
+  if(!(pid > 0) && eqId > 0){ await ouvrirChoixCarteEQ(eqId); return; }
   if(pid > 0){
     await ouvrirFiche(pid);
     /* v5.2 : ouverture préremplie (?question=indispo&REF=…&REP=…&depuis=…) */
