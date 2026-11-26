@@ -3576,6 +3576,7 @@ let EQ_CHOIX = null;
 /* 5.13 : l entree posee par n8n a pour auteur « <Fabricant> (fabricant PCB) » (Ellipse, FineLine). */
 function carteAEQ(){ return ((FICHE && FICHE.entrees) || []).some(e => e && /\(fabricant PCB\)$/.test(String(e.auteur || ''))); }
 function eqFab(d){ return (d && d.fabricant) || 'Ellipse'; }
+function eqDe(fab){ return /^[aeiouyéèh]/i.test(fab) ? 'd’' + fab : 'de ' + fab; }
 function eqFabDe(id){ return eqFab(EQ_DOSSIERS.find(x => x.id === id)); }
 function eqNomCourt(n){ n = String(n || ''); return n.length > 46 ? n.slice(0, 30) + '…' + n.slice(-12) : n; }
 async function chargerEQ(){
@@ -3596,7 +3597,7 @@ function htmlEQ(d){
   const fab = eqFab(d);
   const titre = '<h2><i class="ti ti-file-spreadsheet"></i> Questions du fabricant PCB (' + esc(fab) + ')</h2>';
   const fichier = '<button class="btn-s" onclick="FS.ouvrirPiece(\'' + esc(d.chemin) + '\')" title="' + esc(d.nom_fichier) + '"><i class="ti ti-download"></i> ' + esc(eqNomCourt(d.nom_fichier)) + '</button>';
-  const mail = '<a class="btn-s" href="' + esc(d.lien_mail) + '" target="_blank" rel="noopener"><i class="ti ti-mail"></i> Voir le mail de ' + esc(fab) + '</a>';
+  const mail = '<a class="btn-s" href="' + esc(d.lien_mail) + '" target="_blank" rel="noopener"><i class="ti ti-mail"></i> Voir le mail ' + esc(eqDe(fab)) + '</a>';
   if(d.statut === 'envoye' && d.mode === 'client_direct'){
     return '<div class="card eq-bloc" style="padding:10px 16px"><div class="eq-ok" style="flex-wrap:wrap"><i class="ti ti-circle-check" style="color:var(--green)"></i>' +
       'Questions du fabricant PCB : le client a répondu directement à ' + esc(fab) + ' le ' + fjour(d.envoye_le) + '. Question close. ' + fichier + '</div></div>';
@@ -3731,7 +3732,7 @@ function rendreChoixCarteEQ(txt){
     .some(v => String(v || '').toLowerCase().includes(f))).slice(0, 60);
   let h = '<div class="card eq-bloc"><div class="eq-tete"><h2><i class="ti ti-file-spreadsheet"></i> Sur quelle carte poser ces questions ?</h2></div>' +
     '<p class="hint" style="margin:0 0 10px">' + esc(d.sujet) + (d.code_client ? ' · client ' + esc(d.code_client) : '') + '</p>' +
-    '<div class="eq-fic"><a class="btn-s" href="' + esc(d.lien_mail) + '" target="_blank" rel="noopener"><i class="ti ti-mail"></i> Voir le mail de ' + esc(eqFab(d)) + '</a></div>' +
+    '<div class="eq-fic"><a class="btn-s" href="' + esc(d.lien_mail) + '" target="_blank" rel="noopener"><i class="ti ti-mail"></i> Voir le mail ' + esc(eqDe(eqFab(d))) + '</a></div>' +
     '<input type="text" id="eq-cherche" placeholder="Rechercher une carte (référence, libellé, client)…" value="' + esc(txt) + '" ' +
     'oninput="rendreChoixCarteEQDiff(this.value)" style="margin:0 0 10px">';
   if(!liste.length){
