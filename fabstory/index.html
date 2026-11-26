@@ -313,6 +313,26 @@ dialog.dlg-large{max-width:960px;width:94vw}
 .rf-rx .chip .x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1}
 .rf-rx .vide{color:var(--text3);font-size:12px}
 .rf-rx .exp{color:var(--text3);font-size:11.5px;margin-top:4px}
+/* v5.15 (26/11/2026) : relecture complete du rapport au figer */
+.rf-fil{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin:0 0 10px;background:var(--surface)}
+.rf-fil .titre{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:0 0 6px}
+.rf-fl{border-top:1px solid var(--border);padding:8px 0;display:grid;grid-template-columns:22px 1fr;gap:4px 8px}
+.rf-fl:first-of-type{border-top:none}
+.rf-fl .ic{font-size:15px;line-height:1.3}
+.rf-fl .tt{font-size:12.5px;font-weight:600}
+.rf-fl .tt .st{font-weight:600;font-size:11px;padding:1px 7px;border-radius:999px;margin-left:6px}
+.rf-fl .st.bloq{background:var(--red-bg);color:var(--red-badge)}
+.rf-fl .st.ok{background:var(--green-bg);color:var(--green-badge)}
+.rf-fl .st.neutre{background:var(--surface2);color:var(--text2)}
+.rf-fl details{font-size:12px;color:var(--text2);margin-top:2px}
+.rf-fl details p{white-space:pre-wrap;margin:4px 0}
+.rf-fl .saisie{grid-column:2;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rf-fl .saisie input[type=text]{flex:1;min-width:260px;padding:5px 8px;font-size:12.5px;border:1px solid var(--border);border-radius:var(--radius);background:#fff}
+.rf-fl .saisie label{font-size:12px;color:var(--text2);display:flex;gap:4px;align-items:center;white-space:nowrap}
+.rf-fl.non-imp{opacity:.55}
+.rf-fl .lu{grid-column:2;font-size:12.5px}
+.rf-bloquants{background:var(--red-bg);color:var(--red-badge);border-radius:var(--radius);padding:8px 12px;font-size:12.5px;margin:0 0 10px}
+.rf-bloquants ul{margin:4px 0 0 18px;padding:0}
 /* ----------------------------------------------------- saisie guidee v4.0 -- */
 .stepper{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .step{display:flex;align-items:center;gap:7px;color:var(--text3);font-size:12px;font-weight:500}
@@ -547,7 +567,7 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.14';
+const APP_VERSION = '5.15';
 const APP_DATE = '26/11/2026';
 /* 5.14 (26/11/2026) : PCB Electronics branche aussi (renvoi avec copie au suivi Odoo de la commande d achat).
    5.13 (26/11/2026, decision Olivier) : questions PCB de FineLine branchees comme Ellipse. Le bloc affiche le nom
@@ -1599,7 +1619,9 @@ function rfIgnoresUtiles(){
 FS.rfChoisirLot = function(id){ RF.lotId = id; RF.edit = null; RF.rx = null; RF.rxEnCours = false; rendreRapport(); };
 function rfEditInit(lot){
   if(RF.edit && RF.edit.lotId === lot.bl_odoo_id) return RF.edit;
-  RF.edit = { lotId: lot.bl_odoo_id, lignes: (RF.conformite_defaut || []).map(l => Object.assign({}, l)) };
+  RF.edit = { lotId: lot.bl_odoo_id, lignes: (RF.conformite_defaut || []).map(l => Object.assign({}, l)), fil: {} };
+  /* v5.15 : etat editable du fil (ligne + imprimer), initialise depuis le serveur */
+  (RF.fil || []).forEach(x => { RF.edit.fil[x.id] = { ligne: x.ligne_rapport || '', imprimer: x.imprimer_defaut !== false }; });
   return RF.edit;
 }
 /* v4.20 (ch.163) : cliches RX joints au rapport, partages au client via lien
@@ -1636,6 +1658,7 @@ async function rfChargerRx(force){
   RF.rxEnCours = false;
   const z = document.querySelector('.rf-rx');
   if(z){ z.outerHTML = rfRxHtml(); rfBrancherRx(); }
+  rfMajBloquants(); /* v5.15 : le blocage RX depend des cliches lus */
 }
 function rfBrancherRx(){
   const inp = el('rf-rx-in');
@@ -1697,6 +1720,94 @@ FS.rxRetirer = async function(id){
   RF.rx = null; RF.rxEnCours = false; await rfChargerRx(true);
 };
 
+/* v5.15 (26/11/2026, decision Olivier apres le rapport Locatis N10A) : l ecran « Valider et figer »
+   devient la RELECTURE COMPLETE du rapport. Section 1 = ce que le client lira du fil (questions et
+   notes visibles du SO, derniere version). Blocages : question en attente, question imprimee sans
+   ligne (texte d origine interdit au rapport), Controle RX coche sans cliche. Le serveur refait les
+   memes controles au figer (workflow Rapport de fab v0.4) et garde une photo du fil. */
+function rfNomFil(x){ return [x.repere, x.mpn].filter(Boolean).join(' · ') || ('entrée ' + x.id); }
+function rfEstQuestion(x){ return x.type === 'question_client' || x.ex_question === true; }
+function rfStatutFil(x, e){
+  if(x.type === 'question_client' && x.etat === 'en_attente') return 'attente';
+  if(!e.imprimer) return 'non_imp';
+  if(!rfEstQuestion(x)) return (e.ligne || '').trim() ? 'note_ligne' : 'note';
+  return (e.ligne || '').trim() ? 'ok' : 'a_rediger';
+}
+const RF_ST = {
+  attente:    { ic: 'ti-alert-octagon', coul: 'var(--red)',   cls: 'bloq',   txt: 'Question en attente : à traiter dans le fil avant de figer' },
+  a_rediger:  { ic: 'ti-pencil',        coul: 'var(--red)',   cls: 'bloq',   txt: 'Ligne à rédiger (ou ne pas imprimer)' },
+  ok:         { ic: 'ti-circle-check',  coul: 'var(--green)', cls: 'ok',     txt: 'Ligne prête' },
+  note:       { ic: 'ti-note',          coul: 'var(--text3)', cls: 'neutre', txt: 'Note imprimée telle quelle' },
+  note_ligne: { ic: 'ti-note',          coul: 'var(--green)', cls: 'ok',     txt: 'Note imprimée par sa ligne' },
+  non_imp:    { ic: 'ti-eye-off',       coul: 'var(--text3)', cls: 'neutre', txt: 'Non imprimée' }
+};
+function rfFilTeteHtml(x, e){
+  const st = RF_ST[rfStatutFil(x, e)];
+  const nature = x.type === 'question_client' ? 'Question' : (x.ex_question ? 'Question devenue note' : 'Note');
+  return '<i class="ti ' + st.ic + ' ic" style="color:' + st.coul + '"></i><div class="tt">' + esc(nature) + ' · ' + esc(rfNomFil(x)) +
+    '<span class="st ' + st.cls + '">' + st.txt + '</span></div>';
+}
+function rfFilHtml(ed){
+  const fil = RF.fil || [];
+  let h = '<div class="rf-fil"><div class="titre"><i class="ti ti-file-text"></i> Ce que le client lira (questions et notes visibles du ' + esc(RF.so) + ')</div>';
+  if(!fil.length) return h + '<p class="hint">Aucune question ni note visible du client pour cette commande.</p></div>';
+  fil.forEach(x => {
+    const e = ed.fil[x.id] || { ligne: '', imprimer: true };
+    const q = rfEstQuestion(x);
+    h += '<div class="rf-fl' + (e.imprimer ? '' : ' non-imp') + '" id="rf-fl-' + x.id + '"><span id="rf-flt-' + x.id + '" style="display:contents">' + rfFilTeteHtml(x, e) + '</span>' +
+      '<div style="grid-column:2"><details><summary>Voir le texte' + (x.reponse ? ' et la réponse' : '') + '</summary><p>' + esc(x.texte || '') + '</p>' +
+      (x.reponse ? '<p><strong>Réponse :</strong> ' + esc(x.reponse) + '</p>' : '') + '</details></div>';
+    if(!(x.type === 'question_client' && x.etat === 'en_attente')){
+      h += '<div class="saisie"><input type="text" value="' + esc(e.ligne) + '" placeholder="' +
+        (q ? 'Décision avec repère et référence montée (ex. C205 : VJ2220Y102KWUSTX1 monté)' : 'Vide = la note est imprimée telle quelle') +
+        '" oninput="FS.rfFil(' + x.id + ',\'ligne\',this.value)">' +
+        '<label><input type="checkbox"' + (e.imprimer ? '' : ' checked') + ' onchange="FS.rfFil(' + x.id + ',\'imprimer\',!this.checked)"> Ne pas imprimer</label></div>';
+    }
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+function rfFilFigeHtml(fil){
+  let h = '<div class="rf-fil"><div class="titre"><i class="ti ti-file-text"></i> Ce que le client lit (photo prise au figer)</div>';
+  if(!Array.isArray(fil)) return h + '<p class="hint">Rapport figé avant la version 5.15 : le fil n’a pas été photographié.</p></div>';
+  if(!fil.length) return h + '<p class="hint">Aucune question ni note imprimée.</p></div>';
+  fil.forEach(x => {
+    h += '<div class="rf-fl' + (x.imprimer ? '' : ' non-imp') + '"><i class="ti ' + (x.imprimer ? 'ti-circle-check' : 'ti-eye-off') + ' ic"></i>' +
+      '<div class="tt">' + esc(rfNomFil(x)) + '</div><div class="lu">' +
+      (!x.imprimer ? 'Non imprimée' : (x.ligne ? esc(x.ligne) : '<em>Imprimée telle quelle</em>')) + '</div></div>';
+  });
+  return h + '</div>';
+}
+function rfBloquants(){
+  const out = [];
+  if(!RF || !RF.edit) return out;
+  (RF.fil || []).forEach(x => {
+    const st = rfStatutFil(x, RF.edit.fil[x.id] || { ligne: '', imprimer: true });
+    if(st === 'attente') out.push('Question en attente : ' + rfNomFil(x) + ' (répondre ou clore la question dans le fil)');
+    else if(st === 'a_rediger') out.push('Ligne à rédiger : ' + rfNomFil(x));
+  });
+  const rx = (RF.edit.lignes || []).find(l => l.code === 'controle_rx');
+  const nbRx = (RF.rx && Array.isArray(RF.rx.cliches)) ? RF.rx.cliches.length : (RF.nb_cliches || 0);
+  if(rx && rx.conforme && !nbRx) out.push('Contrôle RX coché : déposer les clichés RX (ou décocher la ligne)');
+  return out;
+}
+function rfMajBloquants(serveur){
+  const z = el('rf-bloq'); const go = el('rf-go');
+  if(!z || !go) return;
+  const b = serveur || rfBloquants();
+  z.innerHTML = b.length ? '<div class="rf-bloquants"><strong><i class="ti ti-lock-off"></i> Impossible de figer tant que :</strong><ul>' +
+    b.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul></div>' : '';
+  go.disabled = b.length > 0;
+}
+FS.rfFil = function(id, k, v){
+  if(!RF || !RF.edit) return;
+  const e = RF.edit.fil[id] || (RF.edit.fil[id] = { ligne: '', imprimer: true });
+  e[k] = v;
+  const x = (RF.fil || []).find(f => f.id === id);
+  const t = el('rf-flt-' + id); if(t && x) t.innerHTML = rfFilTeteHtml(x, e);
+  const row = el('rf-fl-' + id); if(row) row.classList.toggle('non-imp', !e.imprimer);
+  rfMajBloquants();
+};
 function rendreRapport(){
   const z = el('rf-corps'); const lot = rfLot();
   let h = '<div class="rf-tete"><span class="ref">' + esc(RF.produit.cle_produit) + '</span>' +
@@ -1732,6 +1843,7 @@ function rendreRapport(){
     h += '<div class="rf-fige-bandeau"><i class="ti ti-lock"></i> Rapport fig\u00e9 par <strong>' + esc(f.valide_par) + '</strong> le ' + fdate(f.valide_le) +
       ' \u2014 c\u2019est cette version que voit le client.' +
       '<button class="btn-s" style="margin-left:auto" onclick="FS.rfRefaire(' + f.id + ')"><i class="ti ti-refresh"></i> Refaire</button></div>';
+    h += rfFilFigeHtml(f.fil);
     h += rfTableHtml(f.conformite || [], false);
     h += '<div class="rf-pied"><button class="btn-s" onclick="FS.voirRapportClient()"><i class="ti ti-printer"></i> Imprimer rapport de fab (depuis vue client)</button>' +
       '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button></div>';
@@ -1741,14 +1853,25 @@ function rendreRapport(){
   if(!RF.controle_final_fait){
     h += '<div class="rf-alerte"><i class="ti ti-info-circle"></i> Le contr\u00f4le final n\u2019est pas encore coch\u00e9 dans Odoo : les lignes sont propos\u00e9es non conformes tant qu\u2019il ne l\u2019est pas.</div>';
   }
-  h += '<div class="sec-titre">Tableau de conformit\u00e9 \u2014 commentaires libres, lignes ajoutables</div>' + rfTableHtml(ed.lignes, true);
+  h += rfFilHtml(ed);
+  h += '<div class="sec-titre">Tableau de conformit\u00e9 \u2014 commentaires libres (r\u00e9serves), lignes ajoutables</div>' + rfTableHtml(ed.lignes, true);
   h += '<div style="margin-top:6px"><button class="btn-s" onclick="FS.rfAjouterLigne()"><i class="ti ti-plus"></i> Ajouter une ligne</button></div>';
+  /* v5.15 : rappel NON bloquant (decision Olivier) : une note visible qui porte un repere signale souvent
+     un ecart de montage -> penser a la reserve dans la conformite. */
+  const notesRep = (RF.fil || []).filter(x => x.type !== 'question_client' && !x.ex_question && x.repere);
+  if(notesRep.length){
+    h += '<div class="rf-alerte" style="margin-top:10px"><i class="ti ti-info-circle"></i> Note visible du client sur ' +
+      notesRep.map(x => '<strong>' + esc(rfNomFil(x)) + '</strong>').join(', ') +
+      ' : pensez \u00e0 la r\u00e9serve dans le tableau de conformit\u00e9 (ex. \u00ab Pr\u00e9sence des composants : sauf ' + esc(notesRep[0].repere) + ' \u2026 \u00bb).</div>';
+  }
+  h += '<div id="rf-bloq" style="margin-top:10px"></div>';
   h += '<div class="rf-pied"><span class="hint">Valid\u00e9 par</span><select id="rf-qui">' +
     EQUIPE.map(x => '<option' + (x === qui() ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' +
     '<span id="rf-msg" class="hint" style="min-width:120px"></span>' +
     '<button class="btn-s" onclick="document.getElementById(\'dlg-rapport\').close()">Fermer</button>' +
     '<button class="btn" id="rf-go" onclick="FS.rfFiger()"><i class="ti ti-lock"></i> Valider et figer</button></div>';
   z.innerHTML = h;
+  rfMajBloquants();
   if(document.querySelector('.rf-rx')) rfChargerRx();
 }
 function rfTableHtml(lignes, editable){
@@ -1764,7 +1887,7 @@ function rfTableHtml(lignes, editable){
   });
   return t + '</table>';
 }
-FS.rfMaj = function(i, k, v){ if(RF && RF.edit && RF.edit.lignes[i]) RF.edit.lignes[i][k] = v; };
+FS.rfMaj = function(i, k, v){ if(RF && RF.edit && RF.edit.lignes[i]) RF.edit.lignes[i][k] = v; if(k === 'conforme') rfMajBloquants(); };
 FS.rfAjouterLigne = function(){
   RF.edit.lignes.push({ code: 'libre_' + Date.now().toString(36), libelle: '', conforme: true, commentaire: '', ajoutee: true });
   rendreRapport();
@@ -1784,7 +1907,9 @@ FS.rfFiger = async function(){
     const r = await postJson(BASE + '/fabstory-rapport-figer', {
       produit_id: P.id, so: RF.so, bl_odoo_id: lot.bl_odoo_id, bl_nom: lot.bl_nom, lot_numero: lot.lot_numero,
       qte_lot: lot.qte, n_serie_debut: lot.n_serie_debut, n_serie_fin: lot.n_serie_fin, n_declaration: lot.n_declaration,
-      conformite: lignes, valide_par: quiSel });
+      conformite: lignes, valide_par: quiSel,
+      fil: Object.keys(RF.edit.fil || {}).map(id => ({ id: parseInt(id, 10), ligne: RF.edit.fil[id].ligne || '', imprimer: RF.edit.fil[id].imprimer !== false })) });
+    if(r && !r.ok && Array.isArray(r.bloquants)){ rfMajBloquants(r.bloquants); el('rf-msg').textContent = 'Refus\u00e9 par le serveur.'; return; }
     if(!r || !r.ok) throw new Error((r && r.motif) || 'Refus du serveur');
     await FS.rapportFab();
   }catch(e){
@@ -1964,6 +2089,18 @@ function ouvrirVolet(id){
     compEntree(e) +
     '<div class="tl-texte">' + htmlTexteEntree(e) + '</div>' +
     detEntree(e) + piecesEntree(e);
+
+  /* v5.15 (26/11/2026, decision Olivier, cas entretoises SD5 N01A) : une note VISIBLE du client ne part
+     jamais par mail (seules les questions partent avec « Preparer le mail client »). Deux gestes directs :
+     la transformer en question, ou en informer le client par un brouillon de mail, sans ecrire a cote. */
+  if(e.type === 'note' && e.visible_client && !e.repond_a){
+    h += '<details class="v-sec" open><summary><i class="ti ti-mail-forward"></i> Le client doit-il le savoir ou d\u00e9cider ?</summary>' +
+      '<p class="hint" style="margin:0 0 8px">Une note visible appara\u00eet sur la page du client et au rapport, mais ne part pas par mail.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn-s" onclick="FS.noteEnQuestion(' + e.id + ')"><i class="ti ti-help-circle"></i> En faire une question</button>' +
+      '<button class="btn-s" onclick="FS.noteInformer(' + e.id + ')"><i class="ti ti-mail"></i> Informer le client par mail</button></div>' +
+      '<div id="v-noteq-msg" style="min-height:16px;margin-top:6px"></div></details>';
+  }
 
   if(estQuestion && e.etat === 'en_attente'){
     h += '<details class="v-sec" open><summary><i class="ti ti-corner-down-right"></i> R\u00e9pondre</summary>' +
@@ -2187,6 +2324,34 @@ FS.voletNature = async function(){
     choisieId = j.id;
     await recharger(true);
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+/* v5.15 : note visible -> question client (nature changee EN PLACE, etat en_attente), puis choix du modele. */
+FS.noteEnQuestion = async function(id){
+  const e = entree(id); if(!e) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  if(!confirm('Transformer cette note en question client ?\n\nElle partira avec \u00ab Pr\u00e9parer le mail client \u00bb et le client pourra r\u00e9pondre sur sa page. Choisissez ensuite le mod\u00e8le de r\u00e9ponses.')) return;
+  const msg = el('v-noteq-msg'); if(msg) msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/fabstory-note-edition', { id: e.id, action: 'modifier', auteur, type: 'question_client' });
+    choisieId = j.id || e.id;
+    await recharger(true);
+    FS.remoulerOuvrir(choisieId);
+  }catch(err){ if(msg) msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
+/* v5.15 : brouillon de mail d information pour UNE note visible (API v0.27, mode information). */
+FS.noteInformer = async function(id){
+  let ini = qui();
+  if(!ini){
+    ini = (prompt('Vos initiales (d\u00e9cident de la bo\u00eete d\u2019envoi : ' + INITIALES_COMMERCIAL.join(', ') + ' \u2192 commercial, autres \u2192 production) :') || '').trim().toUpperCase();
+    if(!ini) return;
+    setQui(ini);
+  }
+  if(!confirm('Pr\u00e9parer un brouillon dans ' + expediteurPour(ini) + ' pour informer le client de cette note ?\nRien ne part : vous relisez et envoyez depuis Gmail.')) return;
+  const msg = el('v-noteq-msg'); if(msg) msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const r = await postJson(BASE + '/fabstory-mail-client', { produit_id: P.id, initiales: ini, note_id: id });
+    if(msg) msg.innerHTML = '<span class="hint">' + esc(r && r.message ? r.message : 'Brouillon cr\u00e9\u00e9.') + '</span>';
+  }catch(err){ if(msg) msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
 FS.voletVisibilite = async function(nouvelle){
   const e = entree(choisieId); if(!e) return;

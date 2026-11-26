@@ -433,10 +433,14 @@
     .f08-t td, .f08-t th, .f08-phrase, .f08-surv { font-size: 9pt; }
     .f08 { border-radius: 0; }
     .conf-visa-img { max-width: 62mm; max-height: 28mm; }
+    /* v0.58 : rapport non fige -> rien d autre que l avis (Ctrl+P compris) */
+    body.rapport-provisoire main > *:not(#printProvisoire) { display: none !important; }
+    body.rapport-provisoire #printProvisoire { display: block !important; font-size: 13pt; padding: 30mm 10mm; text-align: center; }
   }
+  #printProvisoire { display: none; }
 </style>
 </head>
-<body>
+<body class="rapport-provisoire">
 <header>
   <!-- v0.13 : picto = retour a l espace client, titre = retour a la liste des cartes -->
   <a href="https://protoprocess-main-16873066.dev.odoo.com/my" title="Votre espace client Proto Process" style="display:flex;align-items:center;text-decoration:none">
@@ -452,6 +456,7 @@
 </header>
 
 <main>
+  <div id="printProvisoire"></div>
   <div id="chargement">Chargement de votre suivi&hellip;</div>
 
   <div id="refus" style="display:none">
@@ -572,7 +577,7 @@
    deja ete filtre visible_client en SQL — elle n'a rien a cacher elle-meme.
    ========================================================================= */
 const APP_NAME = "FabStory Client";
-const APP_VERSION = "0.57";
+const APP_VERSION = "0.58";
 const APP_DATE = "26/11/2026";
 /* v0.57 (26/11/2026, chantier 277 : questions du fabricant PCB) : un fichier joint par PP a une
    question ou une note (fiche_de_vie.photos) qui n est pas une image (le .xls d Ellipse a remplir)
@@ -608,7 +613,11 @@ const APP_DATE = "26/11/2026";
    (6) Version + date visibles dans l en-tete. */
 const API = "https://protoprocess.app.n8n.cloud/webhook";
 
-document.getElementById("btnImprimer").addEventListener("click", function () { window.print(); });
+document.getElementById("btnImprimer").addEventListener("click", function () {
+  /* v0.58 : pas de PDF tant que le rapport n est pas fige (decision Olivier 26/11) */
+  if (!RAPPORT_FIGE) { alert(t("rapport_provisoire")); return; }
+  window.print();
+});
 
 /* ch.137 v0.27b : ordre papier par deplacement des blocs dans le DOM, juste
    avant l impression (beforeprint), remis en place apres (afterprint). Plus
@@ -679,6 +688,9 @@ const SO_AVANT = (params.get("so") || "").trim();
    Sans aucun SO connu (devis) : un seul groupe, pas de titre, rien de masque. */
 let SO_CIBLE = SO_AVANT || "";
 let INSPECTION_PTS = null, RX_LIEN = null; /* v0.47 (ch.163) : cliches RX */
+/* v0.58 (26/11/2026, decision Olivier) : rapport fige de cette carte (avec la photo du fil).
+   Sans rapport fige : impression refusee (« rapport en cours de finalisation »). */
+let RAPPORT_FIGE = null, STATUT_LU = false;
 
 /* ch.148 (01/09) : langue de la page. Priorite : ?lang=fr|en (tests, surcharge),
    sinon produits.langue (miroir de la langue du client Odoo, synchronise chaque
@@ -714,6 +726,7 @@ const T = {
     resume_pas_cable: "{R}{X} non mont\u00e9 \u2014 d\u00e9cision valid\u00e9e par vos soins le {D}.",
     cart_order: "Commande", cart_ref_client: "Votre commande", cart_qte: "Quantit\u00e9s", cart_serie: "N\u00b0 de s\u00e9rie", form_f08: "Formulaire F08/B", insp_page_titre: "Rapport d\u2019inspection avant emballage",
     resume_rep: "rep. ", fil_note_print: "Le d\u00e9tail des \u00e9changes reste consultable dans votre historique en ligne.",
+    rapport_provisoire: "Le rapport de fabrication est en cours de finalisation. Il sera disponible au d\u00e9part de vos cartes.",
     historique_titre: "Historique de votre carte", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assemblage", metier_reclamation: "R\u00e9clamation",
     historique_vide: "Les \u00e9v\u00e9nements de production de votre carte s\u2019afficheront ici au fil de la fabrication.",
     rapport_vide: "Le rapport de fabrication se remplira au fil de la production de votre carte.",
@@ -779,6 +792,7 @@ const T = {
     resume_pas_cable: "{R}{X} not fitted \u2014 decision approved by you on {D}.",
     cart_order: "Order", cart_ref_client: "Your order", cart_qte: "Quantities", cart_serie: "Serial N\u00b0", form_f08: "Formulaire F08/B", insp_page_titre: "Pre-packing inspection report",
     resume_rep: "des. ", fil_note_print: "The full exchanges remain available in your online history.",
+    rapport_provisoire: "The production report is being finalised. It will be available when your boards ship.",
     historique_titre: "Your board\u2019s history", metier_bom: "BOM", metier_pcb: "PCB", metier_assemblage: "Assembly", metier_reclamation: "Complaint",
     historique_vide: "Production events for your board will appear here as manufacturing progresses.",
     rapport_vide: "The production report will fill in as your board is manufactured.",
@@ -828,6 +842,7 @@ function texteDernier(el, texte) {
 /* Applique la langue a tout ce qui est ecrit en dur dans le HTML. Appele une
    fois la langue connue (fiche chargee), et tout de suite si ?lang= est fourni. */
 function traduireStatique() {
+  const pp = document.getElementById("printProvisoire"); if (pp) pp.textContent = t("rapport_provisoire"); /* v0.58 */
   document.documentElement.lang = LANG;
   const q = function (s) { return document.querySelector(s); };
   if (q(".logo-text .lo")) q(".logo-text .lo").textContent = t("titre_onglet");
@@ -1253,6 +1268,9 @@ async function chargerStatut() {
     rendreCartouche(r && r.ok ? r : null);
     rendreConformite(r && r.ok ? r.conformite : null);
     STATUT_CODE = (r && r.ok) ? (r.statut || null) : null;
+    RAPPORT_FIGE = (r && r.ok && r.rapport_fige) ? r.rapport_fige : null; STATUT_LU = true;
+    document.body.classList.toggle("rapport-provisoire", !RAPPORT_FIGE);
+    if (DONNEES) rendreFil(DONNEES);
     rendreFournitures();
   } catch (e) {
     rendreJalons(null, null);
@@ -2045,7 +2063,16 @@ function rendreFil(r) {
        choix fermes est remplacee par sa CONCLUSION en une ligne, construite
        depuis les donnees structurees (PROPOSITION / mpn / repere + choix
        retenu). L ecran garde tout. Sans donnees structurees : texte complet. */
-    const resume = resumeImprime(e, reponsesDe[e.id] || []);
+    /* v0.58 : rapport fige avec photo du fil -> le PDF suit la photo (ligne relue au figer, ou entree
+       imprimee telle quelle, ou retiree). Une entree absente de la photo (posterieure au figer) est retiree. */
+    let resume;
+    const photo = (RAPPORT_FIGE && Array.isArray(RAPPORT_FIGE.fil)) ? RAPPORT_FIGE.fil : null;
+    if (photo && !horsSo) {
+      const snap = photo.find(function (x) { return x && x.id === e.id; });
+      resume = (!snap || !snap.imprimer) ? { cacher: true } : (snap.ligne ? { texte: snap.ligne } : null);
+    } else {
+      resume = resumeImprime(e, reponsesDe[e.id] || []);
+    }
     if (resume && resume.cacher) {
       bloc.classList.add("entree-hors-rapport");
       bloc.innerHTML = plein;
