@@ -313,6 +313,12 @@ dialog.dlg-large{max-width:960px;width:94vw}
 .rf-rx .chip .x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1}
 .rf-rx .vide{color:var(--text3);font-size:12px}
 .rf-rx .exp{color:var(--text3);font-size:11.5px;margin-top:4px}
+/* v5.16 (27/11/2026) : ligne du certificat sur une note visible */
+.v-cert{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-top:10px;background:var(--surface)}
+.v-cert .titre{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:0 0 6px}
+.v-cert select,.v-cert input[type=text]{width:100%;margin:0 0 6px}
+.v-cert .sugg{font-size:12px;color:var(--info-txt);margin:0 0 6px}
+.rf-propose{display:block;font-size:11px;color:var(--text3);margin-top:2px}
 /* v5.15 (26/11/2026) : relecture complete du rapport au figer */
 .rf-fil{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin:0 0 10px;background:var(--surface)}
 .rf-fil .titre{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:0 0 6px}
@@ -567,8 +573,12 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.15';
-const APP_DATE = '26/11/2026';
+const APP_VERSION = '5.16';
+const APP_DATE = '27/11/2026';
+/* 5.16 (27/11/2026, decision Olivier) : une note VISIBLE du client peut porter sa ligne du certificat de conformite
+   (menu dans le volet, Claude propose la ligne, la nature et la phrase ; l auteur confirme ou change). A l ecran Figer,
+   la ligne arrive pre-remplie (« Sauf … » ecart accepte par le client, « Réserve : … » defaut constate), relue et
+   modifiable. Les reponses « Ne pas câbler » vont seules en Presence des composants. Workflow QiofGT0uc1QtqaBM. */
 /* 5.14 (26/11/2026) : PCB Electronics branche aussi (renvoi avec copie au suivi Odoo de la commande d achat).
    5.13 (26/11/2026, decision Olivier) : questions PCB de FineLine branchees comme Ellipse. Le bloc affiche le nom
    du fabricant du dossier (Ellipse ou FineLine). Nouvel etat : le client a repondu lui-meme a FineLine (il est en
@@ -1858,7 +1868,7 @@ function rendreRapport(){
   h += '<div style="margin-top:6px"><button class="btn-s" onclick="FS.rfAjouterLigne()"><i class="ti ti-plus"></i> Ajouter une ligne</button></div>';
   /* v5.15 : rappel NON bloquant (decision Olivier) : une note visible qui porte un repere signale souvent
      un ecart de montage -> penser a la reserve dans la conformite. */
-  const notesRep = (RF.fil || []).filter(x => x.type !== 'question_client' && !x.ex_question && x.repere);
+  const notesRep = (RF.fil || []).filter(x => x.type !== 'question_client' && !x.ex_question && x.repere && !x.au_certificat); /* v5.16 */
   if(notesRep.length){
     h += '<div class="rf-alerte" style="margin-top:10px"><i class="ti ti-info-circle"></i> Note visible du client sur ' +
       notesRep.map(x => '<strong>' + esc(rfNomFil(x)) + '</strong>').join(', ') +
@@ -1881,7 +1891,9 @@ function rfTableHtml(lignes, editable){
     t += '<tr' + (l.ajoutee ? ' class="ajoutee"' : '') + '>' +
       '<td>' + (editable && l.ajoutee ? '<input type="text" value="' + esc(l.libelle) + '" placeholder="Libell\u00e9 du point" oninput="FS.rfMaj(' + i + ',\'libelle\',this.value)">' : esc(l.libelle)) + '</td>' +
       '<td class="c">' + (editable ? '<input type="checkbox"' + (l.conforme ? ' checked' : '') + ' onchange="FS.rfMaj(' + i + ',\'conforme\',this.checked)">' : (l.conforme ? 'Conforme' : '\u2014')) + '</td>' +
-      '<td>' + (editable ? '<input type="text" value="' + esc(l.commentaire || '') + '" placeholder="\u2026" oninput="FS.rfMaj(' + i + ',\'commentaire\',this.value)">' : esc(l.commentaire || '')) + '</td>' +
+      '<td>' + (editable ? '<input type="text" value="' + esc(l.commentaire || '') + '" placeholder="\u2026" oninput="FS.rfMaj(' + i + ',\'commentaire\',this.value)">' : esc(l.commentaire || '')) +
+        /* v5.16 : commentaire pre-rempli depuis FabStory (decision client, note visible classee) */
+        (editable && Array.isArray(l.propose) && l.propose.length ? '<span class="rf-propose"><i class="ti ti-sparkles"></i> Pr\u00e9-rempli depuis FabStory (' + l.propose.length + ' point' + (l.propose.length > 1 ? 's' : '') + ') : relisez avant de figer.</span>' : '') + '</td>' +
       (editable ? '<td class="c">' + (l.ajoutee ? '<button class="sup" title="Retirer" onclick="FS.rfRetirer(' + i + ')">\u2715</button>' : '') + '</td>' : '') +
       '</tr>';
   });
@@ -2099,7 +2111,10 @@ function ouvrirVolet(id){
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<button class="btn-s" onclick="FS.noteEnQuestion(' + e.id + ')"><i class="ti ti-help-circle"></i> En faire une question</button>' +
       '<button class="btn-s" onclick="FS.noteInformer(' + e.id + ')"><i class="ti ti-mail"></i> Informer le client par mail</button></div>' +
-      '<div id="v-noteq-msg" style="min-height:16px;margin-top:6px"></div></details>';
+      '<div id="v-noteq-msg" style="min-height:16px;margin-top:6px"></div>' +
+      /* v5.16 : ligne du certificat de conformite (rempli par certCharger apres l affichage du volet) */
+      '<div class="v-cert" id="v-cert"><div class="titre"><i class="ti ti-certificate"></i> Certificat de conformit\u00e9</div>' +
+      '<p class="hint" style="margin:0"><span class="spin"></span> Lecture\u2026</p></div></details>';
   }
 
   if(estQuestion && e.etat === 'en_attente'){
@@ -2211,6 +2226,7 @@ function ouvrirVolet(id){
 
   el('volet-detail').innerHTML = h;
   majAside();
+  if(e.type === 'note' && e.visible_client && !e.repond_a) certCharger(e.id); /* v5.16 */
 
   /* pastilles du volet */
   document.querySelectorAll('.v-metier').forEach(b => b.onclick = () => {
@@ -2326,6 +2342,63 @@ FS.voletNature = async function(){
   }catch(err){ msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
 };
 /* v5.15 : note visible -> question client (nature changee EN PLACE, etat en_attente), puis choix du modele. */
+/* v5.16 (27/11/2026, decision Olivier) : ligne du certificat portee par une note visible du client.
+   N arrive au certificat que ce que l auteur estime juste de montrer au client (note visible + ligne choisie).
+   Claude propose (ligne, nature, phrase), la personne confirme ou change. Pre-remplit l ecran Figer. */
+let CERT = null;
+const CERT_NATURES = { sauf: 'Conforme sauf \u2026 (\u00e9cart d\u00e9cid\u00e9 ou accept\u00e9 par le client)', reserve: 'Conforme avec r\u00e9serve (d\u00e9faut constat\u00e9 chez nous)' };
+async function certCharger(id){
+  CERT = { id, lignes: [], certificat: null, suggestion: null };
+  let j;
+  try{ j = await postJson(BASE + '/fabstory-certificat-lire', { id, suggerer: true }); }
+  catch(err){ const z = el('v-cert'); if(z && choisieId === id) z.innerHTML = '<div class="titre"><i class="ti ti-certificate"></i> Certificat de conformit\u00e9</div><p class="err-msg">Lecture impossible : ' + esc(err.message) + '</p>'; return; }
+  if(choisieId !== id) return;
+  CERT = { id, lignes: j.lignes || [], certificat: j.certificat || null, suggestion: j.suggestion || null, edition: false };
+  certRendre();
+}
+function certLibelle(code){ const l = (CERT.lignes || []).find(x => x.code === code); return l ? l.libelle : code; }
+function certRendre(){
+  const z = el('v-cert'); if(!z || !CERT || choisieId !== CERT.id) return;
+  const c = CERT.certificat;
+  let h = '<div class="titre"><i class="ti ti-certificate"></i> Certificat de conformit\u00e9</div>';
+  if(c && !CERT.edition){
+    h += '<p style="margin:0 0 4px"><strong>' + esc(certLibelle(c.code)) + '</strong> : ' + (c.nature === 'sauf' ? 'conforme sauf' : 'conforme avec r\u00e9serve') + '</p>' +
+      (c.texte ? '<p class="hint" style="margin:0 0 6px">\u00ab ' + esc(c.texte) + ' \u00bb</p>' : '') +
+      '<p class="mini" style="margin:0 0 6px">Pr\u00e9-rempli \u00e0 l\u2019\u00e9cran Figer' + (c.par ? ' \u00b7 choisi par ' + esc(c.par) : '') + '.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-s" onclick="FS.certModifier()"><i class="ti ti-pencil"></i> Modifier</button>' +
+      '<button class="btn-s" onclick="FS.certEnregistrer(true)"><i class="ti ti-x"></i> Retirer du certificat</button></div>';
+  } else {
+    const base = c || CERT.suggestion || { code: '', nature: 'reserve', texte: '' };
+    if(!c && CERT.suggestion) h += '<p class="sugg"><i class="ti ti-sparkles"></i> Claude propose : <strong>' + esc(certLibelle(CERT.suggestion.code)) + '</strong>. Confirmez ou changez.</p>';
+    if(!c && !CERT.suggestion) h += '<p class="hint" style="margin:0 0 6px">Si ce point doit appara\u00eetre au certificat remis au client, choisissez la ligne.</p>';
+    h += '<select id="v-cert-code"><option value="">\u2014 Pas au certificat \u2014</option>' +
+      (CERT.lignes || []).map(l => '<option value="' + esc(l.code) + '"' + (l.code === base.code ? ' selected' : '') + '>' + esc(l.libelle) + '</option>').join('') + '</select>' +
+      '<select id="v-cert-nature">' + Object.keys(CERT_NATURES).map(k => '<option value="' + k + '"' + (k === (base.nature || 'reserve') ? ' selected' : '') + '>' + CERT_NATURES[k] + '</option>').join('') + '</select>' +
+      '<input type="text" id="v-cert-texte" maxlength="300" placeholder="Phrase pour le client (facultatif)" value="' + esc(base.texte || '') + '">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="FS.certEnregistrer(false)">Enregistrer</button>' +
+      (CERT.edition ? '<button class="btn-s" onclick="FS.certAnnuler()">Annuler</button>' : '') + '</div>';
+  }
+  h += '<div id="v-cert-msg" style="min-height:16px;margin-top:6px"></div>';
+  z.innerHTML = h;
+}
+FS.certModifier = function(){ if(CERT){ CERT.edition = true; certRendre(); } };
+FS.certAnnuler = function(){ if(CERT){ CERT.edition = false; certRendre(); } };
+FS.certEnregistrer = async function(retirer){
+  if(!CERT) return;
+  const auteur = auteurOuStop(); if(!auteur) return;
+  const code = retirer ? '' : ((el('v-cert-code') || {}).value || '');
+  const corps = { id: CERT.id, auteur, code,
+    nature: retirer ? null : ((el('v-cert-nature') || {}).value || 'reserve'),
+    texte: retirer ? null : ((el('v-cert-texte') || {}).value || '').trim() };
+  const msg = el('v-cert-msg'); if(msg) msg.innerHTML = '<span class="spin"></span>';
+  try{
+    const j = await postJson(BASE + '/fabstory-certificat-ecrire', corps);
+    CERT.certificat = j.certificat || null; CERT.edition = false;
+    if(!CERT.certificat) CERT.suggestion = null;
+    certRendre();
+    const m2 = el('v-cert-msg'); if(m2) m2.innerHTML = '<span class="hint">' + (CERT.certificat ? 'Enregistr\u00e9 : la ligne sera pr\u00e9-remplie au figer.' : 'Ce point ne sera pas au certificat.') + '</span>';
+  }catch(err){ if(msg) msg.innerHTML = '<span class="err-msg">' + esc(err.message) + '</span>'; }
+};
 FS.noteEnQuestion = async function(id){
   const e = entree(id); if(!e) return;
   const auteur = auteurOuStop(); if(!auteur) return;
