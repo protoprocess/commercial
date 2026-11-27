@@ -573,8 +573,13 @@ dialog.dlg-large{max-width:960px;width:94vw}
 <script>
 /* ============================================================== CONFIG ==== */
 const APP_NAME = 'FabStory';
-const APP_VERSION = '5.16';
+const APP_VERSION = '5.17';
 const APP_DATE = '27/11/2026';
+/* 5.17 (27/11/2026, decision Olivier, cas HORIBA SO2611-602 rep. U8 : accord recu par mail, saisi en texte seul,
+   les achats n ont rien vu) : repondre a une question client qui porte des choix (enveloppe choix_reponse) demande
+   de COCHER la decision du client. Le texte reste en premier, les choix dessous ; Enregistrer est refuse sans choix.
+   Enregistre comme la page client : « Libelle du choix — texte », format lu par le workflow reponse -> achats et par
+   le rapport. Question sans choix (question libre) : inchange. Lit choix_reponse dans fabstory-fiche (API v0.29). */
 /* 5.16 (27/11/2026, decision Olivier) : une note VISIBLE du client peut porter sa ligne du certificat de conformite
    (menu dans le volet, Claude propose la ligne, la nature et la phrase ; l auteur confirme ou change). A l ecran Figer,
    la ligne arrive pre-remplie (« Sauf … » ecart accepte par le client, « Réserve : … » defaut constate), relue et
@@ -2120,6 +2125,13 @@ function ouvrirVolet(id){
   if(estQuestion && e.etat === 'en_attente'){
     h += '<details class="v-sec" open><summary><i class="ti ti-corner-down-right"></i> R\u00e9pondre</summary>' +
       '<textarea id="v-rep-texte" rows="3" placeholder="Votre r\u00e9ponse\u2026"></textarea>';
+    /* v5.17 : choix de la question (photocopie figee a l envoi), cocher la decision du client est obligatoire */
+    const choixQ = choixDeQuestion(e);
+    if(choixQ.length){
+      h += '<label class="mini">D\u00e9cision du client (obligatoire)</label><div class="pastilles">' +
+        choixQ.map((c, i) => '<button class="pastille v-rep-choix" data-i="' + i + '" title="' + esc(c.aide || '') + '">' +
+          esc(c.libelle) + '</button>').join('') + '</div>';
+    }
     if(e.type === 'question_client'){
       h += '<label class="mini">Cette validation vaudra\u2026</label><div class="pastilles">' +
         ['so','carte','client'].map(p => '<button class="pastille v-rep-portee" data-portee="' + p + '">' +
@@ -2233,6 +2245,9 @@ function ouvrirVolet(id){
     document.querySelectorAll('.v-metier').forEach(x => x.classList.toggle('on', x === b && !b.classList.contains('on')));
   });
   document.querySelectorAll('.v-pole').forEach(b => b.onclick = () => b.classList.toggle('on'));
+  document.querySelectorAll('.v-rep-choix').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.v-rep-choix').forEach(x => x.classList.toggle('on', x === b));
+  });
   document.querySelectorAll('.v-rep-portee').forEach(b => b.onclick = () => {
     const on = b.classList.contains('on');
     document.querySelectorAll('.v-rep-portee').forEach(x => x.classList.remove('on'));
@@ -2268,10 +2283,26 @@ function ouvrirVolet(id){
 }
 window.ouvrirVolet = ouvrirVolet;
 
+/* v5.17 : choix proposes au client sur cette question (enveloppe { choix, portee, vars } figee a l envoi). */
+function choixDeQuestion(e){
+  const env = e && e.choix_reponse;
+  const l = (env && Array.isArray(env.choix)) ? env.choix : [];
+  return l.filter(c => c && c.libelle);
+}
 FS.voletRepondre = async function(){
   const e = entree(choisieId); if(!e) return;
-  const texte = (el('v-rep-texte').value||'').trim();
+  const saisi = (el('v-rep-texte').value||'').trim();
   const msg = el('v-rep-msg');
+  /* v5.17 : une question a choix exige la decision du client ; texte = « Libelle — commentaire » (format page client) */
+  const choixQ = choixDeQuestion(e);
+  let texte = saisi;
+  if(choixQ.length){
+    const b = document.querySelector('.v-rep-choix.on');
+    const c = b ? choixQ[+b.dataset.i] : null;
+    if(!c){ msg.innerHTML = '<span class="err-msg">Cochez la d\u00e9cision du client.</span>'; return; }
+    if(c.commentaire_obligatoire && !saisi){ msg.innerHTML = '<span class="err-msg">Ce choix demande un texte.</span>'; return; }
+    texte = c.libelle + (saisi ? ' \u2014 ' + saisi : '');
+  }
   if(!texte){ msg.innerHTML = '<span class="err-msg">Un texte est n\u00e9cessaire.</span>'; return; }
   const auteur = auteurOuStop(); if(!auteur) return;
   const porteeBtn = document.querySelector('.v-rep-portee.on');
